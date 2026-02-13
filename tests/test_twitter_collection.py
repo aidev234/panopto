@@ -5,14 +5,7 @@ from unittest.mock import patch
 import twitter_collection
 
 
-HAS_HTML_DEPS = (
-    twitter_collection.requests is not None
-    and twitter_collection.BeautifulSoup is not None
-)
-
-
 class TestTwitterCollection(unittest.TestCase):
-    @unittest.skipUnless(HAS_HTML_DEPS, "requires requests and beautifulsoup4")
     def test_extract_posts_from_html_parses_content_timestamp_and_stats(self):
         html = """
         <article data-tweet-id="1">
@@ -33,7 +26,6 @@ class TestTwitterCollection(unittest.TestCase):
         self.assertEqual(post.post_id, "1")
         self.assertEqual(post.timestamp, datetime(2026, 1, 1, 12, 0, 0, tzinfo=timezone.utc))
 
-    @unittest.skipUnless(HAS_HTML_DEPS, "requires requests and beautifulsoup4")
     def test_collect_filters_window_and_deduplicates(self):
         now = datetime.now(timezone.utc)
         recent_iso = (now - timedelta(days=1)).isoformat()
@@ -66,8 +58,6 @@ class TestTwitterCollection(unittest.TestCase):
         self.assertEqual(results[0]["username"], "sama")
 
     def test_collection_window_validation(self):
-        if not HAS_HTML_DEPS:
-            self.skipTest("requires requests and beautifulsoup4")
         with self.assertRaises(ValueError):
             twitter_collection.collect_twitter_posts("sama", "yesterday")
 

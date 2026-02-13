@@ -13,15 +13,8 @@ from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
 from typing import Any, Iterable
 
-try:
-    import requests
-except ModuleNotFoundError:  # pragma: no cover - handled at runtime
-    requests = None
-
-try:
-    from bs4 import BeautifulSoup
-except ModuleNotFoundError:  # pragma: no cover - handled at runtime
-    BeautifulSoup = None
+import requests
+from bs4 import BeautifulSoup
 
 
 DEFAULT_HEADERS = {
@@ -45,14 +38,6 @@ class TwitterPost:
     replies: int | None
     raw_metadata: dict[str, Any]
 
-
-
-
-def _ensure_dependencies() -> None:
-    if requests is None or BeautifulSoup is None:
-        raise RuntimeError(
-            "Missing dependencies. Install with: pip install requests beautifulsoup4"
-        )
 
 def _parse_collection_window(collection_window: str) -> timedelta:
     """Parse strings like '1 week', '2 days', '12h' into a timedelta."""
@@ -136,7 +121,6 @@ def _extract_metric(stats_text: str, labels: list[str]) -> int | None:
 
 
 def _extract_posts_from_html(username: str, html: str) -> list[TwitterPost]:
-    _ensure_dependencies()
     soup = BeautifulSoup(html, "html.parser")
     posts: list[TwitterPost] = []
 
@@ -189,7 +173,6 @@ def _iter_pages(
     delay_seconds: float,
     timeout: int,
 ) -> Iterable[str]:
-    _ensure_dependencies()
     base_url = "https://twitterwebviewer.com/"
 
     for page in range(1, max_pages + 1):
@@ -233,8 +216,6 @@ def collect_twitter_posts(
     Returns:
         List of post dictionaries with content, timestamp, and engagement metadata.
     """
-
-    _ensure_dependencies()
 
     if not username or not username.strip():
         raise ValueError("username must be a non-empty string")
