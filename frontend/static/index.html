@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>OSINT Post Explorer</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="panel">
+        <h1>OSINT Post Explorer</h1>
+        <p class="subtle">
+          Browse collected posts with boolean search syntax. Example:
+          <code>"New York" AND ("live in" OR "moving to")</code>
+        </p>
+
+        <div class="controls">
+          <input
+            id="searchInput"
+            type="text"
+            placeholder="Search posts, usernames, platform..."
+            autocomplete="off"
+          />
+          <select id="sortSelect">
+            <option value="newest">Newest first</option>
+            <option value="oldest">Oldest first</option>
+          </select>
+        </div>
+
+        <div id="status" class="status">Loading…</div>
+      </section>
+
+      <section id="results" class="results"></section>
+    </main>
+
+    <script src="/app.js"></script>
+  </body>
+</html>
