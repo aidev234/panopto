@@ -1,0 +1,7 @@
+
+# Local build/cache artifacts
+__pycache__/
+frontend/__pycache__/
+tests/__pycache__/
+panopto/__pycache__/
+osint_data.db
