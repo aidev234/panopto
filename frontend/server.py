@@ -3,111 +3,24 @@
 from __future__ import annotations
 
 import json
-import re
-import sqlite3
+import sys
+import threading
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import Iterable
 from urllib.parse import parse_qs, urlparse
 
-DEFAULT_DB_PATH = Path(__file__).resolve().parent.parent / "osint_data.db"
+ROOT_DIR = Path(__file__).resolve().parent.parent
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
+
+from panopto.collection_service import InvalidRequestError, collect_for_targets, parse_targets
+from panopto.errors import UsernameNotFoundError
+from panopto.post_query import normalize_tag, query_posts
+from theme_modeling import tag_posts_with_bertopic
+from twitter_storage import clear_posts
+
+DEFAULT_DB_PATH = ROOT_DIR / "osint_data.db"
 STATIC_DIR = Path(__file__).resolve().parent / "static"
-
-
-def _tokenize_boolean_query(query: str) -> list[str]:
-    token_pattern = re.compile(r'\s*(\(|\)|\bAND\b|\bOR\b|\bNOT\b|"[^"]+"|[^\s()]+)', re.IGNORECASE)
-    tokens = [match.group(1) for match in token_pattern.finditer(query) if match.group(1).strip()]
-    return [token.upper() if token.upper() in {"AND", "OR", "NOT", "(", ")"} else token for token in tokens]
-
-
-def _to_rpn(tokens: list[str]) -> list[str]:
-    precedence = {"NOT": 3, "AND": 2, "OR": 1}
-    operators = set(precedence)
-    output: list[str] = []
-    stack: list[str] = []
-
-    for token in tokens:
-        if token == "(":
-            stack.append(token)
-        elif token == ")":
-            while stack and stack[-1] != "(":
-                output.append(stack.pop())
-            if stack and stack[-1] == "(":
-                stack.pop()
-        elif token in operators:
-            while stack and stack[-1] in operators and precedence[stack[-1]] >= precedence[token]:
-                output.append(stack.pop())
-            stack.append(token)
-        else:
-            output.append(token)
-
-    while stack:
-        output.append(stack.pop())
-
-    return output
-
-
-def _normalize_term(token: str) -> str:
-    return token[1:-1].lower() if token.startswith('"') and token.endswith('"') else token.lower()
-
-
-def _evaluate_rpn(rpn_tokens: list[str], haystack: str) -> bool:
-    stack: list[bool] = []
-
-    for token in rpn_tokens:
-        if token == "NOT":
-            operand = stack.pop() if stack else False
-            stack.append(not operand)
-        elif token in {"AND", "OR"}:
-            right = stack.pop() if stack else False
-            left = stack.pop() if stack else False
-            stack.append(left and right if token == "AND" else left or right)
-        else:
-            stack.append(_normalize_term(token) in haystack)
-
-    return stack[-1] if stack else True
-
-
-def _matches_query(post: dict[str, str], query: str) -> bool:
-    query = query.strip()
-    if not query:
-        return True
-
-    haystack = " ".join([post.get("username", ""), post.get("platform", ""), post.get("content", "")]).lower()
-
-    tokens = _tokenize_boolean_query(query)
-    if not tokens:
-        return True
-
-    try:
-        return _evaluate_rpn(_to_rpn(tokens), haystack)
-    except Exception:
-        return query.lower() in haystack
-
-
-def _fetch_posts(db_path: Path) -> Iterable[dict[str, str]]:
-    if not db_path.exists():
-        return []
-
-    with sqlite3.connect(db_path) as conn:
-        conn.row_factory = sqlite3.Row
-        rows = conn.execute("SELECT username, content, timestamp, collected_at FROM twitter_posts").fetchall()
-
-    return [
-        {
-            "username": row["username"] or "unknown",
-            "platform": "Twitter",
-            "content": row["content"] or "",
-            "timestamp": row["timestamp"] or row["collected_at"] or "",
-        }
-        for row in rows
-    ]
-
-
-def query_posts(query: str = "", sort_order: str = "newest", db_path: Path = DEFAULT_DB_PATH) -> dict[str, object]:
-    posts = [post for post in _fetch_posts(db_path) if _matches_query(post, query)]
-    posts.sort(key=lambda post: post["timestamp"] or "", reverse=sort_order != "oldest")
-    return {"count": len(posts), "posts": posts}
 
 
 class PostExplorerHandler(SimpleHTTPRequestHandler):
@@ -121,8 +34,23 @@ class PostExplorerHandler(SimpleHTTPRequestHandler):
             params = parse_qs(parsed.query)
             query = params.get("query", [""])[0]
             sort = params.get("sort", ["newest"])[0].lower()
+            start_date = params.get("start_date", [""])[0]
+            end_date = params.get("end_date", [""])[0]
+            include_tags_raw = params.get("include_tags", [""])[0]
+            exclude_tags_raw = params.get("exclude_tags", [""])[0]
+            include_tags = {normalize_tag(tag) for tag in include_tags_raw.split(",") if tag.strip()}
+            exclude_tags = {normalize_tag(tag) for tag in exclude_tags_raw.split(",") if tag.strip()}
             db_path = Path(params.get("db_path", [str(DEFAULT_DB_PATH)])[0])
-            payload = query_posts(query=query, sort_order=sort, db_path=db_path)
+
+            payload = query_posts(
+                query=query,
+                sort_order=sort,
+                db_path=db_path,
+                start_date=start_date,
+                end_date=end_date,
+                include_tags=include_tags,
+                exclude_tags=exclude_tags,
+            )
 
             body = json.dumps(payload).encode("utf-8")
             self.send_response(200)
@@ -136,6 +64,102 @@ class PostExplorerHandler(SimpleHTTPRequestHandler):
             self.path = "/index.html"
 
         return super().do_GET()
+
+    def do_POST(self):
+        parsed = urlparse(self.path)
+
+        if parsed.path == "/api/session/end":
+            body = self._read_json_body(default={})
+            should_shutdown = bool(body.get("shutdown", True))
+            clear_posts(str(DEFAULT_DB_PATH))
+            response = {"status": "ok", "cleared": True, "shutdown": should_shutdown}
+            self._send_json(response)
+            if should_shutdown:
+                threading.Thread(target=self.server.shutdown, daemon=True).start()
+            return
+
+        if parsed.path == "/api/themes/tag":
+            result = tag_posts_with_bertopic(db_path=str(DEFAULT_DB_PATH))
+            self._send_json(result)
+            return
+
+        if parsed.path != "/api/collect":
+            self.send_error(404)
+            return
+
+        body = self._read_json_body()
+        if body is None:
+            return
+
+        start_date = str(body.get("start_date", "")).strip()
+        end_date = str(body.get("end_date", "")).strip()
+        db_path = Path(body.get("db_path", str(DEFAULT_DB_PATH)))
+        targets = parse_targets(body)
+
+        try:
+            response = collect_for_targets(
+                targets=targets,
+                start_date=start_date,
+                end_date=end_date,
+                db_path=db_path,
+            )
+        except InvalidRequestError as exc:
+            self._send_json(
+                {
+                    "error": {
+                        "code": "invalid_request",
+                        "message": str(exc),
+                    }
+                },
+                status=400,
+            )
+            return
+        except UsernameNotFoundError as exc:
+            self._send_json(
+                {
+                    "error": {
+                        "code": "username_not_found",
+                        "message": str(exc),
+                        "platform": exc.platform,
+                        "username": exc.username,
+                    }
+                },
+                status=404,
+            )
+            return
+        except Exception as exc:
+            self._send_json(
+                {
+                    "error": {
+                        "code": "internal_error",
+                        "message": str(exc),
+                    }
+                },
+                status=500,
+            )
+            return
+
+        self._send_json(response)
+
+    def _read_json_body(self, default: dict | None = None):
+        raw_length = str(self.headers.get("Content-Length", "0")).strip()
+        content_length = int(raw_length) if raw_length.isdigit() else 0
+        raw_body = self.rfile.read(content_length) if content_length > 0 else b"{}"
+        try:
+            return json.loads(raw_body.decode("utf-8"))
+        except json.JSONDecodeError:
+            if default is not None:
+                return default
+            self.send_error(400, "invalid json body")
+            return None
+
+    def _send_json(self, payload: dict, *, status: int = 200):
+        body = json.dumps(payload).encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
 
 
 def run(host: str = "0.0.0.0", port: int = 8000):

@@ -3,17 +3,53 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>OSINT Post Explorer</title>
+    <title>PANOPTO</title>
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
     <main class="app-shell">
+      <section id="setupModal" class="setup-modal" aria-live="polite">
+        <form id="setupForm" class="setup-card">
+          <div class="setup-head">
+            <h2>Start Collection</h2>
+            <button id="closeSetupBtn" class="secondary-btn" type="button">Close</button>
+          </div>
+          <p class="subtle">Set a target username and date range to fetch and visualize.</p>
+
+          <label class="field">
+            <span>Collection Targets</span>
+            <div id="targetsList" class="targets-list"></div>
+            <div class="setup-actions-row">
+              <button id="addTargetBtn" class="secondary-btn" type="button">Add Target</button>
+              <button id="autofillTargetsBtn" class="secondary-btn" type="button">Autofill Usernames</button>
+            </div>
+          </label>
+
+          <div class="date-grid">
+            <label class="field">
+              <span>Start Date</span>
+              <input id="startDateInput" type="date" required />
+            </label>
+            <label class="field">
+              <span>End Date</span>
+              <input id="endDateInput" type="date" required />
+            </label>
+          </div>
+
+          <button id="collectBtn" type="submit">Collect and Open</button>
+          <p id="setupStatus" class="status"></p>
+        </form>
+      </section>
+
       <section class="panel">
-        <h1>OSINT Post Explorer</h1>
-        <p class="subtle">
-          Browse collected posts with boolean search syntax. Example:
-          <code>"New York" AND ("live in" OR "moving to")</code>
-        </p>
+        <div class="app-header">
+          <p class="eyebrow">INTEL DASHBOARD</p>
+          <h1>PANOPTO</h1>
+          <p class="subtle">
+            Browse collected social posts with boolean search. Example:
+            <code>"New York" AND ("live in" OR "moving to")</code>
+          </p>
+        </div>
 
         <div class="controls">
           <input
@@ -27,11 +63,129 @@
             <option value="oldest">Oldest first</option>
           </select>
         </div>
+        <div class="actions">
+          <button id="newCollectionBtn" class="secondary-btn" type="button">New Collection</button>
+          <button id="retagThemesBtn" class="secondary-btn" type="button">Tag Themes</button>
+          <button id="quitBtn" class="secondary-btn" type="button">Quit PANOPTO</button>
+          <div class="filter-menu">
+            <button id="filterToggleBtn" class="secondary-btn" type="button" aria-expanded="false" aria-controls="filterPanel">
+              Filters
+            </button>
+            <div id="filterPanel" class="filters hidden">
+              <div class="filter-section">
+                <p class="filter-label">Sources</p>
+                <div class="filter-group">
+                  <label><input id="filterTwitter" type="checkbox" checked /> Twitter</label>
+                  <label><input id="filterReddit" type="checkbox" checked /> Reddit</label>
+                  <label><input id="filterTiktok" type="checkbox" checked /> TikTok</label>
+                  <label><input id="filterBluesky" type="checkbox" checked /> Bluesky</label>
+                  <label><input id="filterYoutube" type="checkbox" checked /> YouTube</label>
+                </div>
+              </div>
+              <div class="filter-section">
+                <p class="filter-label">Post Types</p>
+                <div class="filter-group">
+                  <label><input id="filterPost" type="checkbox" checked /> Posts</label>
+                  <label><input id="filterRepost" type="checkbox" checked /> Reposts</label>
+                  <label><input id="filterReply" type="checkbox" checked /> Replies</label>
+                  <label><input id="filterQuote" type="checkbox" checked /> Quotes</label>
+                  <label><input id="filterComment" type="checkbox" checked /> Comments</label>
+                </div>
+              </div>
+              <div class="filter-section">
+                <p class="filter-label">Signals</p>
+                <div class="filter-group">
+                  <label><input id="filterSelectors" type="checkbox" /> Selectors</label>
+                  <label><input id="filterIdeologicalIndicators" type="checkbox" /> Ideological Indicators</label>
+                  <label><input id="filterThreatSignals" type="checkbox" /> Threat Signals</label>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
 
         <div id="status" class="status">Loading…</div>
       </section>
 
-      <section id="results" class="results"></section>
+      <section class="content-grid">
+        <section id="results" class="results"></section>
+
+        <aside class="insights">
+          <article class="viz-card">
+            <div class="viz-head">
+              <h3>Post Timeline</h3>
+              <span id="timelineTotal" class="viz-total">0 posts</span>
+            </div>
+            <svg id="timelineChart" class="timeline-chart" viewBox="0 0 380 170" role="img" aria-label="Timeline of posts"></svg>
+            <p id="timelineEmpty" class="viz-empty hidden">No posts available for timeline.</p>
+          </article>
+
+          <article class="viz-card">
+            <div class="viz-head">
+              <h3>Keyword Frequency</h3>
+              <span class="viz-total">Top terms</span>
+            </div>
+            <div id="keywordChart" class="keyword-chart"></div>
+            <p id="keywordEmpty" class="viz-empty hidden">No keyword data to show.</p>
+          </article>
+
+          <article class="viz-card">
+            <div class="viz-head">
+              <h3>Theme Frequency</h3>
+            </div>
+            <div id="themeMix" class="type-mix"></div>
+            <p id="themeMixEmpty" class="viz-empty hidden">Run theme tagging to see topic clusters.</p>
+          </article>
+
+          <article class="viz-card">
+            <div class="viz-head">
+              <h3>Location Map</h3>
+              <span id="locationMapTotal" class="viz-total">0 mentions</span>
+            </div>
+            <div id="locationMap" class="location-map" role="img" aria-label="Map of location mentions"></div>
+            <p id="locationMapEmpty" class="viz-empty hidden">No location mentions detected in current results.</p>
+          </article>
+
+          <article class="viz-card">
+            <div class="viz-head">
+              <h3>Entity Mentions</h3>
+            </div>
+            <div id="entityMix" class="type-mix"></div>
+            <p id="entityMixEmpty" class="viz-empty hidden">No NER entities detected in current results.</p>
+          </article>
+
+          <article class="viz-card">
+            <div class="viz-head">
+              <h3>Ideological Indicators</h3>
+            </div>
+            <div id="threatMix" class="signal-list"></div>
+            <p id="threatMixEmpty" class="viz-empty hidden">No ideological indicators detected in current results.</p>
+          </article>
+
+          <article class="viz-card">
+            <div class="viz-head">
+              <h3>Threat Signals</h3>
+            </div>
+            <div id="threatSignalMix" class="signal-list"></div>
+            <p id="threatSignalMixEmpty" class="viz-empty hidden">No threat signals detected in current results.</p>
+          </article>
+
+          <article class="viz-card">
+            <div class="viz-head">
+              <h3>Selector Signals</h3>
+            </div>
+            <div id="selectorMix" class="signal-list"></div>
+            <p id="selectorMixEmpty" class="viz-empty hidden">No selectors detected in current results.</p>
+          </article>
+
+          <article class="viz-card">
+            <div class="viz-head">
+              <h3>Post Mix</h3>
+            </div>
+            <div id="typeMix" class="type-mix"></div>
+          </article>
+        </aside>
+      </section>
     </main>
 
     <script src="/app.js"></script>

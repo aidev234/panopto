@@ -19,6 +19,13 @@ def main() -> None:
 
     print("collection complete")
     print(f"stored rows: {inserted}")
+    if inserted == 0:
+        print(
+            "no rows inserted. If the source is JS-rendered, set "
+            "TWITTER_RENDER_PROXY_TEMPLATE (must contain {url}) and retry. "
+            "You can also install Playwright (`pip install playwright` and "
+            "`playwright install chromium`) and optionally set TWITTER_BROWSER_PROXY."
+        )
 
 
 if __name__ == "__main__":
