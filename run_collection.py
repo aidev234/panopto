@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from twitter_collection import collect_twitter_posts
-from twitter_storage import save_posts
+from panopto.collectors.twitter import collect_twitter_posts
+from panopto.storage.posts import save_posts
 
 
 def main() -> None:

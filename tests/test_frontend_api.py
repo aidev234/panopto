@@ -186,6 +186,32 @@ def test_theme_aggregates_and_theme_tag_filter(tmp_path):
     assert theme_filtered["count"] == 2
 
 
+def test_theme_aggregates_exclude_temporal_only_labels(tmp_path):
+    db_path = tmp_path / "osint_data.db"
+    _seed_db(db_path)
+    with sqlite3.connect(db_path) as conn:
+        conn.execute(
+            "INSERT INTO twitter_posts (username, content, timestamp, post_type, source_url, theme_label, theme_tag, collected_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                "dave",
+                "Temporal label test",
+                "2024-01-06T00:00:00",
+                "post",
+                "https://x.com/dave/status/4",
+                "7d / 3d",
+                "theme:7d-3d",
+                "2024-01-06T00:00:00",
+            ),
+        )
+        conn.commit()
+
+    payload = query_posts(db_path=db_path)
+    theme_tags = {theme["tag"] for theme in payload["themes"]}
+
+    assert payload["count"] == 4
+    assert "theme:7d-3d" not in theme_tags
+
+
 def test_query_posts_supports_tiktok_platform_and_video_metadata(tmp_path):
     db_path = tmp_path / "osint_data.db"
     with sqlite3.connect(db_path) as conn:

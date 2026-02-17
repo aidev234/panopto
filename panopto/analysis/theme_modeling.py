@@ -8,7 +8,7 @@ import sqlite3
 from pathlib import Path
 from typing import Any
 
-from twitter_storage import init_db
+from panopto.storage.posts import init_db
 
 _SLUG_CLEAN = re.compile(r"[^a-z0-9]+")
 _VIEW_PROFILE = re.compile(r"\bview profile\b", re.IGNORECASE)
@@ -34,10 +34,29 @@ _DATE_TOKEN = re.compile(
     r"sep|sept|september|oct|october|nov|november|dec|december)\b)\b",
     re.IGNORECASE,
 )
+_TIME_RECENCY_TOKEN = re.compile(
+    r"\b(?:\d+\s*[smhdwy]|"
+    r"\d+\s*(?:sec(?:ond)?s?|min(?:ute)?s?|hr(?:s)?|hour(?:s)?|day(?:s)?|week(?:s)?|month(?:s)?|year(?:s)?)|"
+    r"\d{1,2}:\d{2}(?:\s?[ap]m)?|"
+    r"today|yesterday|tomorrow|tonight|now|recent(?:ly)?|current(?:ly)?|latest)\b",
+    re.IGNORECASE,
+)
 _DATE_LIKE_WORD = re.compile(
     r"^(?:\d{4}|"
     r"\d{1,2}(?:st|nd|rd|th)?|"
     r"\d{1,2}[/-]\d{1,2}(?:[/-]\d{2,4})?|"
+    r"jan|january|feb|february|mar|march|apr|april|may|jun|june|"
+    r"jul|july|aug|august|sep|sept|september|oct|october|nov|november|dec|december"
+    r")$",
+    re.IGNORECASE,
+)
+_TEMPORAL_LIKE_WORD = re.compile(
+    r"^(?:"
+    r"\d{1,4}|"
+    r"\d+[smhdwy]|"
+    r"\d{1,2}:\d{2}(?:[ap]m)?|"
+    r"\d+(?:sec(?:ond)?s?|min(?:ute)?s?|hr(?:s)?|hour(?:s)?|day(?:s)?|week(?:s)?|month(?:s)?|year(?:s)?)|"
+    r"today|yesterday|tomorrow|tonight|now|recent(?:ly)?|current(?:ly)?|latest|"
     r"jan|january|feb|february|mar|march|apr|april|may|jun|june|"
     r"jul|july|aug|august|sep|sept|september|oct|october|nov|november|dec|december"
     r")$",
@@ -56,7 +75,9 @@ def _topic_label(topic_words: list[tuple[str, float]] | None) -> tuple[str, list
     words = [
         word
         for word, _score in topic_words
-        if word and not _DATE_LIKE_WORD.match(str(word).strip())
+        if word
+        and not _DATE_LIKE_WORD.match(str(word).strip())
+        and not _TEMPORAL_LIKE_WORD.match(str(word).strip())
     ][:3]
     if not words:
         return "misc", ["misc"]
@@ -81,6 +102,7 @@ def _prepare_document(text: str, username: str) -> str:
     cleaned = _ACTION_NOISE.sub(" ", cleaned)
     cleaned = _METRIC_NOISE.sub(" ", cleaned)
     cleaned = _DATE_TOKEN.sub(" ", cleaned)
+    cleaned = _TIME_RECENCY_TOKEN.sub(" ", cleaned)
     cleaned = _NUMERIC_COUNTER_TAIL.sub(" ", cleaned)
     cleaned = _SPACE.sub(" ", cleaned).strip(" .-")
     return cleaned

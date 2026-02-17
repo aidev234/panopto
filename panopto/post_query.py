@@ -27,13 +27,28 @@ _NUMERIC_COUNTER_TAIL = re.compile(
 )
 _PROFILE_TIME_FRAGMENT = re.compile(r"\b\d+\s*[smhdw]\b\s+view profile\b", re.IGNORECASE)
 _VIEW_PROFILE = re.compile(r"\bview profile\b", re.IGNORECASE)
-_THEME_DATE_LIKE_LABEL = re.compile(
-    r"^\s*(?:\d{4}\s*/\s*)?(?:jan|january|feb|february|mar|march|apr|april|may|jun|june|"
-    r"jul|july|aug|august|sep|sept|september|oct|october|nov|november|dec|december)"
-    r"(?:\s*/\s*(?:jan|january|feb|february|mar|march|apr|april|may|jun|june|"
-    r"jul|july|aug|august|sep|sept|september|oct|october|nov|november|dec|december))*\s*$",
+_THEME_TEMPORAL_TOKEN = re.compile(
+    r"^(?:"
+    r"\d{1,4}|"
+    r"\d+[smhdwy]|"
+    r"\d{1,2}:\d{2}(?:[ap]m)?|"
+    r"\d+(?:sec(?:ond)?s?|min(?:ute)?s?|hr(?:s)?|hour(?:s)?|day(?:s)?|week(?:s)?|month(?:s)?|year(?:s)?)|"
+    r"today|yesterday|tomorrow|tonight|now|recent(?:ly)?|current(?:ly)?|latest|"
+    r"jan|january|feb|february|mar|march|apr|april|may|jun|june|"
+    r"jul|july|aug|august|sep|sept|september|oct|october|nov|november|dec|december"
+    r")$",
     re.IGNORECASE,
 )
+
+
+def _is_temporal_theme_label(label: str) -> bool:
+    normalized = label.strip().lower()
+    if not normalized:
+        return False
+    tokens = re.findall(r"[a-z0-9:]+", normalized)
+    if not tokens:
+        return False
+    return all(_THEME_TEMPORAL_TOKEN.match(token) for token in tokens)
 
 
 def parse_day(raw: str) -> date | None:
@@ -398,7 +413,7 @@ def query_posts(
         tag = str(post.get("theme_tag") or "").strip()
         if not label or not tag:
             continue
-        if _THEME_DATE_LIKE_LABEL.match(label):
+        if _is_temporal_theme_label(label):
             continue
         current = theme_counts.get(tag)
         if not current:

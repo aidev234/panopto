@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
-import reddit_collection
+import panopto.collectors.reddit as reddit_collection
 from panopto.errors import UsernameNotFoundError
 
 
@@ -59,7 +59,7 @@ def test_collect_reddit_posts_includes_submitted_and_comments():
         }
     }
 
-    with patch("reddit_collection._iter_listing", side_effect=[submitted["data"]["children"], comments["data"]["children"]]):
+    with patch("panopto.collectors.reddit._iter_listing", side_effect=[submitted["data"]["children"], comments["data"]["children"]]):
         rows = reddit_collection.collect_reddit_posts("Cautious_Dirt8409", "7 days", request_delay_seconds=0)
 
     assert len(rows) == 2
@@ -90,7 +90,7 @@ def test_collect_reddit_posts_respects_window():
             ],
         }
     }
-    with patch("reddit_collection._iter_listing", side_effect=[payload["data"]["children"], []]):
+    with patch("panopto.collectors.reddit._iter_listing", side_effect=[payload["data"]["children"], []]):
         rows = reddit_collection.collect_reddit_posts("Cautious_Dirt8409", "7 days", request_delay_seconds=0)
     assert rows == []
 
@@ -152,7 +152,7 @@ def test_collect_reddit_posts_extracts_media_metadata():
         }
     }
 
-    with patch("reddit_collection._iter_listing", side_effect=[submitted["data"]["children"], []]):
+    with patch("panopto.collectors.reddit._iter_listing", side_effect=[submitted["data"]["children"], []]):
         rows = reddit_collection.collect_reddit_posts("example_user", "7 days", request_delay_seconds=0)
 
     assert len(rows) == 1

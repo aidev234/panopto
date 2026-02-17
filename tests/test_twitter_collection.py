@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
 from panopto.errors import UsernameNotFoundError
-import twitter_collection
+import panopto.collectors.twitter as twitter_collection
 
 
 class TestTwitterCollection(unittest.TestCase):
@@ -47,7 +47,7 @@ class TestTwitterCollection(unittest.TestCase):
         </article>
         """
 
-        with patch("twitter_collection._iter_pages", return_value=[html]):
+        with patch("panopto.collectors.twitter._iter_pages", return_value=[html]):
             results = twitter_collection.collect_twitter_posts(
                 "@sama",
                 "1 week",
@@ -109,7 +109,7 @@ class TestTwitterCollection(unittest.TestCase):
         </article>
         """
 
-        with patch("twitter_collection._iter_pages", return_value=[html]):
+        with patch("panopto.collectors.twitter._iter_pages", return_value=[html]):
             results = twitter_collection.collect_twitter_posts("sama", "7 days", request_delay_seconds=0)
 
         self.assertEqual(len(results), 1)
@@ -124,8 +124,8 @@ class TestTwitterCollection(unittest.TestCase):
         """
 
         with (
-            patch("twitter_collection._iter_pages", return_value=["<html></html>"]),
-            patch("twitter_collection._iter_rendered_pages", return_value=[browser_html]),
+            patch("panopto.collectors.twitter._iter_pages", return_value=["<html></html>"]),
+            patch("panopto.collectors.twitter._iter_rendered_pages", return_value=[browser_html]),
         ):
             results = twitter_collection.collect_twitter_posts(
                 "sama",
@@ -152,8 +152,8 @@ class TestTwitterCollection(unittest.TestCase):
         """
 
         with (
-            patch("twitter_collection._iter_pages", return_value=[request_html]),
-            patch("twitter_collection._iter_rendered_pages", return_value=[browser_html]),
+            patch("panopto.collectors.twitter._iter_pages", return_value=[request_html]),
+            patch("panopto.collectors.twitter._iter_rendered_pages", return_value=[browser_html]),
         ):
             results = twitter_collection.collect_twitter_posts(
                 "sama",
@@ -181,7 +181,7 @@ class TestTwitterCollection(unittest.TestCase):
         </article>
         """
 
-        with patch("twitter_collection._iter_pages", return_value=[html]):
+        with patch("panopto.collectors.twitter._iter_pages", return_value=[html]):
             results = twitter_collection.collect_twitter_posts("sama", "30 days", request_delay_seconds=0)
 
         self.assertEqual(len(results), 1)
@@ -238,7 +238,7 @@ class TestTwitterCollection(unittest.TestCase):
     def test_collect_raises_username_not_found_on_missing_account_signal(self):
         missing_html = "<html><body><p>User not found</p></body></html>"
 
-        with patch("twitter_collection._iter_pages", return_value=[missing_html]):
+        with patch("panopto.collectors.twitter._iter_pages", return_value=[missing_html]):
             with self.assertRaises(UsernameNotFoundError):
                 twitter_collection.collect_twitter_posts(
                     "missing_user",

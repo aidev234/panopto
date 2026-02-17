@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
-import tiktok_collection
+import panopto.collectors.tiktok as tiktok_collection
 
 
 def test_extract_posts_from_html_includes_video_urls_and_stats():
@@ -59,7 +59,7 @@ def test_collect_tiktok_posts_filters_by_window_and_dedupes():
     </article>
     """
 
-    with patch("tiktok_collection._iter_pages", return_value=[html]):
+    with patch("panopto.collectors.tiktok._iter_pages", return_value=[html]):
         rows = tiktok_collection.collect_tiktok_posts(
             "aoc", "1 week", max_pages=2, request_delay_seconds=0
         )

@@ -118,7 +118,7 @@ function addTargetRow(platform = 'twitter', username = '') {
       <option value="bluesky">Bluesky</option>
       <option value="youtube">YouTube</option>
     </select>
-    <input class="target-username" type="text" placeholder="@sama, Cautious_Dirt8409, bsky.app/profile/aoc.bsky.social, or youtube.com/@AOC/videos" autocomplete="off" />
+    <input class="target-username" type="text" placeholder="@johnsmith, Cautious_Dirt8409, bsky.app/profile/aoc.bsky.social, or youtube.com/@AOC/videos" autocomplete="off" />
     <button class="icon-btn target-remove" type="button" title="Remove target">×</button>
   `;
   targetsList.appendChild(row);
@@ -738,13 +738,21 @@ function renderTypeMix(posts) {
     .join('');
 }
 
+function isTemporalThemeLabel(label) {
+  const normalized = String(label || '').trim().toLowerCase();
+  if (!normalized) return false;
+  const tokens = normalized.match(/[a-z0-9:]+/g) || [];
+  if (!tokens.length) return false;
+  const temporalToken = /^(?:\d{1,4}|\d+[smhdwy]|\d{1,2}:\d{2}(?:[ap]m)?|\d+(?:sec(?:ond)?s?|min(?:ute)?s?|hr(?:s)?|hour(?:s)?|day(?:s)?|week(?:s)?|month(?:s)?|year(?:s)?)|today|yesterday|tomorrow|tonight|now|recent(?:ly)?|current(?:ly)?|latest|jan|january|feb|february|mar|march|apr|april|may|jun|june|jul|july|aug|august|sep|sept|september|oct|october|nov|november|dec|december)$/i;
+  return tokens.every((token) => temporalToken.test(token));
+}
+
 function renderThemeMix(posts) {
   const counts = new Map();
-  const dateLikeTheme = /^\s*(?:\d{4}\s*\/\s*)?(?:jan|january|feb|february|mar|march|apr|april|may|jun|june|jul|july|aug|august|sep|sept|september|oct|october|nov|november|dec|december)(?:\s*\/\s*(?:jan|january|feb|february|mar|march|apr|april|may|jun|june|jul|july|aug|august|sep|sept|september|oct|october|nov|november|dec|december))*\s*$/i;
   for (const post of posts) {
     const label = String(post.theme_label || '').trim();
     if (!label) continue;
-    if (dateLikeTheme.test(label)) continue;
+    if (isTemporalThemeLabel(label)) continue;
     counts.set(label, (counts.get(label) || 0) + 1);
   }
   const sorted = Array.from(counts.entries()).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
@@ -1285,7 +1293,7 @@ newCollectionBtn.addEventListener('click', () => {
   } else if (activeUsername) {
     addTargetRow('twitter', `@${activeUsername}`);
   } else {
-    addTargetRow('twitter', '@sama');
+    addTargetRow('twitter', '@johnsmith');
   }
   setModalOpen(true);
 });
@@ -1340,5 +1348,5 @@ quitBtn.addEventListener('click', async () => {
   }
 });
 initializeDateInputs();
-addTargetRow('twitter', '@sama');
+addTargetRow('twitter', '@johnsmith');
 setModalOpen(true);

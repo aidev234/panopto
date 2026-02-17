@@ -6,20 +6,32 @@ PANOPTO is a local OSINT workflow for collecting public social posts (Twitter/X,
 
 - `panopto/post_query.py`: query engine, text cleanup, filtering, and DB-to-view model mapping.
 - `panopto/collection_service.py`: collection orchestration and aggregation workflow.
+- `panopto/collectors/`: platform collectors (`twitter.py`, `reddit.py`, `tiktok.py`, `bluesky.py`, `youtube.py`).
+- `panopto/storage/posts.py`: SQLite schema and persistence.
+- `panopto/analysis/theme_modeling.py`: BERTopic theme tagging.
 - `frontend/server.py`: HTTP transport layer and static file serving.
 - `frontend/static/`: browser UI.
-- `twitter_collection.py`, `reddit_collection.py`, `tiktok_collection.py`, `bluesky_collection.py`, `youtube_collection.py`: platform collectors.
-- `twitter_storage.py`: SQLite schema and persistence.
-- `theme_modeling.py`: BERTopic theme tagging.
 - `tests/`: unit tests.
 
 ## Run
 
 ```bash
-python frontend/server.py
+python3 panopto.py
+```
+
+Or:
+
+```bash
+python -m panopto
 ```
 
 Open `http://localhost:8000`.
+
+Alternative:
+
+```bash
+python frontend/server.py
+```
 
 ## Test
 

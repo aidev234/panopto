@@ -16,8 +16,8 @@ if str(ROOT_DIR) not in sys.path:
 from panopto.collection_service import InvalidRequestError, collect_for_targets, parse_targets
 from panopto.errors import UsernameNotFoundError
 from panopto.post_query import normalize_tag, query_posts
-from theme_modeling import tag_posts_with_bertopic
-from twitter_storage import clear_posts
+from panopto.analysis.theme_modeling import tag_posts_with_bertopic
+from panopto.storage.posts import clear_posts
 
 DEFAULT_DB_PATH = ROOT_DIR / "osint_data.db"
 STATIC_DIR = Path(__file__).resolve().parent / "static"

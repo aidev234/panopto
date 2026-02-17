@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from twitter_storage import clear_posts, init_db, save_posts
+from panopto.storage.posts import clear_posts, init_db, save_posts
 
 
 class TestTwitterStorage(unittest.TestCase):

@@ -8,14 +8,14 @@ from pathlib import Path
 import re
 from typing import Any
 
-from bluesky_collection import collect_bluesky_posts, normalize_bluesky_username
+from panopto.collectors.bluesky import collect_bluesky_posts, normalize_bluesky_username
 from panopto.errors import UsernameNotFoundError
-from reddit_collection import collect_reddit_posts
-from tiktok_collection import collect_tiktok_posts
-from theme_modeling import tag_posts_with_bertopic
-from twitter_collection import collect_twitter_posts
-from twitter_storage import save_posts
-from youtube_collection import collect_youtube_posts, normalize_youtube_username
+from panopto.collectors.reddit import collect_reddit_posts
+from panopto.collectors.tiktok import collect_tiktok_posts
+from panopto.analysis.theme_modeling import tag_posts_with_bertopic
+from panopto.collectors.twitter import collect_twitter_posts
+from panopto.storage.posts import save_posts
+from panopto.collectors.youtube import collect_youtube_posts, normalize_youtube_username
 
 from panopto.post_query import parse_day, query_posts
 

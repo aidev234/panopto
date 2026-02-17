@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 import pytest
 
-from youtube_collection import collect_youtube_posts, normalize_youtube_username, youtube_videos_url
+from panopto.collectors.youtube import collect_youtube_posts, normalize_youtube_username, youtube_videos_url
 
 
 class _FakeResponse:
@@ -114,7 +114,7 @@ def test_collect_youtube_posts_parses_initial_data_and_filters_window():
     """
 
     fake_session = _FakeSession(html=html, status_code=200)
-    with patch("youtube_collection.requests.Session", return_value=fake_session):
+    with patch("panopto.collectors.youtube.requests.Session", return_value=fake_session):
         rows = collect_youtube_posts(
             "https://www.youtube.com/@AOC/videos",
             "30 days",

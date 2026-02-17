@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
-import bluesky_collection
+import panopto.collectors.bluesky as bluesky_collection
 from panopto.errors import UsernameNotFoundError
 
 
@@ -100,7 +100,7 @@ def test_collect_bluesky_posts_filters_by_window_and_maps_post_types():
     }
 
     fake_session = _FakeSession(profile, [feed_payload])
-    with patch("bluesky_collection.requests.Session", return_value=fake_session):
+    with patch("panopto.collectors.bluesky.requests.Session", return_value=fake_session):
         rows = bluesky_collection.collect_bluesky_posts(
             "https://bsky.app/profile/aoc.bsky.social",
             "7 days",
@@ -116,7 +116,7 @@ def test_collect_bluesky_posts_filters_by_window_and_maps_post_types():
 
 def test_collect_bluesky_posts_raises_username_not_found_on_404():
     fake_session = _FakeSession(profile_payload={}, feed_payloads=[], profile_status=404)
-    with patch("bluesky_collection.requests.Session", return_value=fake_session):
+    with patch("panopto.collectors.bluesky.requests.Session", return_value=fake_session):
         try:
             bluesky_collection.collect_bluesky_posts("missing", "7 days", request_delay_seconds=0)
         except UsernameNotFoundError as exc:
@@ -129,7 +129,7 @@ def test_collect_bluesky_posts_raises_username_not_found_on_404():
 
 def test_collect_bluesky_posts_raises_username_not_found_on_400():
     fake_session = _FakeSession(profile_payload={}, feed_payloads=[], profile_status=400)
-    with patch("bluesky_collection.requests.Session", return_value=fake_session):
+    with patch("panopto.collectors.bluesky.requests.Session", return_value=fake_session):
         try:
             bluesky_collection.collect_bluesky_posts("AOC.bsky.social", "7 days", request_delay_seconds=0)
         except UsernameNotFoundError as exc:

@@ -17,7 +17,7 @@ This version is fully self-contained and served from local files only (`index.ht
 ## Run locally
 1. Start the local server from repository root:
    ```bash
-   python frontend/server.py
+   python3 panopto.py
    ```
 2. Open `http://localhost:8000` in your browser.
 
