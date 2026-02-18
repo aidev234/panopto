@@ -4,69 +4,142 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>PANOPTO</title>
-    <link rel="stylesheet" href="/styles.css" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=20260218b" />
+    <link rel="stylesheet" href="/styles.css?v=20260218h" />
   </head>
   <body>
+    <div id="notifications" class="toast-stack" aria-live="polite" aria-atomic="false"></div>
     <main class="app-shell">
       <section id="setupModal" class="setup-modal" aria-live="polite">
-        <form id="setupForm" class="setup-card">
+        <div class="setup-card">
+          <div class="setup-windowbar">
+            <div class="setup-brand-block">
+              <span class="brand-mark" aria-hidden="true">
+                <svg viewBox="0 0 24 24" role="img" focusable="false" aria-hidden="true">
+                  <circle cx="12" cy="12" r="8"></circle>
+                  <circle cx="12" cy="12" r="3.2"></circle>
+                  <path d="M19.2 19.2L22 22"></path>
+                </svg>
+              </span>
+              <div class="setup-brand-copy">
+                <p class="brand-name">PANOPTO</p>
+                <p class="window-subtitle">Command Console for Recon and Collection</p>
+              </div>
+            </div>
+            <span class="setup-surface-pill">Local Session</span>
+          </div>
           <div class="setup-head">
-            <h2>Start Collection</h2>
+            <h2 id="setupTitle">Start Session</h2>
             <button id="closeSetupBtn" class="secondary-btn" type="button">Close</button>
           </div>
-          <p class="subtle">Set a target username and date range to fetch and visualize.</p>
+          <p id="setupSubtitle" class="subtle">Choose reconnaissance or go straight to collection.</p>
 
-          <label class="field">
-            <span>Collection Targets</span>
-            <div id="targetsList" class="targets-list"></div>
-            <div class="setup-actions-row">
-              <button id="addTargetBtn" class="secondary-btn" type="button">Add Target</button>
-              <button id="autofillTargetsBtn" class="secondary-btn" type="button">Autofill Usernames</button>
-            </div>
-          </label>
-
-          <div class="date-grid">
-            <label class="field">
-              <span>Start Date</span>
-              <input id="startDateInput" type="date" required />
-            </label>
-            <label class="field">
-              <span>End Date</span>
-              <input id="endDateInput" type="date" required />
-            </label>
+          <div id="modeChooser" class="mode-chooser">
+            <button id="modeReconBtn" class="mode-btn" type="button">
+              <span class="mode-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" role="img" focusable="false" aria-hidden="true">
+                  <circle cx="11" cy="11" r="6.5"></circle>
+                  <path d="M16.5 16.5L21 21"></path>
+                </svg>
+              </span>
+              <span class="mode-copy">
+                <strong>Reconnaissance</strong>
+                <small>Scan for active profiles and generate leads</small>
+              </span>
+            </button>
+            <button id="modeCollectionBtn" class="mode-btn" type="button">
+              <span class="mode-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" role="img" focusable="false" aria-hidden="true">
+                  <path d="M4 6.5h16"></path>
+                  <path d="M4 12h16"></path>
+                  <path d="M4 17.5h16"></path>
+                  <circle cx="7" cy="6.5" r="1.2"></circle>
+                  <circle cx="7" cy="12" r="1.2"></circle>
+                  <circle cx="7" cy="17.5" r="1.2"></circle>
+                </svg>
+              </span>
+              <span class="mode-copy">
+                <strong>Collection</strong>
+                <small>Manually choose platforms and collect immediately</small>
+              </span>
+            </button>
           </div>
 
-          <button id="collectBtn" type="submit">Collect and Open</button>
-          <p id="setupStatus" class="status"></p>
-        </form>
+          <form id="reconForm" class="setup-form hidden">
+            <label class="field">
+              <span>Recon Username</span>
+              <input id="reconUsernameInput" type="text" placeholder="@johnsmith" autocomplete="off" />
+            </label>
+            <div class="setup-actions-row">
+              <button id="reconBtn" type="submit">Run Recon</button>
+              <button id="useReconTargetsBtn" class="secondary-btn hidden" type="button" disabled>Use Active Profiles for Collection</button>
+            </div>
+            <div id="reconResults" class="recon-results hidden"></div>
+            <p id="reconStatus" class="status"></p>
+          </form>
+
+          <form id="setupForm" class="setup-form hidden">
+            <label class="field">
+              <span>Collection Targets</span>
+              <div id="targetsList" class="targets-list"></div>
+              <div class="setup-actions-row">
+                <button id="addTargetBtn" class="secondary-btn" type="button">Add Target</button>
+                <button id="autofillTargetsBtn" class="secondary-btn" type="button">Autofill Usernames</button>
+              </div>
+            </label>
+
+            <div class="date-grid">
+              <label class="field">
+                <span>Start Date</span>
+                <input id="startDateInput" type="date" required />
+              </label>
+              <label class="field">
+                <span>End Date</span>
+                <input id="endDateInput" type="date" required />
+              </label>
+            </div>
+
+            <button id="collectBtn" type="submit">Collect and Open</button>
+            <p id="setupStatus" class="status"></p>
+          </form>
+        </div>
       </section>
 
       <section class="panel">
         <div class="app-header">
-          <p class="eyebrow">INTEL DASHBOARD</p>
-          <h1>PANOPTO</h1>
+          <div class="header-top">
+            <div>
+              <p class="eyebrow">INTEL DASHBOARD</p>
+              <h1>PANOPTO</h1>
+            </div>
+            <button id="quitBtn" class="secondary-btn danger-btn" type="button">Quit Session</button>
+          </div>
           <p class="subtle">
             Browse collected social posts with boolean search. Example:
             <code>"New York" AND ("live in" OR "moving to")</code>
           </p>
+          <div id="collectionContext" class="collection-context hidden">
+            <span id="contextTargets" class="context-pill">No active targets</span>
+            <span id="contextRange" class="context-pill">Date range unset</span>
+          </div>
         </div>
 
         <div class="controls">
-          <input
-            id="searchInput"
-            type="text"
-            placeholder="Search posts, usernames, platform..."
-            autocomplete="off"
-          />
+          <div class="search-wrap">
+            <input
+              id="searchInput"
+              type="text"
+              placeholder="Search posts, usernames, platform..."
+              autocomplete="off"
+            />
+            <button id="clearSearchBtn" class="icon-btn clear-search-btn" type="button" title="Clear search" aria-label="Clear search">×</button>
+          </div>
           <select id="sortSelect">
             <option value="newest">Newest first</option>
             <option value="oldest">Oldest first</option>
           </select>
         </div>
         <div class="actions">
-          <button id="newCollectionBtn" class="secondary-btn" type="button">New Collection</button>
-          <button id="retagThemesBtn" class="secondary-btn" type="button">Tag Themes</button>
-          <button id="quitBtn" class="secondary-btn" type="button">Quit PANOPTO</button>
           <div class="filter-menu">
             <button id="filterToggleBtn" class="secondary-btn" type="button" aria-expanded="false" aria-controls="filterPanel">
               Filters
@@ -79,6 +152,7 @@
                   <label><input id="filterReddit" type="checkbox" checked /> Reddit</label>
                   <label><input id="filterTiktok" type="checkbox" checked /> TikTok</label>
                   <label><input id="filterBluesky" type="checkbox" checked /> Bluesky</label>
+                  <label><input id="filterInstagram" type="checkbox" checked /> Instagram</label>
                   <label><input id="filterYoutube" type="checkbox" checked /> YouTube</label>
                 </div>
               </div>
@@ -103,91 +177,141 @@
             </div>
           </div>
         </div>
-
-        <div id="status" class="status">Loading…</div>
+        <div id="status" class="status"></div>
       </section>
 
       <section class="content-grid">
         <section id="results" class="results"></section>
 
         <aside class="insights">
-          <article class="viz-card">
-            <div class="viz-head">
-              <h3>Post Timeline</h3>
-              <span id="timelineTotal" class="viz-total">0 posts</span>
-            </div>
-            <svg id="timelineChart" class="timeline-chart" viewBox="0 0 380 170" role="img" aria-label="Timeline of posts"></svg>
-            <p id="timelineEmpty" class="viz-empty hidden">No posts available for timeline.</p>
-          </article>
+          <div class="insights-tabs" role="tablist" aria-label="Insights tabs">
+            <button id="insightsTabOps" class="insights-tab is-active" type="button" role="tab" aria-selected="true" aria-controls="insightsPanelOps">
+              <span class="insights-tab-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" role="img" focusable="false" aria-hidden="true">
+                  <path d="M4 6.5h16"></path>
+                  <path d="M4 12h16"></path>
+                  <path d="M4 17.5h16"></path>
+                </svg>
+              </span>
+              <span>Collection</span>
+            </button>
+            <button id="insightsTabGeo" class="insights-tab" type="button" role="tab" aria-selected="false" aria-controls="insightsPanelGeo">
+              <span class="insights-tab-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" role="img" focusable="false" aria-hidden="true">
+                  <path d="M12 21s6-4.9 6-10a6 6 0 1 0-12 0c0 5.1 6 10 6 10z"></path>
+                  <circle cx="12" cy="11" r="2.2"></circle>
+                </svg>
+              </span>
+              <span>Geo / Themes</span>
+            </button>
+            <button id="insightsTabSignals" class="insights-tab" type="button" role="tab" aria-selected="false" aria-controls="insightsPanelSignals">
+              <span class="insights-tab-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" role="img" focusable="false" aria-hidden="true">
+                  <path d="M4 17l4-4 3 3 5-6 4 4"></path>
+                  <path d="M20 7v7h-7"></path>
+                </svg>
+              </span>
+              <span>Signals</span>
+            </button>
+          </div>
 
-          <article class="viz-card">
-            <div class="viz-head">
-              <h3>Keyword Frequency</h3>
-              <span class="viz-total">Top terms</span>
-            </div>
-            <div id="keywordChart" class="keyword-chart"></div>
-            <p id="keywordEmpty" class="viz-empty hidden">No keyword data to show.</p>
-          </article>
+          <section id="insightsPanelOps" class="insights-panel">
+            <article class="viz-card">
+              <div class="viz-head">
+                <h3>Collection Streams</h3>
+                <span id="collectionStreamsSummary" class="viz-total">Idle</span>
+              </div>
+              <div class="stream-actions">
+                <button id="newCollectionBtn" class="secondary-btn stream-btn" type="button">New Collection</button>
+                <button id="refreshStreamsBtn" class="secondary-btn stream-btn" type="button">Refresh Status</button>
+                <button id="rerunFailedBtn" class="secondary-btn stream-btn" type="button">Rerun Failed</button>
+              </div>
+              <div id="collectionStreams" class="stream-list"></div>
+              <p id="collectionStreamsEmpty" class="viz-empty">Start a collection to monitor per-source progress.</p>
+            </article>
 
-          <article class="viz-card">
-            <div class="viz-head">
-              <h3>Theme Frequency</h3>
-            </div>
-            <div id="themeMix" class="type-mix"></div>
-            <p id="themeMixEmpty" class="viz-empty hidden">Run theme tagging to see topic clusters.</p>
-          </article>
+            <article class="viz-card">
+              <div class="viz-head">
+                <h3>Post Frequency</h3>
+                <span id="timelineTotal" class="viz-total">0 posts</span>
+              </div>
+              <svg id="timelineChart" class="timeline-chart" viewBox="0 0 380 170" role="img" aria-label="Timeline of posts"></svg>
+              <p id="timelineEmpty" class="viz-empty hidden">No posts available for timeline.</p>
+            </article>
 
-          <article class="viz-card">
-            <div class="viz-head">
-              <h3>Location Map</h3>
-              <span id="locationMapTotal" class="viz-total">0 mentions</span>
-            </div>
-            <div id="locationMap" class="location-map" role="img" aria-label="Map of location mentions"></div>
-            <p id="locationMapEmpty" class="viz-empty hidden">No location mentions detected in current results.</p>
-          </article>
+            <article class="viz-card">
+              <div class="viz-head">
+                <h3>Post Mix</h3>
+              </div>
+              <div id="typeMix" class="type-mix"></div>
+            </article>
 
-          <article class="viz-card">
-            <div class="viz-head">
-              <h3>Entity Mentions</h3>
-            </div>
-            <div id="entityMix" class="type-mix"></div>
-            <p id="entityMixEmpty" class="viz-empty hidden">No NER entities detected in current results.</p>
-          </article>
+            <article class="viz-card">
+              <div class="viz-head">
+                <h3>Leads</h3>
+                <span class="viz-total">Recon</span>
+              </div>
+              <div id="leadsList" class="signal-list"></div>
+              <p id="leadsEmpty" class="viz-empty">Run reconnaissance to capture unsupported profile leads.</p>
+            </article>
+          </section>
 
-          <article class="viz-card">
-            <div class="viz-head">
-              <h3>Ideological Indicators</h3>
-            </div>
-            <div id="threatMix" class="signal-list"></div>
-            <p id="threatMixEmpty" class="viz-empty hidden">No ideological indicators detected in current results.</p>
-          </article>
+          <section id="insightsPanelGeo" class="insights-panel hidden">
+            <article class="viz-card">
+              <div class="viz-head">
+                <h3>Location Map</h3>
+                <span id="locationMapTotal" class="viz-total">0 mentions</span>
+              </div>
+              <div id="locationMap" class="location-map" role="img" aria-label="Map of location mentions"></div>
+              <p id="locationMapEmpty" class="viz-empty hidden">No location mentions detected in current results.</p>
+            </article>
 
-          <article class="viz-card">
-            <div class="viz-head">
-              <h3>Threat Signals</h3>
-            </div>
-            <div id="threatSignalMix" class="signal-list"></div>
-            <p id="threatSignalMixEmpty" class="viz-empty hidden">No threat signals detected in current results.</p>
-          </article>
+            <article class="viz-card">
+              <div class="viz-head">
+                <h3>Entity Mentions</h3>
+              </div>
+              <div id="entityMix" class="type-mix"></div>
+              <p id="entityMixEmpty" class="viz-empty hidden">No NER entities detected in current results.</p>
+            </article>
 
-          <article class="viz-card">
-            <div class="viz-head">
-              <h3>Selector Signals</h3>
-            </div>
-            <div id="selectorMix" class="signal-list"></div>
-            <p id="selectorMixEmpty" class="viz-empty hidden">No selectors detected in current results.</p>
-          </article>
+            <article class="viz-card">
+              <div class="viz-head">
+                <h3>Theme Frequency</h3>
+              </div>
+              <div id="themeMix" class="type-mix"></div>
+              <p id="themeMixEmpty" class="viz-empty hidden">Run theme tagging to see topic clusters.</p>
+            </article>
+          </section>
 
-          <article class="viz-card">
-            <div class="viz-head">
-              <h3>Post Mix</h3>
-            </div>
-            <div id="typeMix" class="type-mix"></div>
-          </article>
+          <section id="insightsPanelSignals" class="insights-panel hidden">
+            <article class="viz-card">
+              <div class="viz-head">
+                <h3>Ideological Indicators</h3>
+              </div>
+              <div id="threatMix" class="signal-list"></div>
+              <p id="threatMixEmpty" class="viz-empty hidden">No ideological indicators detected in current results.</p>
+            </article>
+
+            <article class="viz-card">
+              <div class="viz-head">
+                <h3>Threat Signals</h3>
+              </div>
+              <div id="threatSignalMix" class="signal-list"></div>
+              <p id="threatSignalMixEmpty" class="viz-empty hidden">No threat signals detected in current results.</p>
+            </article>
+
+            <article class="viz-card">
+              <div class="viz-head">
+                <h3>Selector Signals</h3>
+              </div>
+              <div id="selectorMix" class="signal-list"></div>
+              <p id="selectorMixEmpty" class="viz-empty hidden">No selectors detected in current results.</p>
+            </article>
+          </section>
         </aside>
       </section>
     </main>
 
-    <script src="/app.js"></script>
+    <script src="/app.js?v=20260218h"></script>
   </body>
 </html>

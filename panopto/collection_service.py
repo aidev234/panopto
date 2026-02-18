@@ -7,9 +7,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 import re
 from typing import Any
+from urllib.parse import unquote
 
 from panopto.collectors.bluesky import collect_bluesky_posts, normalize_bluesky_username
-from panopto.errors import UsernameNotFoundError
+from panopto.collectors.instagram import collect_instagram_posts, normalize_instagram_username
+from panopto.errors import SourceAccessBlockedError, UsernameNotFoundError
 from panopto.collectors.reddit import collect_reddit_posts
 from panopto.collectors.tiktok import collect_tiktok_posts
 from panopto.analysis.theme_modeling import tag_posts_with_bertopic
@@ -35,9 +37,53 @@ def _normalize_username(raw: Any) -> str:
     return text.strip()
 
 
+def _normalize_twitter_username(raw: Any) -> str:
+    text = str(raw or "").strip()
+    if not text:
+        return ""
+    match = re.match(r"^https?://(?:www\.)?(?:x|twitter)\.com/([^/?#]+)", text, flags=re.IGNORECASE)
+    if match:
+        text = unquote(match.group(1))
+    text = text.split("/", 1)[0]
+    text = re.sub(r"^@+", "", text).strip().lower()
+    return text
+
+
+def _normalize_reddit_username(raw: Any) -> str:
+    text = str(raw or "").strip()
+    if not text:
+        return ""
+    match = re.match(r"^https?://(?:www\.)?reddit\.com/(?:user|u)/([^/?#]+)", text, flags=re.IGNORECASE)
+    if match:
+        text = unquote(match.group(1))
+    text = text.strip().strip("/")
+    text = re.sub(r"^u/", "", text, flags=re.IGNORECASE)
+    return text.split("/", 1)[0].strip()
+
+
+def _normalize_tiktok_username(raw: Any) -> str:
+    text = str(raw or "").strip()
+    if not text:
+        return ""
+    match = re.match(r"^https?://(?:www\.)?tiktok\.com/@([^/?#]+)", text, flags=re.IGNORECASE)
+    if match:
+        text = unquote(match.group(1))
+    text = text.split("/", 1)[0]
+    text = re.sub(r"^@+", "", text).strip().lower()
+    return text
+
+
 def _normalize_target_username(platform: str, raw: Any) -> str:
+    if platform == "twitter":
+        return _normalize_twitter_username(raw)
+    if platform == "reddit":
+        return _normalize_reddit_username(raw)
+    if platform == "tiktok":
+        return _normalize_tiktok_username(raw)
     if platform == "bluesky":
         return normalize_bluesky_username(raw)
+    if platform == "instagram":
+        return normalize_instagram_username(raw)
     if platform == "youtube":
         return normalize_youtube_username(raw)
     return _normalize_username(raw)
@@ -45,7 +91,13 @@ def _normalize_target_username(platform: str, raw: Any) -> str:
 
 def parse_targets(payload: dict[str, Any]) -> list[dict[str, str]]:
     username = _normalize_username(payload.get("username", ""))
+    fallback_twitter_username = _normalize_twitter_username(payload.get("username", ""))
     targets_raw = payload.get("targets", [])
+    platform_aliases = {
+        "x": "twitter",
+        "twitter/x": "twitter",
+        "x.com": "twitter",
+    }
 
     targets: list[dict[str, str]] = []
     seen: set[tuple[str, str]] = set()
@@ -54,14 +106,17 @@ def parse_targets(payload: dict[str, Any]) -> list[dict[str, str]]:
             if not isinstance(item, dict):
                 continue
             platform = str(item.get("platform", "twitter")).strip().lower()
+            platform = platform_aliases.get(platform, platform)
             raw_username = _normalize_target_username(platform, item.get("username", ""))
-            if not raw_username or platform not in {"twitter", "reddit", "tiktok", "bluesky", "youtube"}:
+            if not raw_username or platform not in {"twitter", "reddit", "tiktok", "bluesky", "instagram", "youtube"}:
                 continue
             key = (platform, raw_username.lower())
             if key in seen:
                 continue
             seen.add(key)
             targets.append({"platform": platform, "username": raw_username})
+    elif fallback_twitter_username:
+        targets.append({"platform": "twitter", "username": fallback_twitter_username})
     elif username:
         targets.append({"platform": "twitter", "username": username})
 
@@ -74,6 +129,7 @@ def collect_for_targets(
     start_date: str,
     end_date: str,
     db_path: Path,
+    fail_on_total_failure: bool = True,
 ) -> dict[str, Any]:
     if not targets:
         raise InvalidRequestError("at least one target is required")
@@ -122,7 +178,8 @@ def collect_for_targets(
                 collection_window=collection_window,
                 max_pages=max_pages,
                 request_delay_seconds=0.8,
-                timeout=30,
+                timeout=45,
+                browser_fallback=True,
             )
             for post in posts:
                 post["platform"] = "TikTok"
@@ -138,6 +195,19 @@ def collect_for_targets(
             )
             for post in posts:
                 post["platform"] = "Bluesky"
+            return target, posts
+
+        if platform == "instagram":
+            posts = collect_instagram_posts(
+                username=handle,
+                collection_window=collection_window,
+                max_pages=max_pages,
+                request_delay_seconds=0.8,
+                timeout=30,
+                browser_fallback=True,
+            )
+            for post in posts:
+                post["platform"] = "Instagram"
             return target, posts
 
         if platform == "youtube":
@@ -196,6 +266,23 @@ def collect_for_targets(
                         "message": f"{target['platform']} username '{target['username']}' not found",
                     }
                 )
+            except SourceAccessBlockedError as exc:
+                per_target.append(
+                    {
+                        "platform": target["platform"],
+                        "username": target["username"],
+                        "status": "blocked",
+                        "collected": 0,
+                    }
+                )
+                failures.append(
+                    {
+                        "platform": target["platform"],
+                        "username": target["username"],
+                        "code": "blocked_by_protection",
+                        "message": str(exc),
+                    }
+                )
             except Exception as exc:
                 per_target.append(
                     {
@@ -214,7 +301,7 @@ def collect_for_targets(
                     }
                 )
 
-    if not posts and failures:
+    if not posts and failures and fail_on_total_failure:
         first = failures[0]
         if first["code"] == "username_not_found":
             raise UsernameNotFoundError(platform=str(first["platform"]), username=str(first["username"]))

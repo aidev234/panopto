@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import random
+import re
 import time
 from datetime import datetime, timedelta, timezone
 from html import unescape
@@ -241,7 +242,7 @@ def collect_reddit_posts(
     if not username or not username.strip():
         raise ValueError("username must be a non-empty string")
 
-    normalized_username = username.strip().lstrip("u/").lstrip("/")
+    normalized_username = re.sub(r"^u/", "", username.strip().strip("/"), flags=re.IGNORECASE).strip()
     cutoff = datetime.now(timezone.utc) - _parse_collection_window(collection_window)
     collected: list[dict[str, Any]] = []
     seen: set[str] = set()

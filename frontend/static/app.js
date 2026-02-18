@@ -1,10 +1,25 @@
 const searchInput = document.getElementById('searchInput');
+const clearSearchBtn = document.getElementById('clearSearchBtn');
 const sortSelect = document.getElementById('sortSelect');
 const statusEl = document.getElementById('status');
 const resultsEl = document.getElementById('results');
+const collectionContext = document.getElementById('collectionContext');
+const contextTargets = document.getElementById('contextTargets');
+const contextRange = document.getElementById('contextRange');
 const setupModal = document.getElementById('setupModal');
 const setupForm = document.getElementById('setupForm');
 const setupStatus = document.getElementById('setupStatus');
+const setupTitle = document.getElementById('setupTitle');
+const setupSubtitle = document.getElementById('setupSubtitle');
+const modeChooser = document.getElementById('modeChooser');
+const modeReconBtn = document.getElementById('modeReconBtn');
+const modeCollectionBtn = document.getElementById('modeCollectionBtn');
+const reconForm = document.getElementById('reconForm');
+const reconUsernameInput = document.getElementById('reconUsernameInput');
+const reconBtn = document.getElementById('reconBtn');
+const reconResults = document.getElementById('reconResults');
+const reconStatus = document.getElementById('reconStatus');
+const useReconTargetsBtn = document.getElementById('useReconTargetsBtn');
 const closeSetupBtn = document.getElementById('closeSetupBtn');
 const targetsList = document.getElementById('targetsList');
 const addTargetBtn = document.getElementById('addTargetBtn');
@@ -13,7 +28,6 @@ const startDateInput = document.getElementById('startDateInput');
 const endDateInput = document.getElementById('endDateInput');
 const collectBtn = document.getElementById('collectBtn');
 const newCollectionBtn = document.getElementById('newCollectionBtn');
-const retagThemesBtn = document.getElementById('retagThemesBtn');
 const quitBtn = document.getElementById('quitBtn');
 const filterToggleBtn = document.getElementById('filterToggleBtn');
 const filterPanel = document.getElementById('filterPanel');
@@ -21,6 +35,7 @@ const filterTwitter = document.getElementById('filterTwitter');
 const filterReddit = document.getElementById('filterReddit');
 const filterTiktok = document.getElementById('filterTiktok');
 const filterBluesky = document.getElementById('filterBluesky');
+const filterInstagram = document.getElementById('filterInstagram');
 const filterYoutube = document.getElementById('filterYoutube');
 const filterPost = document.getElementById('filterPost');
 const filterRepost = document.getElementById('filterRepost');
@@ -49,6 +64,20 @@ const threatSignalMix = document.getElementById('threatSignalMix');
 const threatSignalMixEmpty = document.getElementById('threatSignalMixEmpty');
 const selectorMix = document.getElementById('selectorMix');
 const selectorMixEmpty = document.getElementById('selectorMixEmpty');
+const leadsList = document.getElementById('leadsList');
+const leadsEmpty = document.getElementById('leadsEmpty');
+const insightsTabOps = document.getElementById('insightsTabOps');
+const insightsTabGeo = document.getElementById('insightsTabGeo');
+const insightsTabSignals = document.getElementById('insightsTabSignals');
+const insightsPanelOps = document.getElementById('insightsPanelOps');
+const insightsPanelGeo = document.getElementById('insightsPanelGeo');
+const insightsPanelSignals = document.getElementById('insightsPanelSignals');
+const collectionStreams = document.getElementById('collectionStreams');
+const collectionStreamsSummary = document.getElementById('collectionStreamsSummary');
+const collectionStreamsEmpty = document.getElementById('collectionStreamsEmpty');
+const refreshStreamsBtn = document.getElementById('refreshStreamsBtn');
+const rerunFailedBtn = document.getElementById('rerunFailedBtn');
+const notificationsEl = document.getElementById('notifications');
 
 let requestTimer;
 let controller;
@@ -57,10 +86,46 @@ let activeEndDate = '';
 let activeUsername = '';
 let activeTargets = [];
 let latestPosts = [];
+let reconTargets = [];
+let reconLeads = [];
+let modalMode = 'chooser';
+let activeInsightsTab = 'ops';
 const activeEntityFilters = new Set();
+const activeMixFilters = new Set();
+let activeCollectionJobId = '';
+let collectionPollTimer = null;
+let collectionLoadedAnyData = false;
+let lockModalUntilCollectionData = false;
+let lastCollectionPhase = '';
+let collectionPollNonce = 0;
+let lastCollectionUpdatedAt = '';
+let dashboardBaseStatus = '';
+let collectionProgressStatus = '';
+let collectionAppendMode = false;
+const collectionSourceState = new Map();
+const collectionNoticeKeys = new Set();
+const collectionIssueKeys = new Set();
+const TARGET_PLATFORM_OPTIONS = [
+  { value: 'twitter', label: 'Twitter/X' },
+  { value: 'reddit', label: 'Reddit' },
+  { value: 'tiktok', label: 'TikTok' },
+  { value: 'bluesky', label: 'Bluesky' },
+  { value: 'instagram', label: 'Instagram' },
+  { value: 'youtube', label: 'YouTube' },
+];
+const TARGET_PLACEHOLDER_BY_PLATFORM = {
+  twitter: '@johnsmith',
+  reddit: 'u/johnsmith',
+  tiktok: '@johnsmith',
+  bluesky: '@johnsmith.bsky.social',
+  instagram: '@johnsmith',
+  youtube: '@johnsmith',
+};
+const SOURCE_ORDER = ['twitter', 'reddit', 'tiktok', 'bluesky', 'instagram', 'youtube'];
 let locationMapLibraryPromise;
 let locationMapInstance;
 let locationMapLayer;
+let latestLocationMapPoints = [];
 const STOP_WORDS = new Set([
   'about', 'after', 'again', 'also', 'and', 'any', 'are', 'back', 'because', 'been', 'before',
   'being', 'both', 'but', 'can', 'cant', 'could', 'did', 'does', 'dont', 'from', 'get', 'got',
@@ -107,39 +172,99 @@ function initializeDateInputs() {
   endDateInput.value = toDateInputValue(now);
 }
 
+function ensureTargetPlatformOptions(selectEl) {
+  if (!(selectEl instanceof HTMLSelectElement)) return;
+  const existingValues = new Set(Array.from(selectEl.options).map((option) => option.value));
+  for (const item of TARGET_PLATFORM_OPTIONS) {
+    if (existingValues.has(item.value)) continue;
+    const option = document.createElement('option');
+    option.value = item.value;
+    option.textContent = item.label;
+    selectEl.appendChild(option);
+  }
+}
+
 function addTargetRow(platform = 'twitter', username = '') {
+  const normalizedPlatform = String(platform || '').trim().toLowerCase();
+  const supportedValues = new Set(TARGET_PLATFORM_OPTIONS.map((item) => item.value));
+  const selectedPlatform = supportedValues.has(normalizedPlatform) ? normalizedPlatform : 'twitter';
   const row = document.createElement('div');
   row.className = 'target-row';
   row.innerHTML = `
     <select class="target-platform" aria-label="Target platform">
-      <option value="twitter">Twitter/X</option>
-      <option value="reddit">Reddit</option>
-      <option value="tiktok">TikTok</option>
-      <option value="bluesky">Bluesky</option>
-      <option value="youtube">YouTube</option>
+      ${TARGET_PLATFORM_OPTIONS.map((item) => `<option value="${item.value}">${item.label}</option>`).join('')}
     </select>
-    <input class="target-username" type="text" placeholder="@johnsmith, Cautious_Dirt8409, bsky.app/profile/aoc.bsky.social, or youtube.com/@AOC/videos" autocomplete="off" />
+    <input class="target-username" type="text" autocomplete="off" />
     <button class="icon-btn target-remove" type="button" title="Remove target">×</button>
   `;
   targetsList.appendChild(row);
-  row.querySelector('.target-platform').value = platform;
-  row.querySelector('.target-username').value = username;
+  const platformEl = row.querySelector('.target-platform');
+  ensureTargetPlatformOptions(platformEl);
+  platformEl.value = selectedPlatform;
+  if (platformEl.value !== selectedPlatform) {
+    // Defensive fallback for unexpected platform values from recon payloads.
+    const fallbackOption = document.createElement('option');
+    fallbackOption.value = selectedPlatform;
+    fallbackOption.textContent = selectedPlatform.charAt(0).toUpperCase() + selectedPlatform.slice(1);
+    platformEl.appendChild(fallbackOption);
+    platformEl.value = selectedPlatform;
+  }
+  const usernameEl = row.querySelector('.target-username');
+  usernameEl.value = username;
+  usernameEl.placeholder = TARGET_PLACEHOLDER_BY_PLATFORM[selectedPlatform] || 'username';
+  platformEl.addEventListener('change', () => {
+    const nextPlatform = String(platformEl.value || '').trim().toLowerCase();
+    usernameEl.placeholder = TARGET_PLACEHOLDER_BY_PLATFORM[nextPlatform] || 'username';
+  });
 }
 
 function normalizeTargetUsername(platform, rawUsername) {
-  let username = String(rawUsername || '').trim().replace(/^@+/, '').replace(/^u\//i, '');
+  let username = String(rawUsername || '').trim();
+  if (!username) return '';
+  if (platform === 'twitter') {
+    const match = username.match(/^https?:\/\/(?:www\.)?(?:x|twitter)\.com\/([^/?#]+)/i);
+    if (match) username = decodeURIComponent(match[1] || '').trim();
+  }
+  if (platform === 'reddit') {
+    const match = username.match(/^https?:\/\/(?:www\.)?reddit\.com\/(?:user|u)\/([^/?#]+)/i);
+    if (match) username = decodeURIComponent(match[1] || '').trim();
+  }
+  if (platform === 'tiktok') {
+    const match = username.match(/^https?:\/\/(?:www\.)?tiktok\.com\/@([^/?#]+)/i);
+    if (match) username = decodeURIComponent(match[1] || '').trim();
+  }
   if (platform === 'bluesky') {
     const match = username.match(/^https?:\/\/(?:www\.)?bsky\.app\/profile\/([^/?#]+)/i);
     if (match) username = decodeURIComponent(match[1] || '').trim();
-    username = username.replace(/^@+/, '');
     username = username.replace(/\.bsky\.social$/i, '');
   }
   if (platform === 'youtube') {
     const match = username.match(/^https?:\/\/(?:www\.)?youtube\.com\/@([^/?#]+)/i);
     if (match) username = decodeURIComponent(match[1] || '').trim();
-    username = username.replace(/^@+/, '');
   }
+  if (platform === 'instagram') {
+    const match = username.match(/^https?:\/\/(?:www\.)?instagram\.com\/([^/?#]+)/i);
+    if (match) username = decodeURIComponent(match[1] || '').trim();
+  }
+  username = username.split('/')[0];
+  username = username.replace(/^@+/, '').replace(/^u\//i, '');
   return username.trim();
+}
+
+function adjustTargetUsernameForCollection(platform, normalizedUsername) {
+  const username = String(normalizedUsername || '').trim();
+  if (!username) return '';
+  if (platform === 'reddit') {
+    return username.toLowerCase().startsWith('u/') ? username : `u/${username}`;
+  }
+  if (platform === 'bluesky') {
+    if (username.toLowerCase().startsWith('did:')) return username;
+    return username.includes('.') ? username : `${username}.bsky.social`;
+  }
+  if (platform === 'twitter' || platform === 'tiktok' || platform === 'instagram' || platform === 'youtube') {
+    return username.startsWith('@') ? username : `@${username}`;
+  }
+  return username;
 }
 
 function getTargetsFromForm() {
@@ -149,9 +274,10 @@ function getTargetsFromForm() {
     const usernameEl = row.querySelector('.target-username');
     if (!platformEl || !usernameEl) continue;
     const platform = platformEl.value.trim().toLowerCase();
-    const username = normalizeTargetUsername(platform, usernameEl.value);
-    if (!username) continue;
-    targets.push({ platform, username });
+    const normalizedUsername = normalizeTargetUsername(platform, usernameEl.value);
+    if (!normalizedUsername) continue;
+    const adjustedUsername = adjustTargetUsernameForCollection(platform, normalizedUsername);
+    targets.push({ platform, username: adjustedUsername });
   }
   return targets;
 }
@@ -549,6 +675,7 @@ function selectedTags() {
   if (filterReddit.checked) include.push('reddit');
   if (filterTiktok.checked) include.push('tiktok');
   if (filterBluesky.checked) include.push('bluesky');
+  if (filterInstagram.checked) include.push('instagram');
   if (filterYoutube.checked) include.push('youtube');
   if (filterPost.checked) include.push('post');
   if (filterRepost.checked) include.push('repost');
@@ -560,6 +687,19 @@ function selectedTags() {
   return { include };
 }
 
+function postHasPhoto(post) {
+  const media = Array.isArray(post?.metadata?.media) ? post.metadata.media : [];
+  if (media.some((item) => String(item?.type || '').toLowerCase() === 'image')) return true;
+  const urls = Array.isArray(post?.metadata?.image_urls) ? post.metadata.image_urls : [];
+  return urls.length > 0;
+}
+
+function postHasVideo(post) {
+  const media = Array.isArray(post?.metadata?.media) ? post.metadata.media : [];
+  if (media.some((item) => String(item?.type || '').toLowerCase() === 'video')) return true;
+  return Boolean(String(post?.metadata?.video_url || '').trim());
+}
+
 function applySignalTypeFilter(posts) {
   const rows = Array.isArray(posts) ? posts : [];
   const selectorsOn = Boolean(filterSelectors?.checked);
@@ -568,14 +708,38 @@ function applySignalTypeFilter(posts) {
   if (!selectorsOn && !ideologicalOn && !threatOn) return rows;
   return rows.filter((post) => {
     const hasSelectors = Array.isArray(post?.selector_matches) && post.selector_matches.length > 0;
-    const hasIdeologicalIndicators = Array.isArray(post?.threat_categories) && post.threat_categories.length > 0;
-    const hasThreatSignals = Array.isArray(post?.threat_matches) && post.threat_matches.length > 0;
+    const ideologicalCategories = Array.isArray(post?.threat_categories) ? post.threat_categories : [];
+    const threatSignalCategories = Array.isArray(post?.threat_signal_categories) ? post.threat_signal_categories : [];
+    const hasIdeologicalIndicators = ideologicalCategories.length > 0;
+    const hasThreatSignals = threatSignalCategories.length > 0 || (Array.isArray(post?.threat_matches) && post.threat_matches.length > 0);
     return (
       (selectorsOn && hasSelectors)
       || (ideologicalOn && hasIdeologicalIndicators)
       || (threatOn && hasThreatSignals)
     );
   });
+}
+
+function applyMixFilters(posts) {
+  const rows = Array.isArray(posts) ? posts : [];
+  if (!activeMixFilters.size) return rows;
+  return rows.filter((post) => {
+    for (const filter of activeMixFilters) {
+      if (filter.startsWith('type:')) {
+        const expected = filter.slice(5);
+        const actual = String(post?.post_type || 'post').toLowerCase();
+        if (actual !== expected) return false;
+        continue;
+      }
+      if (filter === 'media:photo' && !postHasPhoto(post)) return false;
+      if (filter === 'media:video' && !postHasVideo(post)) return false;
+    }
+    return true;
+  });
+}
+
+function applyDashboardFilters(posts) {
+  return applyMixFilters(applySignalTypeFilter(posts));
 }
 
 function dayKey(timestamp) {
@@ -693,6 +857,7 @@ function extractKeywords(posts) {
 }
 
 function renderKeywordChart(posts) {
+  if (!keywordChart || !keywordEmpty) return;
   const topKeywords = extractKeywords(posts);
   if (!topKeywords.length) {
     keywordChart.innerHTML = '';
@@ -722,9 +887,11 @@ function renderTypeMix(posts) {
   const counts = new Map();
   for (const post of posts) {
     const type = String(post.post_type || 'post').toLowerCase();
-    counts.set(type, (counts.get(type) || 0) + 1);
+    counts.set(`type:${type}`, (counts.get(`type:${type}`) || 0) + 1);
+    if (postHasPhoto(post)) counts.set('media:photo', (counts.get('media:photo') || 0) + 1);
+    if (postHasVideo(post)) counts.set('media:video', (counts.get('media:video') || 0) + 1);
   }
-  const order = ['post', 'comment', 'reply', 'quote', 'repost'];
+  const order = ['type:post', 'type:comment', 'type:reply', 'type:quote', 'type:repost', 'media:photo', 'media:video'];
   const items = Array.from(counts.entries()).sort((a, b) => {
     const ai = order.indexOf(a[0]);
     const bi = order.indexOf(b[0]);
@@ -734,7 +901,11 @@ function renderTypeMix(posts) {
     return a[0].localeCompare(b[0]);
   });
   typeMix.innerHTML = items
-    .map(([type, count]) => `<div class="mix-pill"><span>${escapeHtml(type)}</span><strong>${count}</strong></div>`)
+    .map(([tag, count]) => {
+      const label = tag.startsWith('type:') ? tag.slice(5) : tag.replace('media:', '');
+      const activeClass = activeMixFilters.has(tag) ? ' is-active' : '';
+      return `<button type="button" class="mix-pill mix-filter-pill${activeClass}" data-mix-filter="${escapeHtml(tag)}"><span>${escapeHtml(label)}</span><strong>${count}</strong></button>`;
+    })
     .join('');
 }
 
@@ -816,6 +987,29 @@ function ensureLocationMapInstance() {
   });
 }
 
+function updateLocationMapViewport(points) {
+  if (!locationMapInstance) return;
+  const rows = Array.isArray(points) ? points : [];
+  if (!rows.length) {
+    locationMapInstance.setView([20, 0], 2);
+    return;
+  }
+  const bounds = rows.slice(0, 60).map((point) => [point.lat, point.lon]);
+  if (bounds.length === 1) {
+    locationMapInstance.setView(bounds[0], 4);
+  } else {
+    locationMapInstance.fitBounds(bounds, { padding: [20, 20], maxZoom: 4 });
+  }
+}
+
+function refreshMapLayout() {
+  if (!locationMapInstance) return;
+  window.requestAnimationFrame(() => {
+    locationMapInstance.invalidateSize();
+    updateLocationMapViewport(latestLocationMapPoints);
+  });
+}
+
 function renderLocationMap(posts) {
   if (!locationMap || !locationMapEmpty || !locationMapTotal) return;
 
@@ -864,6 +1058,7 @@ function renderLocationMap(posts) {
   }
 
   const points = Array.from(mentions.values()).sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+  latestLocationMapPoints = points;
   const totalMentions = points.reduce((sum, point) => sum + point.count, 0);
   locationMapTotal.textContent = `${totalMentions} mention${totalMentions === 1 ? '' : 's'}`;
   locationMapEmpty.classList.toggle('hidden', points.length > 0);
@@ -873,11 +1068,10 @@ function renderLocationMap(posts) {
       if (!L || !locationMapLayer || !locationMapInstance) return;
       locationMapLayer.clearLayers();
       if (!points.length) {
-        locationMapInstance.setView([20, 0], 2);
+        updateLocationMapViewport(points);
         return;
       }
       const maxCount = Math.max(...points.map((point) => point.count), 1);
-      const bounds = [];
       for (const point of points.slice(0, 60)) {
         const radius = 4 + (point.count / maxCount) * 7;
         const marker = L.circleMarker([point.lat, point.lon], {
@@ -888,13 +1082,9 @@ function renderLocationMap(posts) {
           fillOpacity: 0.78,
         }).bindTooltip(`${point.name}: ${point.count} mention${point.count === 1 ? '' : 's'}`);
         marker.addTo(locationMapLayer);
-        bounds.push([point.lat, point.lon]);
       }
-      if (bounds.length === 1) {
-        locationMapInstance.setView(bounds[0], 4);
-      } else {
-        locationMapInstance.fitBounds(bounds, { padding: [20, 20], maxZoom: 4 });
-      }
+      updateLocationMapViewport(points);
+      if (activeInsightsTab === 'geo') refreshMapLayout();
     })
     .catch(() => {
       // Fallback if map library fails to load.
@@ -1043,7 +1233,29 @@ function renderSelectorMix(posts) {
 
 function renderThreatSignalMix(posts) {
   if (!threatSignalMix || !threatSignalMixEmpty) return;
-  const markup = _buildSignalRows(posts, 'threat_matches', 'signal-threat-row');
+  const grouped = new Map();
+  for (let i = 0; i < posts.length; i += 1) {
+    const categories = Array.isArray(posts[i]?.threat_signal_categories) ? posts[i].threat_signal_categories : [];
+    for (const category of categories) {
+      const label = String(category || '').trim();
+      if (!label) continue;
+      const key = label.toLowerCase();
+      const current = grouped.get(key);
+      if (current) {
+        current.count += 1;
+      } else {
+        grouped.set(key, { text: label, count: 1, firstIndex: i });
+      }
+    }
+  }
+  const markup = Array.from(grouped.values())
+    .sort((a, b) => b.count - a.count || a.text.localeCompare(b.text))
+    .slice(0, 8)
+    .map(
+      (item) =>
+        `<button type="button" class="signal-row signal-threat-row" data-post-index="${item.firstIndex}"><span>${escapeHtml(item.text)}</span><strong>${item.count}</strong></button>`,
+    )
+    .join('');
   if (!markup) {
     threatSignalMix.innerHTML = '';
     threatSignalMixEmpty.classList.remove('hidden');
@@ -1077,20 +1289,22 @@ async function refreshPosts() {
   if (activeEndDate) params.set('end_date', activeEndDate);
   if (tags.include.length) params.set('include_tags', tags.include.join(','));
 
-  statusEl.textContent = 'Refreshing results...';
+  dashboardBaseStatus = '';
+  updateStatusLine();
 
   try {
     const response = await fetch(`/api/posts?${params.toString()}`, { signal: controller.signal });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json();
-    const filteredPosts = applySignalTypeFilter(data.posts || []);
+    const filteredPosts = applyDashboardFilters(data.posts || []);
     renderPosts(filteredPosts);
-    const count = filteredPosts.length;
-    statusEl.textContent = `${count} result${count === 1 ? '' : 's'}`;
+    dashboardBaseStatus = '';
+    updateStatusLine();
   } catch (error) {
     if (error.name === 'AbortError') return;
     console.error(error);
-    statusEl.textContent = 'Failed to load posts.';
+    dashboardBaseStatus = 'Failed to load posts.';
+    updateStatusLine();
     resultsEl.innerHTML = '<div class="empty">Could not load data from /api/posts.</div>';
   }
 }
@@ -1101,8 +1315,33 @@ function queueRefresh() {
 }
 
 function setModalOpen(isOpen) {
+  if (!isOpen && lockModalUntilCollectionData && !collectionLoadedAnyData) {
+    setupStatus.textContent = 'Please wait. Dashboard opens after first result arrives.';
+    showNotificationOnce('wait_first_results', 'Waiting for first results', 'warn');
+    return;
+  }
   setupModal.classList.toggle('hidden', !isOpen);
   document.body.classList.toggle('modal-active', isOpen);
+}
+
+function setModalMode(mode) {
+  modalMode = mode;
+  const chooser = mode === 'chooser';
+  const recon = mode === 'recon';
+  const collection = mode === 'collection';
+  modeChooser.classList.toggle('hidden', !chooser);
+  reconForm.classList.toggle('hidden', !recon);
+  setupForm.classList.toggle('hidden', !collection);
+  if (chooser) {
+    setupTitle.textContent = 'Start Session';
+    setupSubtitle.textContent = 'Choose reconnaissance or go straight to collection.';
+  } else if (recon) {
+    setupTitle.textContent = 'Reconnaissance';
+    setupSubtitle.textContent = 'Scan social platforms for active profiles from one @username handle.';
+  } else {
+    setupTitle.textContent = 'Start Collection';
+    setupSubtitle.textContent = 'Set targets and date range to fetch and visualize.';
+  }
 }
 
 function setSetupFormBusy(isBusy) {
@@ -1116,6 +1355,134 @@ function setSetupFormBusy(isBusy) {
     for (const control of row.querySelectorAll('input, select, button')) {
       control.disabled = isBusy;
     }
+  }
+}
+
+function setReconBusy(isBusy) {
+  reconBtn.disabled = isBusy;
+  closeSetupBtn.disabled = isBusy;
+  reconUsernameInput.disabled = isBusy;
+  useReconTargetsBtn.disabled = isBusy || !reconTargets.length;
+}
+
+function getDefaultFaviconDomain(site) {
+  const normalized = normalizePlatformName(site);
+  if (normalized === 'twitter') return 'x.com';
+  if (normalized === 'reddit') return 'reddit.com';
+  if (normalized === 'tiktok') return 'tiktok.com';
+  if (normalized === 'bluesky') return 'bsky.app';
+  if (normalized === 'instagram') return 'instagram.com';
+  if (normalized === 'youtube') return 'youtube.com';
+  if (normalized === 'github') return 'github.com';
+  if (normalized === 'facebook') return 'facebook.com';
+  if (normalized === 'linkedin') return 'linkedin.com';
+  return '';
+}
+
+function profileDomain(url) {
+  const value = String(url || '').trim();
+  if (!value) return '';
+  try {
+    const parsed = new URL(value);
+    return String(parsed.hostname || '').replace(/^www\./i, '').toLowerCase();
+  } catch (error) {
+    return '';
+  }
+}
+
+function faviconUrl(site, profileUrl) {
+  const domain = profileDomain(profileUrl) || getDefaultFaviconDomain(site);
+  if (!domain) return '';
+  return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=32`;
+}
+
+function faviconMarkup(site, profileUrl) {
+  const iconUrl = faviconUrl(site, profileUrl);
+  if (!iconUrl) return '';
+  return `<img class="site-favicon" src="${escapeHtml(iconUrl)}" alt="" aria-hidden="true" loading="lazy" referrerpolicy="no-referrer" />`;
+}
+
+function toReconBadge(row, clsName = 'lead') {
+  const label = String(row.site || 'unknown');
+  const url = String(row.profile_url || '').trim();
+  const icon = faviconMarkup(label, url);
+  const content = `<span class="recon-label">${icon}<span>${escapeHtml(label)}</span></span>`;
+  if (!url) return `<span class="recon-pill ${escapeHtml(clsName)}">${content}</span>`;
+  return `<a class="recon-pill ${escapeHtml(clsName)} lead-link" target="_blank" rel="noopener noreferrer" href="${escapeHtml(url)}">${content}</a>`;
+}
+
+function renderReconResults(payload) {
+  const results = Array.isArray(payload?.results) ? payload.results : [];
+  const supportedPresent = results.filter((row) => row.status === 'present' && row.supported_for_collection);
+  const leadPresent = results.filter((row) => row.status === 'present' && !row.supported_for_collection);
+  const unknown = results.filter((row) => row.status === 'unknown');
+
+  reconResults.classList.remove('hidden');
+  reconResults.innerHTML = `
+    <div class="recon-summary">
+      Checked ${results.length} sites • ${supportedPresent.length} collection-ready • ${leadPresent.length} leads • ${unknown.length} unknown
+    </div>
+    <div class="recon-group">
+      <p>Collection-ready profiles</p>
+      <div class="recon-pills">
+        ${supportedPresent.length
+    ? supportedPresent.map((row) => toReconBadge(row, 'success')).join('')
+    : '<span class="recon-pill">No supported active profiles detected</span>'}
+      </div>
+    </div>
+    <div class="recon-group">
+      <p>Unsupported leads</p>
+      <div class="recon-pills">
+        ${leadPresent.length ? leadPresent.map((row) => toReconBadge(row)).join('') : '<span class="recon-pill">No lead profiles detected</span>'}
+      </div>
+    </div>
+  `;
+}
+
+function renderLeadsList() {
+  if (!leadsList || !leadsEmpty) return;
+  if (!reconLeads.length) {
+    leadsList.innerHTML = '';
+    leadsEmpty.classList.remove('hidden');
+    return;
+  }
+  leadsEmpty.classList.add('hidden');
+  leadsList.innerHTML = reconLeads
+    .map((lead) => {
+      const label = String(lead.site || '').trim() || 'lead';
+      const url = String(lead.profile_url || '').trim();
+      const icon = faviconMarkup(label, url);
+      const content = `<span class="row-label">${icon}<span class="row-label-text">${escapeHtml(label)}</span></span>`;
+      if (url) {
+        return `<a class="signal-row lead-link" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${content}<strong>open</strong></a>`;
+      }
+      return `<div class="signal-row">${content}<strong>lead</strong></div>`;
+    })
+    .join('');
+}
+
+function fillTargetsFromRecon(targets) {
+  const rows = Array.isArray(targets) ? targets : [];
+  targetsList.innerHTML = '';
+  const displayUsernameForPlatform = (platform, username) => {
+    const value = String(username || '').trim();
+    if (!value) return '';
+    if (platform === 'reddit') {
+      return value.toLowerCase().startsWith('u/') ? value : `u/${value.replace(/^u\//i, '')}`;
+    }
+    if (platform === 'twitter' || platform === 'tiktok' || platform === 'bluesky' || platform === 'instagram' || platform === 'youtube') {
+      return value.startsWith('@') ? value : `@${value}`;
+    }
+    return value;
+  };
+  if (!rows.length) {
+    addTargetRow('twitter', '');
+    return;
+  }
+  for (const target of rows) {
+    const platform = String(target.platform || '').trim().toLowerCase();
+    const username = displayUsernameForPlatform(platform, target.username);
+    addTargetRow(platform || 'twitter', username);
   }
 }
 
@@ -1145,6 +1512,494 @@ function summarizeErrors(errors) {
   return labels.join(', ');
 }
 
+function normalizePlatformName(value) {
+  const platform = String(value || '').trim().toLowerCase();
+  if (!platform) return '';
+  if (platform === 'x' || platform === 'twitter/x' || platform === 'x.com') return 'twitter';
+  return platform;
+}
+
+function platformDisplayName(platform) {
+  const normalized = normalizePlatformName(platform);
+  if (normalized === 'twitter') return 'Twitter/X';
+  if (normalized === 'reddit') return 'Reddit';
+  if (normalized === 'tiktok') return 'TikTok';
+  if (normalized === 'bluesky') return 'Bluesky';
+  if (normalized === 'instagram') return 'Instagram';
+  if (normalized === 'youtube') return 'YouTube';
+  return normalized || 'Unknown';
+}
+
+function targetStateKey(platform, username) {
+  const normalizedPlatform = normalizePlatformName(platform);
+  let normalizedUsername = String(username || '').trim().toLowerCase();
+  if (normalizedPlatform === 'twitter' || normalizedPlatform === 'tiktok' || normalizedPlatform === 'instagram' || normalizedPlatform === 'youtube') {
+    normalizedUsername = normalizedUsername.replace(/^@+/, '');
+  } else if (normalizedPlatform === 'reddit') {
+    normalizedUsername = normalizedUsername.replace(/^u\//, '');
+  }
+  return `${normalizedPlatform}|${normalizedUsername}`;
+}
+
+function showNotification(message, type = 'info') {
+  if (!notificationsEl) return;
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  toast.textContent = String(message || '').trim();
+  notificationsEl.appendChild(toast);
+  window.setTimeout(() => {
+    toast.classList.add('fade-out');
+    window.setTimeout(() => toast.remove(), 220);
+  }, 4200);
+}
+
+function showNotificationOnce(key, message, type = 'info') {
+  const normalizedKey = String(key || '').trim().toLowerCase();
+  if (!normalizedKey) {
+    showNotification(message, type);
+    return;
+  }
+  if (collectionNoticeKeys.has(normalizedKey)) return;
+  collectionNoticeKeys.add(normalizedKey);
+  showNotification(message, type);
+}
+
+function updateStatusLine() {
+  const base = String(dashboardBaseStatus || '').trim();
+  const progress = String(collectionProgressStatus || '').trim();
+  if (base && progress) {
+    statusEl.textContent = `${base} • ${progress}`;
+    return;
+  }
+  statusEl.textContent = base || progress || '';
+}
+
+function renderCollectionContext() {
+  if (!collectionContext || !contextTargets || !contextRange) return;
+  const targetCount = Array.isArray(activeTargets) ? activeTargets.length : 0;
+  if (!targetCount || !activeStartDate || !activeEndDate) {
+    collectionContext.classList.add('hidden');
+    contextTargets.textContent = 'No active targets';
+    contextRange.textContent = 'Date range unset';
+    return;
+  }
+  const grouped = new Map();
+  for (const target of activeTargets) {
+    const platform = normalizePlatformName(target?.platform);
+    if (!platform) continue;
+    grouped.set(platform, (grouped.get(platform) || 0) + 1);
+  }
+  const platformBits = Array.from(grouped.entries())
+    .map(([platform, count]) => `${platformDisplayName(platform)} ${count}`)
+    .join(' • ');
+  contextTargets.textContent = `${targetCount} target${targetCount === 1 ? '' : 's'}${platformBits ? ` • ${platformBits}` : ''}`;
+  contextRange.textContent = `${activeStartDate} to ${activeEndDate}`;
+  collectionContext.classList.remove('hidden');
+}
+
+function updateFilterToggleLabel() {
+  if (!filterToggleBtn) return;
+  let activeCount = 0;
+  for (const el of [filterTwitter, filterReddit, filterTiktok, filterBluesky, filterInstagram, filterYoutube]) {
+    if (!el?.checked) activeCount += 1;
+  }
+  for (const el of [filterPost, filterRepost, filterReply, filterQuote, filterComment]) {
+    if (!el?.checked) activeCount += 1;
+  }
+  for (const el of [filterSelectors, filterIdeologicalIndicators, filterThreatSignals]) {
+    if (el?.checked) activeCount += 1;
+  }
+  activeCount += activeEntityFilters.size;
+  activeCount += activeMixFilters.size;
+  filterToggleBtn.textContent = activeCount > 0 ? `Filters (${activeCount})` : 'Filters';
+}
+
+function setInsightsTab(tabName) {
+  const next = String(tabName || '').trim().toLowerCase();
+  if (!next) return;
+  activeInsightsTab = next;
+  const tabs = [
+    { name: 'ops', btn: insightsTabOps, panel: insightsPanelOps },
+    { name: 'geo', btn: insightsTabGeo, panel: insightsPanelGeo },
+    { name: 'signals', btn: insightsTabSignals, panel: insightsPanelSignals },
+  ];
+  for (const item of tabs) {
+    const active = item.name === next;
+    item.btn?.classList.toggle('is-active', active);
+    item.btn?.setAttribute('aria-selected', String(active));
+    item.panel?.classList.toggle('hidden', !active);
+  }
+  if (next === 'geo') {
+    refreshMapLayout();
+    window.setTimeout(refreshMapLayout, 80);
+  }
+}
+
+function getFailedTargetsFromStreamState() {
+  const failed = [];
+  for (const row of collectionSourceState.values()) {
+    if (!row) continue;
+    const status = String(row.status || '').trim().toLowerCase();
+    if (status !== 'error' && status !== 'username_not_found' && status !== 'empty' && status !== 'blocked') continue;
+    const platform = normalizePlatformName(row.platform);
+    const username = String(row.username || '').trim();
+    if (!platform || !username) continue;
+    failed.push({ platform, username });
+  }
+  return failed;
+}
+
+function updateStreamActionButtons() {
+  if (refreshStreamsBtn) {
+    const canRefresh = Boolean(activeCollectionJobId);
+    refreshStreamsBtn.disabled = !canRefresh;
+    refreshStreamsBtn.title = canRefresh ? 'Fetch latest job status now' : 'No active collection job';
+  }
+  if (rerunFailedBtn) {
+    const failedTargets = getFailedTargetsFromStreamState();
+    const canRerun = !activeCollectionJobId && failedTargets.length > 0 && Boolean(activeStartDate && activeEndDate);
+    rerunFailedBtn.disabled = !canRerun;
+    rerunFailedBtn.title = canRerun ? 'Start a new collection for failed targets' : 'No failed targets to rerun';
+  }
+}
+
+function buildProfileUrl(platform, username) {
+  const normalizedPlatform = String(platform || '').trim().toLowerCase();
+  const raw = String(username || '').trim();
+  const user = raw.replace(/^@+/, '').replace(/^u\//i, '');
+  if (!user) return '';
+  if (normalizedPlatform === 'twitter') return `https://x.com/${user}`;
+  if (normalizedPlatform === 'reddit') return `https://www.reddit.com/user/${user}`;
+  if (normalizedPlatform === 'tiktok') return `https://www.tiktok.com/@${user}`;
+  if (normalizedPlatform === 'bluesky') return `https://bsky.app/profile/${user}`;
+  if (normalizedPlatform === 'instagram') return `https://www.instagram.com/${user}/`;
+  if (normalizedPlatform === 'youtube') return `https://www.youtube.com/@${user}`;
+  return '';
+}
+
+function addLeadEntry(site, profileUrl) {
+  const cleanSite = String(site || '').trim();
+  const cleanUrl = String(profileUrl || '').trim();
+  if (!cleanSite && !cleanUrl) return;
+  const key = `${cleanSite.toLowerCase()}|${cleanUrl.toLowerCase()}`;
+  const existing = new Set(reconLeads.map((lead) => `${String(lead.site || '').toLowerCase()}|${String(lead.profile_url || '').toLowerCase()}`));
+  if (existing.has(key)) return;
+  reconLeads.push({ site: cleanSite || 'lead', profile_url: cleanUrl });
+  renderLeadsList();
+}
+
+function resetCollectionSourceState() {
+  collectionSourceState.clear();
+  renderCollectionStreams();
+}
+
+function seedCollectionSourceState(targets) {
+  const rows = Array.isArray(targets) ? targets : [];
+  for (const target of rows) {
+    const platform = normalizePlatformName(target?.platform);
+    const username = String(target?.username || '').trim();
+    if (!platform || !username) continue;
+    const key = targetStateKey(platform, username);
+    if (!collectionSourceState.has(key)) {
+      collectionSourceState.set(key, {
+        platform,
+        username,
+        status: 'pending',
+        collected: 0,
+      });
+    }
+  }
+  renderCollectionStreams();
+}
+
+function applyCollectionPerTarget(perTargetRows) {
+  const rows = Array.isArray(perTargetRows) ? perTargetRows : [];
+  if (!rows.length) return;
+  for (const row of rows) {
+    const platform = normalizePlatformName(row?.platform);
+    const username = String(row?.username || '').trim();
+    if (!platform || !username) continue;
+    const key = targetStateKey(platform, username);
+    const previous = collectionSourceState.get(key) || {
+      platform,
+      username,
+      status: 'pending',
+      collected: 0,
+    };
+    const rawStatus = String(row?.status || previous.status || 'pending').trim().toLowerCase();
+    const nextCollected = Number.isFinite(Number(row?.collected)) ? Number(row.collected) : previous.collected;
+    const nextStatus = rawStatus === 'ok' && Math.max(0, nextCollected) === 0 ? 'empty' : rawStatus;
+    collectionSourceState.set(key, {
+      ...previous,
+      status: nextStatus,
+      collected: Math.max(0, nextCollected),
+    });
+    if (nextStatus === 'ok') {
+      showNotificationOnce(`target_ok|${key}`, `${platformDisplayName(platform)} ${username} loaded (${Math.max(0, nextCollected)} posts).`, 'success');
+    } else if (nextStatus === 'empty') {
+      showNotificationOnce(`target_empty|${key}`, `${platformDisplayName(platform)} ${username} returned no posts.`, 'warn');
+    } else if (nextStatus === 'blocked') {
+      showNotificationOnce(`target_blocked|${key}`, `${platformDisplayName(platform)} ${username} blocked by source protection.`, 'warn');
+    } else if (nextStatus === 'username_not_found') {
+      showNotificationOnce(`target_nf|${key}`, `${platformDisplayName(platform)} ${username} not found.`, 'warn');
+    } else if (nextStatus === 'error') {
+      showNotificationOnce(`target_err|${key}`, `${platformDisplayName(platform)} ${username} failed.`, 'error');
+    }
+  }
+  renderCollectionStreams();
+}
+
+function finalizePendingTargets(targets, finalStatus = 'ok') {
+  const rows = Array.isArray(targets) ? targets : [];
+  for (const target of rows) {
+    const platform = normalizePlatformName(target?.platform);
+    const username = String(target?.username || '').trim();
+    if (!platform || !username) continue;
+    const key = targetStateKey(platform, username);
+    const current = collectionSourceState.get(key);
+    if (!current) continue;
+    const status = String(current.status || '').trim().toLowerCase();
+    if (status !== 'pending') continue;
+    collectionSourceState.set(key, { ...current, status: finalStatus });
+  }
+  renderCollectionStreams();
+}
+
+function renderCollectionStreams() {
+  if (!collectionStreams || !collectionStreamsSummary || !collectionStreamsEmpty) return;
+  const rows = Array.from(collectionSourceState.values());
+  if (!rows.length) {
+    collectionStreams.innerHTML = '';
+    collectionStreamsEmpty.classList.remove('hidden');
+    collectionStreamsSummary.textContent = 'Idle';
+    updateStreamActionButtons();
+    return;
+  }
+
+  collectionStreamsEmpty.classList.add('hidden');
+  const grouped = new Map();
+  for (const row of rows) {
+    const platform = normalizePlatformName(row.platform);
+    const current = grouped.get(platform) || { platform, targets: 0, collected: 0, ok: 0, pending: 0, issues: 0 };
+    current.targets += 1;
+    current.collected += Math.max(0, Number(row.collected || 0));
+    if (row.status === 'ok') current.ok += 1;
+    else if (row.status === 'username_not_found' || row.status === 'error' || row.status === 'empty' || row.status === 'blocked') current.issues += 1;
+    else current.pending += 1;
+    grouped.set(platform, current);
+  }
+
+  const ordered = Array.from(grouped.values()).sort((a, b) => {
+    const ai = SOURCE_ORDER.indexOf(a.platform);
+    const bi = SOURCE_ORDER.indexOf(b.platform);
+    if (ai >= 0 && bi >= 0) return ai - bi;
+    if (ai >= 0) return -1;
+    if (bi >= 0) return 1;
+    return a.platform.localeCompare(b.platform);
+  });
+  const totalPosts = ordered.reduce((sum, item) => sum + item.collected, 0);
+  const totalTargets = ordered.reduce((sum, item) => sum + item.targets, 0);
+  const totalPending = ordered.reduce((sum, item) => sum + item.pending, 0);
+  const totalIssues = ordered.reduce((sum, item) => sum + item.issues, 0);
+  collectionStreamsSummary.textContent = `${totalPosts} posts • ${totalTargets} targets`;
+
+  collectionStreams.innerHTML = ordered.map((item) => {
+    const statusClass = item.issues ? 'error' : item.pending ? 'running' : (item.ok ? 'ok' : 'warn');
+    const metaBits = [
+      `${item.targets} target${item.targets === 1 ? '' : 's'}`,
+      item.pending ? `${item.pending} pending` : '',
+      item.issues ? `${item.issues} issue${item.issues === 1 ? '' : 's'}` : '',
+    ].filter(Boolean);
+    return `
+      <div class="stream-row">
+        <div class="stream-row-head">
+          <span class="stream-label">
+            <span class="stream-dot ${statusClass}" aria-hidden="true"></span>
+            <span class="stream-name">${escapeHtml(platformDisplayName(item.platform))}</span>
+          </span>
+          <span class="stream-count">${item.collected}</span>
+        </div>
+        <div class="stream-meta">${escapeHtml(metaBits.join(' • ') || 'awaiting update')}</div>
+      </div>
+    `;
+  }).join('');
+
+  if (!totalPending && totalIssues) {
+    showNotificationOnce('stream_summary_issue', `${totalIssues} target${totalIssues === 1 ? '' : 's'} reported issues.`, 'warn');
+  }
+  updateStreamActionButtons();
+}
+
+function processCollectionErrors(errors) {
+  if (!Array.isArray(errors)) return;
+  for (const row of errors) {
+    const platform = normalizePlatformName(row?.platform);
+    const username = String(row?.username || '').trim();
+    const code = String(row?.code || 'collection_error').trim().toLowerCase();
+    const key = `${platform}|${username.toLowerCase()}|${code}`;
+    if (collectionIssueKeys.has(key)) continue;
+    collectionIssueKeys.add(key);
+    if (platform && username) {
+      const stateKey = targetStateKey(platform, username);
+      const current = collectionSourceState.get(stateKey) || { platform, username, status: 'pending', collected: 0 };
+      const mappedStatus = code === 'username_not_found' ? 'username_not_found' : (code === 'blocked_by_protection' ? 'blocked' : 'error');
+      collectionSourceState.set(stateKey, { ...current, status: mappedStatus });
+    }
+
+    const label = `${platform || 'source'} ${username || 'unknown'}`;
+    if (code === 'username_not_found') {
+      showNotification(`Not found: ${label}`, 'warn');
+    } else if (code === 'blocked_by_protection') {
+      showNotification(`Blocked by protection: ${label}`, 'warn');
+    } else {
+      showNotification(`Collection issue: ${label}`, 'error');
+    }
+    addLeadEntry(`${platform || 'source'} (${code})`, buildProfileUrl(platform, username));
+  }
+  renderCollectionStreams();
+}
+
+function clearCollectionPolling() {
+  collectionPollNonce += 1;
+  activeCollectionJobId = '';
+  lastCollectionPhase = '';
+  lastCollectionUpdatedAt = '';
+  collectionProgressStatus = '';
+  collectionAppendMode = false;
+  if (collectionPollTimer) {
+    clearTimeout(collectionPollTimer);
+    collectionPollTimer = null;
+  }
+  updateStatusLine();
+  updateStreamActionButtons();
+}
+
+function applyCollectionPayload(data) {
+  const incomingPosts = Array.isArray(data?.posts) ? data.posts : [];
+  const allPosts = collectionAppendMode ? mergePostsForAppend(latestPosts, incomingPosts) : incomingPosts;
+  const filteredPosts = applyDashboardFilters(allPosts);
+  renderPosts(filteredPosts);
+  applyCollectionPerTarget(data?.per_target);
+  dashboardBaseStatus = '';
+  updateStatusLine();
+}
+
+function mergePostsForAppend(existingPosts, incomingPosts) {
+  const merged = new Map();
+  const rows = [...(Array.isArray(existingPosts) ? existingPosts : []), ...(Array.isArray(incomingPosts) ? incomingPosts : [])];
+  for (const post of rows) {
+    const source = String(post?.source_url || '').trim().toLowerCase();
+    const key = source || [
+      String(post?.platform || '').trim().toLowerCase(),
+      String(post?.username || '').trim().toLowerCase(),
+      String(post?.timestamp || '').trim(),
+      String(post?.content || '').trim().toLowerCase(),
+    ].join('|');
+    if (!key) continue;
+    const current = merged.get(key);
+    if (!current) {
+      merged.set(key, post);
+      continue;
+    }
+    const currentSize = JSON.stringify(current || {}).length;
+    const nextSize = JSON.stringify(post || {}).length;
+    if (nextSize >= currentSize) {
+      merged.set(key, post);
+    }
+  }
+  return Array.from(merged.values());
+}
+
+function scheduleCollectionPoll(delayMs = 1000, nonce = collectionPollNonce) {
+  if (!activeCollectionJobId) return;
+  if (nonce !== collectionPollNonce) return;
+  if (collectionPollTimer) clearTimeout(collectionPollTimer);
+  collectionPollTimer = setTimeout(() => pollCollectionJob(nonce), delayMs);
+}
+
+async function pollCollectionJob(nonce = collectionPollNonce) {
+  if (!activeCollectionJobId) return;
+  if (nonce !== collectionPollNonce) return;
+  try {
+    const response = await fetch(`/api/collect/status?job_id=${encodeURIComponent(activeCollectionJobId)}`);
+    if (!response.ok) {
+      const message = await parseErrorResponse(response);
+      throw new Error(message);
+    }
+    const data = await response.json();
+    if (nonce !== collectionPollNonce) return;
+    seedCollectionSourceState(data.targets);
+    const updatedAt = String(data.updated_at || '').trim();
+    const hasJobChange = Boolean(updatedAt && updatedAt !== lastCollectionUpdatedAt);
+    if (hasJobChange) {
+      lastCollectionUpdatedAt = updatedAt;
+    }
+    const snapshot = data.snapshot;
+    if (hasJobChange && snapshot && Array.isArray(snapshot.posts)) {
+      applyCollectionPayload(snapshot);
+      processCollectionErrors(snapshot.errors);
+      if (snapshot.posts.length > 0 && !collectionLoadedAnyData) {
+        collectionLoadedAnyData = true;
+        lockModalUntilCollectionData = false;
+        setModalOpen(false);
+        showNotification('Initial results loaded', 'success');
+      }
+    }
+
+    if (data.status === 'completed') {
+      if (data.result && Array.isArray(data.result.posts)) {
+        applyCollectionPayload(data.result);
+        processCollectionErrors(data.result.errors);
+        if (data.result.posts.length > 0 && !collectionLoadedAnyData) {
+          collectionLoadedAnyData = true;
+          lockModalUntilCollectionData = false;
+          setModalOpen(false);
+        }
+      }
+      finalizePendingTargets(data.targets, 'ok');
+      lockModalUntilCollectionData = false;
+      collectionProgressStatus = 'collection complete';
+      updateStatusLine();
+      showNotification('Collection complete', 'success');
+      if (!collectionLoadedAnyData) {
+        setupStatus.textContent = 'Collection completed with no posts found. Review targets/date range.';
+      }
+      clearCollectionPolling();
+      return;
+    }
+    if (data.status === 'failed') {
+      const message = data?.error?.message || 'background collection failed';
+      collectionProgressStatus = `collection failed: ${message}`;
+      updateStatusLine();
+      finalizePendingTargets(data.targets, 'error');
+      lockModalUntilCollectionData = false;
+      addLeadEntry('collection failed', '');
+      showNotification(`Collection failed: ${message}`, 'error');
+      clearCollectionPolling();
+      return;
+    }
+
+    const phase = String(data.phase || 'running').replace(/_/g, ' ');
+    const stage = Number(data.current_stage || 0);
+    const totalStages = Number(data.total_stages || 0);
+    collectionProgressStatus = `collecting ${phase}${totalStages ? ` (${stage}/${totalStages})` : ''}`;
+    updateStatusLine();
+    if (lastCollectionPhase !== phase) {
+      lastCollectionPhase = phase;
+      showNotification(`Collection progress: ${phase}`, 'info');
+    }
+    if (lockModalUntilCollectionData) {
+      setupStatus.textContent = `Collecting ${phase}${totalStages ? ` (${stage}/${totalStages})` : ''}... waiting for first results.`;
+    }
+    scheduleCollectionPoll(1200, nonce);
+  } catch (error) {
+    console.error(error);
+    collectionProgressStatus = `collection status retrying: ${error.message || 'unknown error'}`;
+    updateStatusLine();
+    scheduleCollectionPoll(1600, nonce);
+  }
+}
+
 async function parseErrorResponse(response) {
   let payload = null;
   try {
@@ -1163,26 +2018,82 @@ async function parseErrorResponse(response) {
   return `HTTP ${response.status}`;
 }
 
-async function collectAndOpen(event) {
+async function runRecon(event) {
   event.preventDefault();
-  const targets = getTargetsFromForm();
-  const startDate = startDateInput.value;
-  const endDate = endDateInput.value;
-
-  if (!targets.length || !startDate || !endDate) {
-    setupStatus.textContent = 'At least one target and date range are required.';
+  const raw = String(reconUsernameInput.value || '').trim();
+  if (!raw) {
+    reconStatus.textContent = 'Username is required. Use @johnsmith format.';
     return;
   }
-  if (endDate < startDate) {
-    setupStatus.textContent = 'End date must be on or after start date.';
+  if (!raw.startsWith('@')) {
+    reconStatus.textContent = 'Enter username in @johnsmith format.';
     return;
   }
 
-  setSetupFormBusy(true);
-  setupStatus.textContent = 'Collecting posts...';
+  setReconBusy(true);
+  reconStatus.textContent = 'Running reconnaissance...';
+  reconResults.classList.add('hidden');
+  useReconTargetsBtn.classList.add('hidden');
+  useReconTargetsBtn.disabled = true;
+  reconTargets = [];
 
   try {
-    const response = await fetch('/api/collect', {
+    const response = await fetch('/api/recon', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: raw }),
+    });
+    if (!response.ok) {
+      const message = await parseErrorResponse(response);
+      throw new Error(message);
+    }
+    const payload = await response.json();
+    reconTargets = Array.isArray(payload.collection_targets) ? payload.collection_targets : [];
+    reconLeads = Array.isArray(payload.leads) ? payload.leads : [];
+    renderReconResults(payload);
+    renderLeadsList();
+    if (reconTargets.length > 0) {
+      useReconTargetsBtn.classList.remove('hidden');
+      useReconTargetsBtn.disabled = false;
+    } else {
+      useReconTargetsBtn.classList.add('hidden');
+      useReconTargetsBtn.disabled = true;
+    }
+    reconStatus.textContent = `Recon complete: ${payload.present_count || 0} profile(s) found.`;
+  } catch (error) {
+    console.error(error);
+    useReconTargetsBtn.classList.add('hidden');
+    useReconTargetsBtn.disabled = true;
+    reconStatus.textContent = `Recon failed: ${error.message || 'unknown error'}`;
+  } finally {
+    setReconBusy(false);
+  }
+}
+
+async function startBackgroundCollection(targets, startDate, endDate, options = {}) {
+  const {
+    lockModal = false,
+    showStartNotification = true,
+    setupMessage = 'Collection started.',
+    statusPrefix = 'Collection',
+    appendResults = false,
+    resetStreamState = true,
+  } = options;
+  collectionLoadedAnyData = false;
+  lockModalUntilCollectionData = Boolean(lockModal);
+  lastCollectionPhase = '';
+  lastCollectionUpdatedAt = '';
+  collectionNoticeKeys.clear();
+  collectionIssueKeys.clear();
+  if (resetStreamState) {
+    resetCollectionSourceState();
+  }
+  seedCollectionSourceState(targets);
+  collectionProgressStatus = 'collection queued';
+  updateStatusLine();
+
+  try {
+    const response = await fetch('/api/collect/start', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -1201,30 +2112,83 @@ async function collectAndOpen(event) {
     activeUsername = targets.length === 1 ? targets[0].username : '';
     activeStartDate = startDate;
     activeEndDate = endDate;
+    renderCollectionContext();
     searchInput.value = '';
+    clearCollectionPolling();
+    collectionAppendMode = Boolean(appendResults);
+    activeCollectionJobId = String(data.job_id || '').trim();
+    collectionPollNonce += 1;
 
-    const filteredPosts = applySignalTypeFilter(data.posts || []);
-    renderPosts(filteredPosts);
-    const themeStatus = data.theme_tagging?.status === 'ok' ? 'themes tagged' : 'theme tagging skipped';
-    const errorSummary = summarizeErrors(data.errors);
-    statusEl.textContent = `${filteredPosts.length || 0} result${(filteredPosts.length || 0) === 1 ? '' : 's'} • ${data.inserted || 0} new rows • ${themeStatus}${errorSummary ? ` • warnings: ${errorSummary}` : ''}`;
-    setupStatus.textContent = errorSummary
-      ? `Collected ${data.collected || 0}, inserted ${data.inserted || 0}. Skipped: ${errorSummary}`
-      : `Collected ${data.collected || 0}, inserted ${data.inserted || 0}.`;
-    setModalOpen(false);
+    setupStatus.textContent = setupMessage;
+    collectionProgressStatus = 'collection queued';
+    updateStatusLine();
+    if (showStartNotification) {
+      showNotification(`${statusPrefix} started`, 'info');
+    }
+    setModalOpen(Boolean(lockModal));
+    if (activeCollectionJobId) {
+      scheduleCollectionPoll(150, collectionPollNonce);
+    } else {
+      collectionProgressStatus = 'collection failed: missing job id';
+      updateStatusLine();
+      showNotification(`${statusPrefix} failed: missing job id`, 'error');
+    }
+    updateStreamActionButtons();
+    return true;
   } catch (error) {
     console.error(error);
-    setupStatus.textContent = `Collection failed: ${error.message || 'unknown error'}`;
-  } finally {
-    setSetupFormBusy(false);
+    setupStatus.textContent = `${statusPrefix} failed: ${error.message || 'unknown error'}`;
+    collectionProgressStatus = `collection failed: ${error.message || 'unknown error'}`;
+    updateStatusLine();
+    showNotification(`${statusPrefix} failed: ${error.message || 'unknown error'}`, 'error');
+    updateStreamActionButtons();
+    return false;
   }
 }
 
+async function collectAndOpen(event) {
+  event.preventDefault();
+  const targets = getTargetsFromForm();
+  const startDate = startDateInput.value;
+  const endDate = endDateInput.value;
+
+  if (!targets.length || !startDate || !endDate) {
+    setupStatus.textContent = 'At least one target and date range are required.';
+    return;
+  }
+  if (endDate < startDate) {
+    setupStatus.textContent = 'End date must be on or after start date.';
+    return;
+  }
+
+  setSetupFormBusy(true);
+  setupStatus.textContent = 'Starting background collection...';
+  await startBackgroundCollection(targets, startDate, endDate, {
+    lockModal: true,
+    setupMessage: 'Collection started. Waiting for first results before opening dashboard.',
+    statusPrefix: 'Collection',
+    showStartNotification: true,
+    appendResults: false,
+    resetStreamState: true,
+  });
+  setSetupFormBusy(false);
+}
+
 searchInput.addEventListener('input', queueRefresh);
+clearSearchBtn?.addEventListener('click', () => {
+  if (!searchInput.value) return;
+  searchInput.value = '';
+  queueRefresh();
+  searchInput.focus();
+});
 sortSelect.addEventListener('change', queueRefresh);
 setupForm.addEventListener('submit', collectAndOpen);
-for (const el of [filterTwitter, filterReddit, filterTiktok, filterBluesky, filterYoutube, filterPost, filterRepost, filterReply, filterQuote, filterComment, filterSelectors, filterIdeologicalIndicators, filterThreatSignals]) {
-  el.addEventListener('change', queueRefresh);
+reconForm.addEventListener('submit', runRecon);
+for (const el of [filterTwitter, filterReddit, filterTiktok, filterBluesky, filterInstagram, filterYoutube, filterPost, filterRepost, filterReply, filterQuote, filterComment, filterSelectors, filterIdeologicalIndicators, filterThreatSignals]) {
+  el.addEventListener('change', () => {
+    updateFilterToggleLabel();
+    queueRefresh();
+  });
 }
 entityMix?.addEventListener('click', (event) => {
   const target = event.target;
@@ -1239,6 +2203,23 @@ entityMix?.addEventListener('click', (event) => {
     activeEntityFilters.add(tag);
   }
   renderEntityMix(latestPosts);
+  updateFilterToggleLabel();
+  queueRefresh();
+});
+typeMix?.addEventListener('click', (event) => {
+  const target = event.target;
+  if (!(target instanceof HTMLElement)) return;
+  const pill = target.closest('[data-mix-filter]');
+  if (!(pill instanceof HTMLElement)) return;
+  const tag = String(pill.getAttribute('data-mix-filter') || '').trim().toLowerCase();
+  if (!tag) return;
+  if (activeMixFilters.has(tag)) {
+    activeMixFilters.delete(tag);
+  } else {
+    activeMixFilters.add(tag);
+  }
+  renderTypeMix(latestPosts);
+  updateFilterToggleLabel();
   queueRefresh();
 });
 threatMix?.addEventListener('click', (event) => {
@@ -1280,26 +2261,88 @@ document.addEventListener('click', (event) => {
   filterToggleBtn.setAttribute('aria-expanded', 'false');
 });
 document.addEventListener('keydown', (event) => {
+  if (event.key === '/' && event.target instanceof Element && !event.target.closest('input, textarea, [contenteditable="true"]')) {
+    event.preventDefault();
+    searchInput.focus();
+    return;
+  }
   if (event.key !== 'Escape') return;
   if (filterPanel.classList.contains('hidden')) return;
   filterPanel.classList.add('hidden');
   filterToggleBtn.setAttribute('aria-expanded', 'false');
 });
+window.addEventListener('resize', () => {
+  if (activeInsightsTab !== 'geo') return;
+  refreshMapLayout();
+});
+insightsTabOps?.addEventListener('click', () => setInsightsTab('ops'));
+insightsTabGeo?.addEventListener('click', () => setInsightsTab('geo'));
+insightsTabSignals?.addEventListener('click', () => setInsightsTab('signals'));
+refreshStreamsBtn?.addEventListener('click', () => {
+  if (!activeCollectionJobId) return;
+  showNotification('Refreshing collection status…', 'info');
+  scheduleCollectionPoll(25, collectionPollNonce);
+});
+rerunFailedBtn?.addEventListener('click', async () => {
+  if (activeCollectionJobId) return;
+  const failedTargets = getFailedTargetsFromStreamState();
+  if (!failedTargets.length) {
+    showNotification('No failed targets to rerun.', 'warn');
+    return;
+  }
+  const startDate = activeStartDate || startDateInput.value;
+  const endDate = activeEndDate || endDateInput.value;
+  if (!startDate || !endDate) {
+    showNotification('Set a date range before rerunning failed targets.', 'warn');
+    return;
+  }
+  rerunFailedBtn.disabled = true;
+  if (refreshStreamsBtn) refreshStreamsBtn.disabled = true;
+  await startBackgroundCollection(failedTargets, startDate, endDate, {
+    lockModal: false,
+    setupMessage: 'Rerunning failed collection targets in background.',
+    statusPrefix: 'Failed-target rerun',
+    showStartNotification: true,
+    appendResults: true,
+    resetStreamState: false,
+  });
+  updateStreamActionButtons();
+});
 newCollectionBtn.addEventListener('click', () => {
   setupStatus.textContent = '';
+  reconStatus.textContent = '';
+  reconResults.classList.add('hidden');
+  setModalMode('collection');
   targetsList.innerHTML = '';
+  resetCollectionSourceState();
   if (activeTargets.length) {
     for (const target of activeTargets) addTargetRow(target.platform, target.username);
   } else if (activeUsername) {
     addTargetRow('twitter', `@${activeUsername}`);
   } else {
-    addTargetRow('twitter', '@johnsmith');
+    addTargetRow('twitter', '');
   }
   setModalOpen(true);
 });
 addTargetBtn.addEventListener('click', () => addTargetRow('twitter', ''));
 autofillTargetsBtn.addEventListener('click', autofillTargetUsernames);
 closeSetupBtn.addEventListener('click', () => setModalOpen(false));
+modeReconBtn.addEventListener('click', () => {
+  reconStatus.textContent = '';
+  setModalMode('recon');
+  reconUsernameInput.focus();
+});
+modeCollectionBtn.addEventListener('click', () => {
+  setupStatus.textContent = '';
+  setModalMode('collection');
+  if (!targetsList.querySelector('.target-row')) addTargetRow('twitter', '');
+});
+useReconTargetsBtn.addEventListener('click', () => {
+  if (!reconTargets.length) return;
+  fillTargetsFromRecon(reconTargets);
+  setupStatus.textContent = 'Loaded active recon profiles into collection targets.';
+  setModalMode('collection');
+});
 targetsList.addEventListener('click', (event) => {
   const target = event.target;
   if (!(target instanceof HTMLElement) || !target.classList.contains('target-remove')) return;
@@ -1308,32 +2351,18 @@ targetsList.addEventListener('click', (event) => {
   row.remove();
   if (!targetsList.querySelector('.target-row')) addTargetRow('twitter', '');
 });
-retagThemesBtn.addEventListener('click', async () => {
-  retagThemesBtn.disabled = true;
-  const original = retagThemesBtn.textContent;
-  retagThemesBtn.textContent = 'Tagging...';
-  try {
-    const response = await fetch('/api/themes/tag', { method: 'POST' });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const data = await response.json();
-    statusEl.textContent = data.status === 'ok'
-      ? `Theme tagging complete: ${data.tagged || 0} posts, ${data.topics || 0} topics`
-      : `Theme tagging skipped: ${data.reason || 'unknown'}`;
-    await refreshPosts();
-  } catch (error) {
-    console.error(error);
-    statusEl.textContent = 'Theme tagging failed.';
-  } finally {
-    retagThemesBtn.disabled = false;
-    retagThemesBtn.textContent = original || 'Tag Themes';
-  }
-});
 quitBtn.addEventListener('click', async () => {
   const ok = window.confirm('Quit PANOPTO and wipe collected session data?');
   if (!ok) return;
   quitBtn.disabled = true;
   quitBtn.textContent = 'Quitting...';
   try {
+    clearCollectionPolling();
+    resetCollectionSourceState();
+    activeTargets = [];
+    activeStartDate = '';
+    activeEndDate = '';
+    renderCollectionContext();
     await fetch('/api/session/end', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1348,5 +2377,12 @@ quitBtn.addEventListener('click', async () => {
   }
 });
 initializeDateInputs();
-addTargetRow('twitter', '@johnsmith');
+addTargetRow('twitter', '');
+renderLeadsList();
+renderCollectionStreams();
+setInsightsTab(activeInsightsTab);
+updateStreamActionButtons();
+updateFilterToggleLabel();
+renderCollectionContext();
+setModalMode('chooser');
 setModalOpen(true);

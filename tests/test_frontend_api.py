@@ -348,6 +348,52 @@ def test_query_posts_supports_youtube_platform_tag(tmp_path):
     assert payload["posts"][0]["metadata"]["embed_url"] == "https://www.youtube.com/embed/y1"
 
 
+def test_query_posts_supports_instagram_platform_tag(tmp_path):
+    db_path = tmp_path / "osint_data.db"
+    with sqlite3.connect(db_path) as conn:
+        conn.execute(
+            """
+            CREATE TABLE twitter_posts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                source_post_id TEXT,
+                username TEXT NOT NULL,
+                content TEXT NOT NULL,
+                timestamp TEXT,
+                likes INTEGER,
+                retweets INTEGER,
+                replies INTEGER,
+                post_type TEXT NOT NULL DEFAULT 'post',
+                source_url TEXT,
+                referenced_username TEXT,
+                platform TEXT NOT NULL DEFAULT 'Twitter',
+                raw_metadata TEXT,
+                collected_at TEXT NOT NULL
+            )
+            """
+        )
+        conn.execute(
+            "INSERT INTO twitter_posts (source_post_id, username, content, timestamp, post_type, source_url, platform, raw_metadata, collected_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                "ig1",
+                "aoc",
+                "Instagram post",
+                "2026-02-12T18:15:54+00:00",
+                "post",
+                "https://www.instagram.com/p/ig1/",
+                "Instagram",
+                json.dumps({"image_urls": ["https://cdn.example.com/ig1.jpg"]}),
+                "2026-02-12T18:16:00+00:00",
+            ),
+        )
+        conn.commit()
+
+    payload = query_posts(db_path=db_path, include_tags={"instagram"})
+
+    assert payload["count"] == 1
+    assert payload["posts"][0]["platform"] == "Instagram"
+    assert payload["posts"][0]["metadata"]["image_urls"] == ["https://cdn.example.com/ig1.jpg"]
+
+
 def test_query_posts_extracts_ner_entities_and_location_tags(tmp_path):
     db_path = tmp_path / "osint_data.db"
     with sqlite3.connect(db_path) as conn:
@@ -437,7 +483,8 @@ def test_query_posts_extracts_threat_and_selector_signals(tmp_path):
     threat_terms = [item.lower() for item in post["threat_matches"]]
     assert "buy" in threat_terms or "going to" in threat_terms
     assert "gun" in threat_terms
-    assert "Possible Indicators of Capability" in post["threat_categories"]
+    assert "Possible Indicators of Capability" in post["threat_signal_categories"]
+    assert post["threat_categories"] == []
     assert "analyst@example.com" in [item.lower() for item in post["selector_matches"]]
     assert "selector:email" in post["tags"]
     assert "threat:indicator" in post["tags"]
@@ -482,6 +529,30 @@ def test_collect_endpoint_handles_blank_content_length_header():
     assert responses and responses[0] == 400
     payload = json.loads(handler.wfile.getvalue().decode("utf-8"))
     assert payload["error"]["code"] == "invalid_request"
+
+
+def test_collect_endpoint_rejects_non_object_json_body():
+    handler = PostExplorerHandler.__new__(PostExplorerHandler)
+    body = json.dumps(["not", "an", "object"]).encode("utf-8")
+    handler.path = "/api/collect"
+    handler.headers = {"Content-Length": str(len(body))}
+    handler.rfile = BytesIO(body)
+    handler.wfile = BytesIO()
+
+    errors = []
+
+    def _send_error(code, message=None):
+        errors.append((code, message))
+
+    handler.send_error = _send_error
+    handler.send_response = lambda code: None
+    handler.send_header = lambda *args, **kwargs: None
+    handler.end_headers = lambda *args, **kwargs: None
+
+    handler.do_POST()
+
+    assert errors
+    assert errors[0][0] == 400
 
 
 def test_parse_day_accepts_common_formats():
@@ -552,6 +623,69 @@ def test_collect_endpoint_internal_value_error_returns_500():
     assert payload["error"]["code"] == "internal_error"
 
 
+def test_collect_start_endpoint_returns_job_id():
+    handler = PostExplorerHandler.__new__(PostExplorerHandler)
+    body = json.dumps(
+        {
+            "targets": [{"platform": "twitter", "username": "AKayWyatt"}],
+            "start_date": "2026-01-08",
+            "end_date": "2026-02-15",
+        }
+    ).encode("utf-8")
+    handler.path = "/api/collect/start"
+    handler.headers = {"Content-Length": str(len(body))}
+    handler.rfile = BytesIO(body)
+    handler.wfile = BytesIO()
+
+    responses = []
+    handler.send_response = lambda code: responses.append(code)
+    handler.send_header = lambda *args, **kwargs: None
+    handler.end_headers = lambda *args, **kwargs: None
+
+    with patch(
+        "frontend.server.start_collection_job",
+        return_value={
+            "job_id": "job123",
+            "status": "queued",
+            "phase": "queued",
+            "current_stage": 0,
+            "total_stages": 2,
+            "progress": 0.0,
+            "targets": [{"platform": "twitter", "username": "akaywyatt"}],
+            "start_date": "2026-01-08",
+            "end_date": "2026-02-15",
+            "created_at": "2026-02-17T00:00:00+00:00",
+            "updated_at": "2026-02-17T00:00:00+00:00",
+        },
+    ):
+        handler.do_POST()
+
+    assert responses and responses[0] == 202
+    payload = json.loads(handler.wfile.getvalue().decode("utf-8"))
+    assert payload["job_id"] == "job123"
+    assert payload["status"] == "queued"
+
+
+def test_collect_status_endpoint_returns_not_found():
+    handler = PostExplorerHandler.__new__(PostExplorerHandler)
+    handler.path = "/api/collect/status?job_id=missing"
+    handler.headers = {}
+    handler.rfile = BytesIO()
+    handler.wfile = BytesIO()
+
+    responses = []
+    handler.send_response = lambda code: responses.append(code)
+    handler.send_header = lambda *args, **kwargs: None
+    handler.end_headers = lambda *args, **kwargs: None
+
+    with patch("frontend.server.get_collection_job_status", return_value=None):
+        handler.do_GET()
+
+    assert responses and responses[0] == 404
+    payload = json.loads(handler.wfile.getvalue().decode("utf-8"))
+    assert payload["error"]["code"] == "not_found"
+
+
 def test_collect_endpoint_username_not_found_returns_404():
     handler = PostExplorerHandler.__new__(PostExplorerHandler)
     body = json.dumps(
@@ -580,3 +714,55 @@ def test_collect_endpoint_username_not_found_returns_404():
     assert responses and responses[0] == 404
     payload = json.loads(handler.wfile.getvalue().decode("utf-8"))
     assert payload["error"]["code"] == "username_not_found"
+
+
+def test_recon_endpoint_rejects_missing_username():
+    handler = PostExplorerHandler.__new__(PostExplorerHandler)
+    body = json.dumps({}).encode("utf-8")
+    handler.path = "/api/recon"
+    handler.headers = {"Content-Length": str(len(body))}
+    handler.rfile = BytesIO(body)
+    handler.wfile = BytesIO()
+
+    responses = []
+    handler.send_response = lambda code: responses.append(code)
+    handler.send_header = lambda *args, **kwargs: None
+    handler.end_headers = lambda *args, **kwargs: None
+
+    handler.do_POST()
+
+    assert responses and responses[0] == 400
+    payload = json.loads(handler.wfile.getvalue().decode("utf-8"))
+    assert payload["error"]["code"] == "invalid_request"
+
+
+def test_recon_endpoint_returns_targets_and_leads():
+    handler = PostExplorerHandler.__new__(PostExplorerHandler)
+    body = json.dumps({"username": "@sama"}).encode("utf-8")
+    handler.path = "/api/recon"
+    handler.headers = {"Content-Length": str(len(body))}
+    handler.rfile = BytesIO(body)
+    handler.wfile = BytesIO()
+
+    responses = []
+    handler.send_response = lambda code: responses.append(code)
+    handler.send_header = lambda *args, **kwargs: None
+    handler.end_headers = lambda *args, **kwargs: None
+
+    with patch(
+        "frontend.server.run_username_recon",
+        return_value={
+            "username": "sama",
+            "results": [],
+            "collection_targets": [{"platform": "twitter", "username": "sama"}],
+            "leads": [{"site": "github", "profile_url": "https://github.com/sama"}],
+            "checked": 10,
+            "present_count": 2,
+        },
+    ):
+        handler.do_POST()
+
+    assert responses and responses[0] == 200
+    payload = json.loads(handler.wfile.getvalue().decode("utf-8"))
+    assert payload["collection_targets"] == [{"platform": "twitter", "username": "sama"}]
+    assert payload["leads"] == [{"site": "github", "profile_url": "https://github.com/sama"}]

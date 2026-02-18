@@ -516,15 +516,34 @@ def _extract_posts_from_embedded_data(username: str, html: str) -> list[TwitterP
     return posts
 
 
-def _candidate_page_urls(username: str, page: int) -> list[str]:
+def _source_hosts() -> list[str]:
+    env_raw = str(getenv("TWITTER_SOURCE_HOSTS", "")).strip()
+    if env_raw:
+        hosts = [
+            host.strip().lower().lstrip("https://").lstrip("http://").strip("/")
+            for host in env_raw.split(",")
+            if host.strip()
+        ]
+        if hosts:
+            return hosts
+    return ["twitterwebviewer.com", "xcancel.com", "nitter.net"]
+
+
+def _candidate_page_urls(username: str, page: int, *, host: str) -> list[str]:
     safe_username = quote(username, safe="")
     safe_query_username = quote(f"@{username}", safe="")
+    if "twitterwebviewer.com" in host:
+        return [
+            f"https://{host}/?user={safe_username}&page={page}",
+            f"https://{host}/?q={safe_query_username}&page={page}",
+            f"https://{host}/?q={safe_query_username}",
+            f"https://{host}/{safe_username}",
+            f"https://{host}/@{safe_username}",
+        ]
     return [
-        f"https://twitterwebviewer.com/?user={safe_username}&page={page}",
-        f"https://twitterwebviewer.com/?q={safe_query_username}&page={page}",
-        f"https://twitterwebviewer.com/?q={safe_query_username}",
-        f"https://twitterwebviewer.com/{safe_username}",
-        f"https://twitterwebviewer.com/@{safe_username}",
+        f"https://{host}/{safe_username}",
+        f"https://{host}/{safe_username}/with_replies",
+        f"https://{host}/search?f=tweets&q=from%3A{safe_username}",
     ]
 
 
@@ -570,20 +589,23 @@ def _iter_pages(
 ) -> Iterable[str]:
     for page in range(1, max_pages + 1):
         responses: list[str] = []
-        for target_url in _candidate_page_urls(username=username, page=page):
-            request_url = target_url
-            params = None
-            if render_proxy_template:
-                request_url = render_proxy_template.format(url=quote(target_url, safe=""))
+        for host in _source_hosts():
+            for target_url in _candidate_page_urls(username=username, page=page, host=host):
+                request_url = target_url
+                params = None
+                if render_proxy_template:
+                    request_url = render_proxy_template.format(url=quote(target_url, safe=""))
+                try:
+                    response = session.get(request_url, params=params, timeout=timeout)
+                except requests.RequestException:
+                    continue
 
-            response = session.get(request_url, params=params, timeout=timeout)
+                if response.status_code != 200:
+                    continue
 
-            if response.status_code != 200:
-                continue
-
-            html = response.text.strip()
-            if html:
-                responses.append(html)
+                html = response.text.strip()
+                if html:
+                    responses.append(html)
 
         if not responses:
             break
@@ -740,7 +762,7 @@ def collect_twitter_posts(
     if not username or not username.strip():
         raise ValueError("username must be a non-empty string")
 
-    normalized_username = username.strip().lstrip("@")
+    normalized_username = username.strip().lstrip("@").lower()
     window = _parse_collection_window(collection_window)
     now = datetime.now(timezone.utc)
     cutoff = now - window

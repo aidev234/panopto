@@ -13,8 +13,9 @@ from urllib.parse import quote, urljoin
 
 import requests
 from bs4 import BeautifulSoup
+from requests import RequestException
 
-from panopto.errors import UsernameNotFoundError
+from panopto.errors import SourceAccessBlockedError, UsernameNotFoundError
 
 DEFAULT_HEADERS = {
     "User-Agent": (
@@ -22,6 +23,14 @@ DEFAULT_HEADERS = {
         "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
     )
 }
+
+BLOCK_PAGE_MARKERS = (
+    "just a moment",
+    "verify you are human",
+    "attention required",
+    "cloudflare",
+    "captcha",
+)
 
 
 @dataclass
@@ -166,28 +175,162 @@ def _iter_pages(
 ) -> Iterable[str]:
     safe_username = quote(username, safe="")
     for page in range(1, max_pages + 1):
-        url = f"https://www.tikvib.com/profile/{safe_username}"
+        url_variants = [
+            f"https://www.tikvib.com/profile/{safe_username}",
+            f"https://www.tikvib.com/profile/@{safe_username}",
+        ]
         if page > 1:
-            url = f"{url}?page={page}"
-        response = session.get(url, timeout=timeout)
-        if response.status_code == 404:
-            raise UsernameNotFoundError(platform="tiktok", username=username)
-        response.raise_for_status()
-        html = response.text
-        if not html.strip():
+            url_variants = [f"{url}?page={page}" for url in url_variants]
+        page_html = ""
+        saw_non_404 = False
+        for url in url_variants:
+            response = session.get(url, timeout=timeout)
+            if response.status_code == 404:
+                continue
+            saw_non_404 = True
+            response.raise_for_status()
+            html = response.text
+            if html.strip():
+                page_html = html
+                break
+        if not page_html:
             break
-        yield html
+        yield page_html
         if request_delay_seconds > 0 and page < max_pages:
             time.sleep(request_delay_seconds + random.uniform(0.0, 0.35))
+
+
+def _looks_like_block_page(html: str) -> bool:
+    lower = str(html or "").lower()
+    return any(marker in lower for marker in BLOCK_PAGE_MARKERS)
+
+
+def _iter_rendered_pages(
+    username: str,
+    max_pages: int,
+    timeout: int,
+) -> Iterable[str]:
+    try:
+        from playwright.sync_api import sync_playwright  # type: ignore
+    except ImportError:
+        return []
+
+    url = f"https://www.tikvib.com/profile/{quote(username, safe='')}"
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        context = browser.new_context(
+            user_agent=DEFAULT_HEADERS["User-Agent"],
+            locale="en-US",
+            timezone_id="UTC",
+            viewport={"width": 1360, "height": 900},
+            extra_http_headers={"Accept-Language": "en-US,en;q=0.9"},
+        )
+        context.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined});")
+        page = context.new_page()
+        try:
+            page.goto(url, wait_until="domcontentloaded", timeout=timeout * 1000)
+            page.wait_for_timeout(1400)
+            snapshots: list[str] = []
+            previous_height = 0
+            stagnant_rounds = 0
+
+            for _ in range(max(2, max_pages * 2)):
+                try:
+                    page.evaluate(
+                        """
+                        () => {
+                          const closeTokens = ['close', 'dismiss', 'cancel', 'not now', 'skip', 'accept', 'allow', 'agree', 'ok', 'x'];
+                          const nodes = Array.from(document.querySelectorAll('button, [role="button"], .close, .modal-close'));
+                          for (const node of nodes) {
+                            const text = ((node.textContent || '') + ' ' + (node.getAttribute('aria-label') || '')).toLowerCase();
+                            const cls = String(node.className || '').toLowerCase();
+                            if (!text.trim() && !cls.trim()) continue;
+                            if (closeTokens.some((token) => text.includes(token) || cls.includes(token))) {
+                              node.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+                            }
+                          }
+                        }
+                        """
+                    )
+                except Exception:
+                    pass
+
+                snapshots.append(page.content())
+                current_height = int(page.evaluate("() => document.body ? document.body.scrollHeight : 0"))
+                if current_height <= previous_height:
+                    stagnant_rounds += 1
+                else:
+                    stagnant_rounds = 0
+                previous_height = current_height
+                if stagnant_rounds >= 2:
+                    break
+
+                page.mouse.wheel(0, 2600)
+                page.wait_for_timeout(1200)
+
+            return snapshots
+        finally:
+            context.close()
+            browser.close()
+
+
+def _iter_official_rendered_pages(
+    username: str,
+    max_pages: int,
+    timeout: int,
+) -> Iterable[str]:
+    try:
+        from playwright.sync_api import sync_playwright  # type: ignore
+    except ImportError:
+        return []
+
+    url = f"https://www.tiktok.com/@{quote(username, safe='')}"
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        context = browser.new_context(
+            user_agent=DEFAULT_HEADERS["User-Agent"],
+            locale="en-US",
+            timezone_id="UTC",
+            viewport={"width": 1360, "height": 900},
+            extra_http_headers={"Accept-Language": "en-US,en;q=0.9"},
+        )
+        context.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined});")
+        page = context.new_page()
+        try:
+            page.goto(url, wait_until="domcontentloaded", timeout=timeout * 1000)
+            page.wait_for_timeout(1700)
+            snapshots: list[str] = []
+            previous_height = 0
+            stagnant_rounds = 0
+            for _ in range(max(3, max_pages * 3)):
+                snapshots.append(page.content())
+                current_height = int(page.evaluate("() => document.body ? document.body.scrollHeight : 0"))
+                if current_height <= previous_height:
+                    stagnant_rounds += 1
+                else:
+                    stagnant_rounds = 0
+                previous_height = current_height
+                if stagnant_rounds >= 2:
+                    break
+                page.mouse.wheel(0, 2800)
+                page.wait_for_timeout(1300)
+            return snapshots
+        finally:
+            context.close()
+            browser.close()
 
 
 def _extract_posts_from_html(username: str, html: str, *, now_utc: datetime) -> list[TikTokPost]:
     soup = BeautifulSoup(html, "html.parser")
     posts: list[TikTokPost] = []
 
-    candidates = soup.select("article, .video-item, .post-item, [data-video-id], [data-post-id]")
+    candidates = soup.select("article, .video-item, .post-item, [data-video-id], [data-post-id], [data-e2e='user-post-item']")
     if not candidates:
-        candidates = [link.parent for link in soup.select("a[href*='/video/']") if link.parent]
+        candidates = [
+            link.parent
+            for link in soup.select("a[href*='/video/'], a[href*='tiktok.com/@'], a[href^='/@']")
+            if link.parent
+        ]
 
     for item in candidates:
         stats_text = item.get_text(" ", strip=True)
@@ -232,7 +375,7 @@ def _extract_posts_from_html(username: str, html: str, *, now_utc: datetime) -> 
             if image:
                 thumbnail_url = image.get("src") or image.get("data-src")
 
-        source_link = item.select_one("a[href*='/video/']")
+        source_link = item.select_one("a[href*='/video/'], a[href*='tiktok.com/@'], a[href^='/@']")
         source_href = source_link.get("href") if source_link else ""
 
         post_id = item.get("data-video-id") or item.get("data-post-id")
@@ -243,7 +386,12 @@ def _extract_posts_from_html(username: str, html: str, *, now_utc: datetime) -> 
 
         source_url = None
         if source_href:
-            source_url = urljoin("https://www.tikvib.com", source_href)
+            if re.match(r"^https?://", source_href, flags=re.IGNORECASE):
+                source_url = source_href
+            elif source_href.startswith("/@"):
+                source_url = urljoin("https://www.tiktok.com", source_href)
+            else:
+                source_url = urljoin("https://www.tikvib.com", source_href)
         elif post_id:
             source_url = f"https://www.tikvib.com/profile/{username}/video/{post_id}"
 
@@ -251,9 +399,7 @@ def _extract_posts_from_html(username: str, html: str, *, now_utc: datetime) -> 
         comments = _extract_metric(stats_text, ["comment", "comments"])
         views = _extract_metric(stats_text, ["view", "views", "plays"])
 
-        if not content and not video_url:
-            continue
-        if not post_id and not source_url and not video_url:
+        if not post_id and not source_url and not video_url and not thumbnail_url:
             continue
 
         posts.append(
@@ -274,6 +420,55 @@ def _extract_posts_from_html(username: str, html: str, *, now_utc: datetime) -> 
             )
         )
 
+    if posts:
+        return posts
+
+    # Fallback for script-heavy pages where anchors are embedded in JSON payloads.
+    normalized_html = html.replace("\\/", "/").replace("\\u002F", "/")
+    link_pattern = re.compile(
+        r"(https?://(?:www\.)?tiktok\.com/@[A-Za-z0-9._-]+/video/\d+/?|/@[A-Za-z0-9._-]+/video/\d+/?)"
+    )
+    for match in link_pattern.findall(normalized_html):
+        href = str(match).strip()
+        source_url = href if href.startswith("http") else urljoin("https://www.tiktok.com", href)
+        id_match = re.search(r"/video/(\d+)", source_url)
+        post_id = id_match.group(1) if id_match else None
+        posts.append(
+            TikTokPost(
+                post_id=post_id,
+                username=username,
+                content="(video)",
+                timestamp=None,
+                likes=None,
+                comments=None,
+                views=None,
+                source_url=source_url,
+                video_url=None,
+                thumbnail_url=None,
+                raw_metadata={"fallback_source": "regex_link"},
+            )
+        )
+    if posts:
+        return posts
+
+    # Final fallback for payloads that only expose video ids.
+    id_pattern = re.compile(r'"(?:videoId|aweme_id|itemId|id)"\s*:\s*"(\d{6,})"')
+    for video_id in id_pattern.findall(normalized_html):
+        posts.append(
+            TikTokPost(
+                post_id=video_id,
+                username=username,
+                content="(video)",
+                timestamp=None,
+                likes=None,
+                comments=None,
+                views=None,
+                source_url=f"https://www.tiktok.com/@{username}/video/{video_id}",
+                video_url=None,
+                thumbnail_url=None,
+                raw_metadata={"fallback_source": "id_payload"},
+            )
+        )
     return posts
 
 
@@ -285,38 +480,75 @@ def collect_tiktok_posts(
     request_delay_seconds: float = 1.0,
     timeout: int = 20,
     proxies: dict[str, str] | None = None,
+    browser_fallback: bool = True,
 ) -> list[dict[str, Any]]:
     """Collect TikTok profile posts from tikvib.com."""
     if not username or not username.strip():
         raise ValueError("username must be a non-empty string")
 
-    normalized_username = username.strip().lstrip("@")
+    normalized_username = username.strip().lstrip("@").lower()
     cutoff = datetime.now(timezone.utc) - _parse_collection_window(collection_window)
     now_utc = datetime.now(timezone.utc)
     collected: list[TikTokPost] = []
-    user_missing_signal = False
+    blocked_detected = False
 
+    static_fetch_failed = False
     with requests.Session() as session:
         session.headers.update(DEFAULT_HEADERS)
         if proxies:
             session.proxies.update(proxies)
 
-        for html in _iter_pages(
-            session,
+        try:
+            for html in _iter_pages(
+                session,
+                normalized_username,
+                max_pages=max_pages,
+                request_delay_seconds=request_delay_seconds,
+                timeout=timeout,
+            ):
+                if _looks_like_block_page(html):
+                    blocked_detected = True
+                    continue
+                page_posts = _extract_posts_from_html(normalized_username, html, now_utc=now_utc)
+                if not page_posts:
+                    continue
+                collected.extend(page_posts)
+        except RequestException as exc:
+            # Allow browser fallback to recover from transient block/rate-limit paths.
+            static_fetch_failed = True
+            response = getattr(exc, "response", None)
+            if response is not None and getattr(response, "status_code", 0) in {403, 429}:
+                blocked_detected = True
+
+    if browser_fallback and (not collected or static_fetch_failed):
+        for rendered_html in _iter_rendered_pages(
             normalized_username,
             max_pages=max_pages,
-            request_delay_seconds=request_delay_seconds,
-            timeout=timeout,
+            timeout=max(timeout, 40),
         ):
-            page_posts = _extract_posts_from_html(normalized_username, html, now_utc=now_utc)
-            if not page_posts and _page_indicates_missing_user(html):
-                user_missing_signal = True
+            page_posts = _extract_posts_from_html(normalized_username, rendered_html, now_utc=now_utc)
+            if _looks_like_block_page(rendered_html):
+                blocked_detected = True
+            if not page_posts and _looks_like_block_page(rendered_html):
+                continue
             if not page_posts:
                 continue
             collected.extend(page_posts)
 
-    if not collected and user_missing_signal:
-        raise UsernameNotFoundError(platform="tiktok", username=normalized_username)
+    if browser_fallback and not collected:
+        for rendered_html in _iter_official_rendered_pages(
+            normalized_username,
+            max_pages=max_pages,
+            timeout=max(timeout, 45),
+        ):
+            page_posts = _extract_posts_from_html(normalized_username, rendered_html, now_utc=now_utc)
+            if _looks_like_block_page(rendered_html):
+                blocked_detected = True
+            if not page_posts and _looks_like_block_page(rendered_html):
+                continue
+            if not page_posts:
+                continue
+            collected.extend(page_posts)
 
     best_by_post_id: dict[str, TikTokPost] = {}
     posts_without_id: list[TikTokPost] = []
@@ -365,6 +597,9 @@ def collect_tiktok_posts(
                 "metadata": metadata,
             }
         )
+
+    if not rows and blocked_detected:
+        raise SourceAccessBlockedError(platform="tiktok", username=normalized_username)
 
     rows.sort(key=lambda post: post["timestamp"] or "", reverse=True)
     return rows

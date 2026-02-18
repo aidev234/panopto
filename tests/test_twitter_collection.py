@@ -1,12 +1,51 @@
 import unittest
 from datetime import datetime, timedelta, timezone
+from types import SimpleNamespace
 from unittest.mock import patch
+
+import requests
 
 from panopto.errors import UsernameNotFoundError
 import panopto.collectors.twitter as twitter_collection
 
 
 class TestTwitterCollection(unittest.TestCase):
+    def test_source_hosts_prefers_env_override(self):
+        with patch.dict("os.environ", {"TWITTER_SOURCE_HOSTS": "xcancel.com, nitter.net"}):
+            hosts = twitter_collection._source_hosts()
+        self.assertEqual(hosts, ["xcancel.com", "nitter.net"])
+
+    def test_iter_pages_ignores_request_exceptions_and_uses_next_candidate(self):
+        html = "<article data-tweet-id='1'><div class='tweet-text'>ok</div></article>"
+        session = SimpleNamespace()
+        responses = iter(
+            [
+                requests.ConnectionError("dns fail"),
+                SimpleNamespace(status_code=200, text=html),
+            ]
+        )
+
+        def _fake_get(*_args, **_kwargs):
+            value = next(responses, SimpleNamespace(status_code=404, text=""))
+            if isinstance(value, Exception):
+                raise value
+            return value
+
+        session.get = _fake_get
+        with patch("panopto.collectors.twitter._source_hosts", return_value=["twitterwebviewer.com"]):
+            pages = list(
+                twitter_collection._iter_pages(
+                    username="sama",
+                    session=session,
+                    max_pages=1,
+                    delay_seconds=0.0,
+                    timeout=2,
+                    render_proxy_template=None,
+                )
+            )
+        self.assertEqual(len(pages), 1)
+        self.assertIn("tweet-text", pages[0])
+
     def test_extract_posts_from_html_parses_content_timestamp_and_stats(self):
         html = """
         <article data-tweet-id="1">

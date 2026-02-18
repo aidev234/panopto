@@ -56,8 +56,63 @@ VIOLENT_INTENT_PHRASES: list[str] = [
     "slaughter them", "be slaughtered", "to die",
 ]
 
-INDICATOR_SUBCATEGORY_CAPABILITY = "Possible Indicators of Capability"
-INDICATOR_SUBCATEGORY_VIOLENT_INTENT = "Possible Indicators of Violent Intent"
+# Telerecon indicators.py - ideological indicator categories.
+IDEOLOGICAL_CATEGORY_PHRASES: dict[str, list[str]] = {
+    "Racism/Hate Speech": [
+        "moslem", "mulatto", "sand nigger", "sandnig", "nigger", "mogger", "negroid", "jew", "kike", "zogbot",
+        "chink", "paki", "mudslime", "mudshit", "femoid", "foid", "mongrel", "towelhead", "muzzies",
+        "shit skin", "shitskin", "spics", "gooks", "rapefugees", "fag", "fags", "faggot", "faggots", "groomer",
+        "groomers", "tranny", "trannys", "jewish", "gibsmedat", "goy", "soyboy", "soyboys",
+    ],
+    "Indicators - White Identity Motivated Extremism": [
+        "white genocide", "cultural marxism", "the great replacement", "white race", "demographic replacement",
+        "white lives matter", "white pride", "ethnostate", "hitler", "tarrant", "brevik", "white nationalist",
+        "ethno-nationalist", "kebab removalist", "remove kebab", "aryan", "1488", "14-88", "14/88", "1788",
+        "88/hh", "blood and soil", "race war now", "rahowa", "racial holy war", "fgrn", "gtkrwn", "iotbw",
+        "jewish question", "accelerate", "accelerationist", "sieg heil", "siege pill", "white power", "goyim",
+        "zyklon b", "14 words", "race traitor", "race traitors", "day of the rope", "waffen", "iron pill",
+        "zog", "terrorgram", "national socialist", "national socialism", "khazarian", "ashkenazis", "tradwife",
+        "tradthot", "cultural jihad", "pro western values", "western culture", "kek", "did nothing wrong",
+        "its okay to be white", "it's okay to be white", "white is right", "pro-white activism", "coal burner",
+        "6mwne", "holocauster", "holohoax", "clown world", "james mason", "accelerationism",
+    ],
+    "Indicators - Faith Motivated Extremism": [
+        "jihad", "holy war", "apostate", "the apostates", "tyrants", "the crusader coalition",
+        "soldiers of the caliphate", "lions of the islamic state", "in the shadow of the caliphate",
+        "remaining and expanding", "encyclopedia of jihad", "mujahad", "rawafidh", "istishaadi",
+        "baqiya wa tatamaddad", "al-tawaghit", "shariyah", "amaq agency", "al-hayat", "al-emarah", "dabiq",
+    ],
+    "Indicators - Conspiratorial Ideation": [
+        "great awakening", "globalist", "globalists", "new world order", "wwg1wga", "the storm", "chemtrails",
+        "freemasons", "illuminati", "deep state", "adrenochrome", "cabal", "rothschilds", "nuremberg",
+        "nuremburg", "crimes against humanity", "great reset", "agenda 2030", "agenda 21", "world economic forum",
+        "false flag", "microchipped", "microchips", "pizzagate", "sheeple", "geotus",
+    ],
+    "Indicators - Sovereign Citizen": [
+        "sovereign citizen", "sovreign citizen", "free man", "free woman", "flesh and blood", "common law",
+        "admiralty law", "non-resident alien", "14th amendment", "legal fiction", "affidavit of truth",
+        "birth certificate bond", "non-domiciled resident", "natural law", "freeman passport",
+        "constitutional sheriff", "nontaxpayer", "informed consent", "commercial redemption",
+        "freemen standby act", "strawman", "man on the land", "in admiralty", "living soul", "letters of marque",
+        "settlor", "quantum grammar", "magna carta", "maritime law", "policy officer", "postmaster",
+        "artificial construct", "lawful dissent", "in the private", "living man", "living woman",
+        "maxim of law", "uniform commercial code", "corpus juris", "sui juris",
+    ],
+    "Indicators - Involuntary Celibate": [
+        "foid", "femoid", "dog pill", "dog pilled", "red pill", "red pilled", "going er", "truecel", "incel",
+        "chad", "fakecel", "black pilled", "blackpilled", "ragefuel", "rape fuel", "ropefuel",
+        "supreme gentleman", "elliot rodger", "braincels", "genetically inferior", "roasties", "smv",
+        "sexual market value", "cucks", "manosphere", "incels", "mens rights activists", "mgtow",
+        "men going their own way", "alpha male", "beta male", "omega male", "gamma male",
+    ],
+    "Indicators - Dehumanizing Rhetoric": [
+        "parasite", "scum", "demon", "demonic", "soulless", "vermin", "parasites", "mongrel", "mongrels",
+        "leeches", "leech", "maggot", "maggots", "sub-human",
+    ],
+}
+
+THREAT_SIGNAL_SUBCATEGORY_CAPABILITY = "Possible Indicators of Capability"
+THREAT_SIGNAL_SUBCATEGORY_VIOLENT_INTENT = "Possible Indicators of Violent Intent"
 
 SELECTOR_PHRASES: list[str] = [
     "where i work", "where i live", "where i grew up", "my wife", "my husband", "my children", "my kids", "my kid",
@@ -100,6 +155,47 @@ def _find_phrase_matches(text: str, phrases: list[str]) -> list[str]:
     return _unique_preserve_order(output)
 
 
+def _find_phrase_spans(text: str, phrases: list[str]) -> list[tuple[str, int, int]]:
+    spans: list[tuple[str, int, int]] = []
+    for phrase in phrases:
+        pattern = _compile_phrase_pattern(phrase)
+        for match in pattern.finditer(text):
+            spans.append((phrase, match.start(), match.end()))
+    return spans
+
+
+def _word_gap_between_spans(text: str, span_a: tuple[int, int], span_b: tuple[int, int]) -> int:
+    a_start, a_end = span_a
+    b_start, b_end = span_b
+    if a_end <= b_start:
+        segment = text[a_end:b_start]
+    elif b_end <= a_start:
+        segment = text[b_end:a_start]
+    else:
+        return 0
+    return len(re.findall(r"\b\w+\b", segment))
+
+
+def _find_capability_proximity_matches(text: str, *, max_gap_words: int = 5) -> tuple[list[str], list[str]]:
+    action_hits: list[str] = []
+    object_hits: list[str] = []
+    sentences = [segment for segment in re.split(r"(?<=[.!?])\s+", text) if segment.strip()]
+    for sentence in sentences:
+        action_spans = _find_phrase_spans(sentence, CAPABILITY_ACTION_PHRASES)
+        object_spans = _find_phrase_spans(sentence, CAPABILITY_OBJECT_PHRASES)
+        if not action_spans or not object_spans:
+            continue
+        for action_phrase, action_start, action_end in action_spans:
+            for object_phrase, object_start, object_end in object_spans:
+                gap = _word_gap_between_spans(sentence, (action_start, action_end), (object_start, object_end))
+                if gap > max_gap_words:
+                    continue
+                action_hits.append(action_phrase)
+                object_hits.append(object_phrase)
+
+    return _unique_preserve_order(action_hits), _unique_preserve_order(object_hits)
+
+
 def _extract_phones(text: str) -> list[str]:
     phones: list[str] = []
     for match in PHONE_RE.finditer(text):
@@ -111,15 +207,16 @@ def _extract_phones(text: str) -> list[str]:
     return _unique_preserve_order(phones)
 
 
-def _has_capability_proximity(text: str) -> bool:
-    action_group = "|".join(re.escape(item) for item in CAPABILITY_ACTION_PHRASES if item)
-    object_group = "|".join(re.escape(item) for item in CAPABILITY_OBJECT_PHRASES if item)
-    pattern = re.compile(
-        rf"(?:(?<!\w)(?:{action_group})(?!\w)(?:\W+\w+){{0,5}}\W+(?<!\w)(?:{object_group})(?!\w))"
-        rf"|(?:(?<!\w)(?:{object_group})(?!\w)(?:\W+\w+){{0,5}}\W+(?<!\w)(?:{action_group})(?!\w))",
-        re.IGNORECASE,
-    )
-    return bool(pattern.search(text))
+def _extract_ideological_indicator_matches(text: str) -> tuple[list[str], list[str]]:
+    categories: list[str] = []
+    matches: list[str] = []
+    for category, phrases in IDEOLOGICAL_CATEGORY_PHRASES.items():
+        hits = _find_phrase_matches(text, phrases)
+        if not hits:
+            continue
+        categories.append(category)
+        matches.extend(hits)
+    return _unique_preserve_order(categories), _unique_preserve_order(matches)
 
 
 def extract_threat_and_selector_signals(text: str) -> dict[str, Any]:
@@ -127,36 +224,46 @@ def extract_threat_and_selector_signals(text: str) -> dict[str, Any]:
     if not content.strip():
         return {
             "threat_matches": [],
+            "threat_signal_matches": [],
             "selector_matches": [],
             "threat_categories": [],
+            "threat_signal_categories": [],
+            "ideological_matches": [],
             "emails": [],
             "phones": [],
         }
 
-    threat_matches: list[str] = []
-    threat_categories: list[str] = []
+    threat_signal_matches: list[str] = []
+    threat_signal_categories: list[str] = []
 
-    capability_actions = _find_phrase_matches(content, CAPABILITY_ACTION_PHRASES)
-    capability_objects = _find_phrase_matches(content, CAPABILITY_OBJECT_PHRASES)
-    if capability_actions and capability_objects and _has_capability_proximity(content):
-        threat_categories.append(INDICATOR_SUBCATEGORY_CAPABILITY)
-        threat_matches.extend(capability_actions)
-        threat_matches.extend(capability_objects)
+    capability_actions, capability_objects = _find_capability_proximity_matches(content)
+    if capability_actions and capability_objects:
+        threat_signal_categories.append(THREAT_SIGNAL_SUBCATEGORY_CAPABILITY)
+        threat_signal_matches.extend(capability_actions)
+        threat_signal_matches.extend(capability_objects)
 
     violent_matches = _find_phrase_matches(content, VIOLENT_INTENT_PHRASES)
     if violent_matches:
-        threat_categories.append(INDICATOR_SUBCATEGORY_VIOLENT_INTENT)
-        threat_matches.extend(violent_matches)
+        threat_signal_categories.append(THREAT_SIGNAL_SUBCATEGORY_VIOLENT_INTENT)
+        threat_signal_matches.extend(violent_matches)
+
+    ideological_categories, ideological_matches = _extract_ideological_indicator_matches(content)
 
     selector_phrase_matches = _find_phrase_matches(content, SELECTOR_PHRASES)
     emails = _unique_preserve_order(EMAIL_RE.findall(content))
     phones = _extract_phones(content)
-
     selector_matches = _unique_preserve_order(selector_phrase_matches + emails + phones)
+
+    threat_signal_matches = _unique_preserve_order(threat_signal_matches)
     return {
-        "threat_matches": _unique_preserve_order(threat_matches),
+        # Backward-compatible name used by highlighting and threat-signal panel.
+        "threat_matches": threat_signal_matches,
+        "threat_signal_matches": threat_signal_matches,
+        # Ideological categories for the "Ideological Indicators" panel.
+        "threat_categories": ideological_categories,
+        "threat_signal_categories": threat_signal_categories,
+        "ideological_matches": ideological_matches,
         "selector_matches": selector_matches,
-        "threat_categories": threat_categories,
         "emails": emails,
         "phones": phones,
     }
@@ -164,13 +271,19 @@ def extract_threat_and_selector_signals(text: str) -> dict[str, Any]:
 
 def build_signal_tags(signal_payload: dict[str, Any]) -> list[str]:
     tags: list[str] = []
-    threat_matches = signal_payload.get("threat_matches") or []
+    threat_signal_matches = signal_payload.get("threat_signal_matches")
+    if threat_signal_matches is None:
+        threat_signal_matches = signal_payload.get("threat_matches") or []
     selector_matches = signal_payload.get("selector_matches") or []
+    ideological_categories = signal_payload.get("threat_categories") or []
+    threat_signal_categories = signal_payload.get("threat_signal_categories") or []
 
-    if threat_matches:
+    if threat_signal_matches:
         tags.extend(["threat:indicator", "indicator:match"])
-    for category in signal_payload.get("threat_categories") or []:
+    for category in threat_signal_categories:
         tags.append(f"threat:{_slugify(str(category))}")
+        tags.append(f"indicator:{_slugify(str(category))}")
+    for category in ideological_categories:
         tags.append(f"indicator:{_slugify(str(category))}")
 
     if selector_matches:

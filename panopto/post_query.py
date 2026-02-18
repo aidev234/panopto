@@ -230,7 +230,7 @@ def _matches_tags(post: dict[str, Any], include_tags: set[str], exclude_tags: se
     exclude_tags = {normalize_tag(tag) for tag in exclude_tags}
 
     type_tags = {"post", "repost", "reply", "quote", "comment"}
-    platform_tags = {"twitter", "reddit", "tiktok", "bluesky", "youtube"}
+    platform_tags = {"twitter", "reddit", "tiktok", "bluesky", "instagram", "youtube"}
     include_theme_tags = {tag for tag in include_tags if tag.startswith("theme:")}
     include_platform_tags = include_tags.intersection(platform_tags)
     include_types = include_tags.intersection(type_tags)
@@ -334,7 +334,7 @@ def _fetch_posts(db_path: Path) -> Iterable[dict[str, str]]:
                 tags.append(entity_tag)
         tags.extend(build_signal_tags(signals))
         tags = list(dict.fromkeys(tags))
-        platform_name = {"twitter": "Twitter", "reddit": "Reddit", "tiktok": "TikTok", "bluesky": "Bluesky", "youtube": "YouTube"}.get(
+        platform_name = {"twitter": "Twitter", "reddit": "Reddit", "tiktok": "TikTok", "bluesky": "Bluesky", "instagram": "Instagram", "youtube": "YouTube"}.get(
             platform_slug, platform.strip() or "Unknown"
         )
         posts.append(
@@ -353,6 +353,8 @@ def _fetch_posts(db_path: Path) -> Iterable[dict[str, str]]:
                 "entities": entities,
                 "threat_matches": signals.get("threat_matches", []),
                 "threat_categories": signals.get("threat_categories", []),
+                "threat_signal_categories": signals.get("threat_signal_categories", []),
+                "ideological_matches": signals.get("ideological_matches", []),
                 "selector_matches": signals.get("selector_matches", []),
                 "emails": signals.get("emails", []),
                 "phones": signals.get("phones", []),
