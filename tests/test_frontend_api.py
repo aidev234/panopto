@@ -26,21 +26,17 @@ def _seed_db(db_path):
                 post_type TEXT NOT NULL DEFAULT 'post',
                 source_url TEXT,
                 referenced_username TEXT,
-                topic_id INTEGER,
-                theme_label TEXT,
-                theme_keywords TEXT,
-                theme_tag TEXT,
                 raw_metadata TEXT,
                 collected_at TEXT NOT NULL
             )
             """
         )
         conn.executemany(
-            "INSERT INTO twitter_posts (username, content, timestamp, post_type, source_url, theme_label, theme_tag, collected_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO twitter_posts (username, content, timestamp, post_type, source_url, collected_at) VALUES (?, ?, ?, ?, ?, ?)",
             [
-                ("alice", "I live in New York", "2024-01-10T00:00:00", "post", "https://x.com/alice/status/1", "city / home", "theme:city-home", "2024-01-10T00:00:00"),
-                ("bob", "Moving to Boston", "2024-01-01T00:00:00", "reply", "https://x.com/bob/status/2", "relocation", "theme:relocation", "2024-01-01T00:00:00"),
-                ("carol", "New York trip", "2024-01-05T00:00:00", "repost", "https://x.com/carol/status/3", "city / travel", "theme:city-travel", "2024-01-05T00:00:00"),
+                ("alice", "I live in New York", "2024-01-10T00:00:00", "post", "https://x.com/alice/status/1", "2024-01-10T00:00:00"),
+                ("bob", "Moving to Boston", "2024-01-01T00:00:00", "reply", "https://x.com/bob/status/2", "2024-01-01T00:00:00"),
+                ("carol", "New York trip", "2024-01-05T00:00:00", "repost", "https://x.com/carol/status/3", "2024-01-05T00:00:00"),
             ],
         )
         conn.commit()
@@ -172,44 +168,6 @@ def test_query_posts_date_range_filter(tmp_path):
 
     assert payload["count"] == 1
     assert payload["posts"][0]["username"] == "alice"
-
-
-def test_theme_aggregates_and_theme_tag_filter(tmp_path):
-    db_path = tmp_path / "osint_data.db"
-    _seed_db(db_path)
-
-    payload = query_posts(db_path=db_path)
-    theme_filtered = query_posts(db_path=db_path, include_tags={"theme:city-home", "theme:relocation"})
-
-    assert payload["themes"]
-    assert payload["themes"][0]["count"] >= 1
-    assert theme_filtered["count"] == 2
-
-
-def test_theme_aggregates_exclude_temporal_only_labels(tmp_path):
-    db_path = tmp_path / "osint_data.db"
-    _seed_db(db_path)
-    with sqlite3.connect(db_path) as conn:
-        conn.execute(
-            "INSERT INTO twitter_posts (username, content, timestamp, post_type, source_url, theme_label, theme_tag, collected_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            (
-                "dave",
-                "Temporal label test",
-                "2024-01-06T00:00:00",
-                "post",
-                "https://x.com/dave/status/4",
-                "7d / 3d",
-                "theme:7d-3d",
-                "2024-01-06T00:00:00",
-            ),
-        )
-        conn.commit()
-
-    payload = query_posts(db_path=db_path)
-    theme_tags = {theme["tag"] for theme in payload["themes"]}
-
-    assert payload["count"] == 4
-    assert "theme:7d-3d" not in theme_tags
 
 
 def test_query_posts_supports_tiktok_platform_and_video_metadata(tmp_path):
@@ -490,6 +448,66 @@ def test_query_posts_extracts_threat_and_selector_signals(tmp_path):
     assert "threat:indicator" in post["tags"]
 
 
+def test_query_posts_exposes_llm_assessment_fields(tmp_path):
+    db_path = tmp_path / "osint_data.db"
+    with sqlite3.connect(db_path) as conn:
+        conn.execute(
+            """
+            CREATE TABLE twitter_posts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                source_post_id TEXT,
+                username TEXT NOT NULL,
+                content TEXT NOT NULL,
+                timestamp TEXT,
+                likes INTEGER,
+                retweets INTEGER,
+                replies INTEGER,
+                post_type TEXT NOT NULL DEFAULT 'post',
+                source_url TEXT,
+                referenced_username TEXT,
+                platform TEXT NOT NULL DEFAULT 'Twitter',
+                raw_metadata TEXT,
+                collected_at TEXT NOT NULL
+            )
+            """
+        )
+        conn.execute(
+            "INSERT INTO twitter_posts (source_post_id, username, content, timestamp, post_type, platform, raw_metadata, collected_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                "llm1",
+                "demo",
+                "I am forced to act, it is carved into me",
+                "2026-02-12T18:15:54+00:00",
+                "post",
+                "Twitter",
+                json.dumps(
+                    {
+                        "llm_assessment": {
+                            "primary_warning_behaviours": ["Last Resort"],
+                            "secondary_risk_factors": ["Negative Emotional State", "Violent Ideation"],
+                            "underlying_theme": "Perceived compulsion/destiny to act violently",
+                            "risk_level": "High",
+                            "confidence": "high",
+                            "source": "demo_dataset",
+                        }
+                    }
+                ),
+                "2026-02-12T18:16:00+00:00",
+            ),
+        )
+        conn.commit()
+
+    payload = query_posts(db_path=db_path)
+    assert payload["count"] == 1
+    post = payload["posts"][0]
+    assert post["llm_primary_warning_behaviours"] == ["Last Resort"]
+    assert "Negative Emotional State" in post["llm_secondary_risk_factors"]
+    assert post["llm_underlying_theme"] == "Perceived compulsion/destiny to act violently"
+    assert post["llm_risk_level"] == "High"
+    assert "llm:primary-warning" in post["tags"]
+    assert "llm:secondary-risk" in post["tags"]
+
+
 def test_collect_endpoint_rejects_invalid_dates():
     handler = PostExplorerHandler.__new__(PostExplorerHandler)
     body = json.dumps({"username": "sama", "start_date": "2026-02-20", "end_date": "2026-02-10"}).encode(
@@ -588,7 +606,7 @@ def test_collect_endpoint_accepts_date_range_in_start_field():
 
     with patch(
         "frontend.server.collect_for_targets",
-        return_value={"count": 0, "posts": [], "themes": [], "collected": 0, "inserted": 0},
+        return_value={"count": 0, "posts": [], "collected": 0, "inserted": 0},
     ):
         handler.do_POST()
 
@@ -621,6 +639,202 @@ def test_collect_endpoint_internal_value_error_returns_500():
     assert responses and responses[0] == 500
     payload = json.loads(handler.wfile.getvalue().decode("utf-8"))
     assert payload["error"]["code"] == "internal_error"
+
+
+def test_query_posts_filters_by_case_id(tmp_path):
+    db_path = tmp_path / "osint_data.db"
+    with sqlite3.connect(db_path) as conn:
+        conn.execute(
+            """
+            CREATE TABLE twitter_posts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                source_post_id TEXT,
+                case_id TEXT,
+                username TEXT NOT NULL,
+                content TEXT NOT NULL,
+                timestamp TEXT,
+                likes INTEGER,
+                retweets INTEGER,
+                replies INTEGER,
+                post_type TEXT NOT NULL DEFAULT 'post',
+                source_url TEXT,
+                referenced_username TEXT,
+                platform TEXT NOT NULL DEFAULT 'Twitter',
+                raw_metadata TEXT,
+                collected_at TEXT NOT NULL
+            )
+            """
+        )
+        conn.executemany(
+            "INSERT INTO twitter_posts (source_post_id, case_id, username, content, timestamp, platform, collected_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            [
+                ("c1", "case_alpha", "alice", "Alpha case post", "2026-02-10T00:00:00+00:00", "Twitter", "2026-02-10T00:00:00+00:00"),
+                ("c2", "case_bravo", "bob", "Bravo case post", "2026-02-10T00:00:00+00:00", "Twitter", "2026-02-10T00:00:00+00:00"),
+            ],
+        )
+        conn.commit()
+
+    payload = query_posts(db_path=db_path, case_id="case_alpha")
+
+    assert payload["count"] == 1
+    assert payload["posts"][0]["content"] == "Alpha case post"
+
+
+def test_cases_api_create_list_delete(tmp_path):
+    db_path = tmp_path / "osint_data.db"
+
+    with patch("frontend.server.DEFAULT_DB_PATH", db_path):
+        create_handler = PostExplorerHandler.__new__(PostExplorerHandler)
+        create_body = json.dumps(
+            {
+                "case_name": "POI Alpha",
+                "status": "Open",
+                "threat_level": "Moderate Threat",
+                "known_location": "Boston",
+                "metadata_tags": ["travel", "financial stress"],
+                "case_notes": {"name": "POI Alpha", "context": "initial context"},
+            }
+        ).encode("utf-8")
+        create_handler.path = "/api/cases"
+        create_handler.headers = {"Content-Length": str(len(create_body))}
+        create_handler.rfile = BytesIO(create_body)
+        create_handler.wfile = BytesIO()
+        create_codes = []
+        create_handler.send_response = lambda code: create_codes.append(code)
+        create_handler.send_header = lambda *args, **kwargs: None
+        create_handler.end_headers = lambda *args, **kwargs: None
+        create_handler.do_POST()
+        assert create_codes and create_codes[0] == 201
+        created = json.loads(create_handler.wfile.getvalue().decode("utf-8"))
+        assert created["case_name"] == "POI Alpha"
+        case_id = created["case_id"]
+
+        list_handler = PostExplorerHandler.__new__(PostExplorerHandler)
+        list_handler.path = "/api/cases"
+        list_handler.headers = {}
+        list_handler.wfile = BytesIO()
+        list_codes = []
+        list_handler.send_response = lambda code: list_codes.append(code)
+        list_handler.send_header = lambda *args, **kwargs: None
+        list_handler.end_headers = lambda *args, **kwargs: None
+        list_handler.do_GET()
+        assert list_codes and list_codes[0] == 200
+        payload = json.loads(list_handler.wfile.getvalue().decode("utf-8"))
+        assert payload["cases"]
+        assert payload["cases"][0]["case_id"] == case_id
+        assert payload["cases"][0]["threat_level"] == "Moderate Threat"
+        assert "travel" in payload["cases"][0]["metadata_tags"]
+        assert payload["cases"][0]["case_notes"]["context"] == "initial context"
+
+        patch_handler = PostExplorerHandler.__new__(PostExplorerHandler)
+        patch_body = json.dumps({"metadata_tags": ["family", "work"], "case_notes": {"context": "updated context"}}).encode("utf-8")
+        patch_handler.path = f"/api/cases/{case_id}"
+        patch_handler.headers = {"Content-Length": str(len(patch_body))}
+        patch_handler.rfile = BytesIO(patch_body)
+        patch_handler.wfile = BytesIO()
+        patch_codes = []
+        patch_handler.send_response = lambda code: patch_codes.append(code)
+        patch_handler.send_header = lambda *args, **kwargs: None
+        patch_handler.end_headers = lambda *args, **kwargs: None
+        patch_handler.do_PATCH()
+        assert patch_codes and patch_codes[0] == 200
+        patched = json.loads(patch_handler.wfile.getvalue().decode("utf-8"))
+        assert patched["metadata_tags"] == ["family", "work"]
+        assert patched["case_notes"]["context"] == "updated context"
+
+        delete_handler = PostExplorerHandler.__new__(PostExplorerHandler)
+        delete_handler.path = f"/api/cases/{case_id}"
+        delete_handler.headers = {}
+        delete_handler.wfile = BytesIO()
+        delete_codes = []
+        delete_handler.send_response = lambda code: delete_codes.append(code)
+        delete_handler.send_header = lambda *args, **kwargs: None
+        delete_handler.end_headers = lambda *args, **kwargs: None
+        delete_handler.do_DELETE()
+        assert delete_codes and delete_codes[0] == 200
+
+
+def test_cases_demo_endpoint_creates_case_and_posts(tmp_path):
+    db_path = tmp_path / "osint_data.db"
+
+    with patch("frontend.server.DEFAULT_DB_PATH", db_path):
+        handler = PostExplorerHandler.__new__(PostExplorerHandler)
+        body = b"{}"
+        handler.path = "/api/cases/demo"
+        handler.headers = {"Content-Length": str(len(body))}
+        handler.rfile = BytesIO(body)
+        handler.wfile = BytesIO()
+        responses = []
+        handler.send_response = lambda code: responses.append(code)
+        handler.send_header = lambda *args, **kwargs: None
+        handler.end_headers = lambda *args, **kwargs: None
+
+        handler.do_POST()
+
+        assert responses and responses[0] == 201
+        payload = json.loads(handler.wfile.getvalue().decode("utf-8"))
+        assert payload["case"]["case_id"]
+        assert payload["case"]["case_notes"]["name"] == "SMITH, John"
+        assert payload["case"]["case_notes"]["known_profiles"]
+        assert payload["inserted_posts"] >= 1
+        posts_payload = query_posts(db_path=db_path, case_id=payload["case"]["case_id"])
+        assert posts_payload["count"] >= 1
+        assert any(
+            (post.get("llm_primary_warning_behaviours") or post.get("llm_secondary_risk_factors"))
+            for post in posts_payload["posts"]
+        )
+
+
+def test_case_notes_pdf_export_endpoint_downloads_pdf(tmp_path):
+    db_path = tmp_path / "osint_data.db"
+
+    with patch("frontend.server.DEFAULT_DB_PATH", db_path):
+        create_handler = PostExplorerHandler.__new__(PostExplorerHandler)
+        create_body = json.dumps(
+            {
+                "case_name": "POI Delta",
+                "status": "Open",
+                "threat_level": "Low Threat",
+                "known_location": "Boston",
+                "case_notes": {
+                    "name": "Delta Subject",
+                    "location": "Boston",
+                    "age": "29",
+                    "akas": "Delta",
+                    "context": "Context section",
+                    "threat_risk_assessment": "Low risk",
+                    "personal_details": "Personal details",
+                    "known_profiles": [{"site": "Twitter/X / @delta", "url": "https://x.com/delta", "screenshot_url": ""}],
+                },
+            }
+        ).encode("utf-8")
+        create_handler.path = "/api/cases"
+        create_handler.headers = {"Content-Length": str(len(create_body))}
+        create_handler.rfile = BytesIO(create_body)
+        create_handler.wfile = BytesIO()
+        create_handler.send_response = lambda code: None
+        create_handler.send_header = lambda *args, **kwargs: None
+        create_handler.end_headers = lambda *args, **kwargs: None
+        create_handler.do_POST()
+        created = json.loads(create_handler.wfile.getvalue().decode("utf-8"))
+        case_id = created["case_id"]
+
+        get_handler = PostExplorerHandler.__new__(PostExplorerHandler)
+        get_handler.path = f"/api/cases/{case_id}/notes.pdf"
+        get_handler.headers = {}
+        get_handler.wfile = BytesIO()
+        response_codes = []
+        response_headers = {}
+        get_handler.send_response = lambda code: response_codes.append(code)
+        get_handler.send_header = lambda key, value: response_headers.__setitem__(key, value)
+        get_handler.end_headers = lambda *args, **kwargs: None
+        get_handler.do_GET()
+
+        assert response_codes and response_codes[0] == 200
+        assert response_headers.get("Content-Type") == "application/pdf"
+        assert "attachment" in str(response_headers.get("Content-Disposition", "")).lower()
+        payload = get_handler.wfile.getvalue()
+        assert payload.startswith(b"%PDF-1.4")
 
 
 def test_collect_start_endpoint_returns_job_id():
@@ -716,7 +930,7 @@ def test_collect_endpoint_username_not_found_returns_404():
     assert payload["error"]["code"] == "username_not_found"
 
 
-def test_recon_endpoint_rejects_missing_username():
+def test_recon_endpoint_rejects_missing_selectors():
     handler = PostExplorerHandler.__new__(PostExplorerHandler)
     body = json.dumps({}).encode("utf-8")
     handler.path = "/api/recon"
@@ -738,7 +952,7 @@ def test_recon_endpoint_rejects_missing_username():
 
 def test_recon_endpoint_returns_targets_and_leads():
     handler = PostExplorerHandler.__new__(PostExplorerHandler)
-    body = json.dumps({"username": "@sama"}).encode("utf-8")
+    body = json.dumps({"selectors": [{"type": "username", "value": "@sama"}]}).encode("utf-8")
     handler.path = "/api/recon"
     handler.headers = {"Content-Length": str(len(body))}
     handler.rfile = BytesIO(body)
@@ -750,9 +964,9 @@ def test_recon_endpoint_returns_targets_and_leads():
     handler.end_headers = lambda *args, **kwargs: None
 
     with patch(
-        "frontend.server.run_username_recon",
+        "frontend.server.run_recon",
         return_value={
-            "username": "sama",
+            "selectors": [{"type": "username", "value": "sama"}],
             "results": [],
             "collection_targets": [{"platform": "twitter", "username": "sama"}],
             "leads": [{"site": "github", "profile_url": "https://github.com/sama"}],
@@ -766,3 +980,43 @@ def test_recon_endpoint_returns_targets_and_leads():
     payload = json.loads(handler.wfile.getvalue().decode("utf-8"))
     assert payload["collection_targets"] == [{"platform": "twitter", "username": "sama"}]
     assert payload["leads"] == [{"site": "github", "profile_url": "https://github.com/sama"}]
+
+
+def test_config_endpoint_get_returns_config():
+    handler = PostExplorerHandler.__new__(PostExplorerHandler)
+    handler.path = "/api/config"
+    handler.headers = {}
+    handler.wfile = BytesIO()
+
+    responses = []
+    handler.send_response = lambda code: responses.append(code)
+    handler.send_header = lambda *args, **kwargs: None
+    handler.end_headers = lambda *args, **kwargs: None
+
+    with patch("frontend.server.load_config", return_value={"pdl_api_key": "pdl_test_key"}):
+        handler.do_GET()
+
+    assert responses and responses[0] == 200
+    payload = json.loads(handler.wfile.getvalue().decode("utf-8"))
+    assert payload["pdl_api_key"] == "pdl_test_key"
+
+
+def test_config_endpoint_post_saves_config():
+    handler = PostExplorerHandler.__new__(PostExplorerHandler)
+    body = json.dumps({"pdl_api_key": "pdl_live_key"}).encode("utf-8")
+    handler.path = "/api/config"
+    handler.headers = {"Content-Length": str(len(body))}
+    handler.rfile = BytesIO(body)
+    handler.wfile = BytesIO()
+
+    responses = []
+    handler.send_response = lambda code: responses.append(code)
+    handler.send_header = lambda *args, **kwargs: None
+    handler.end_headers = lambda *args, **kwargs: None
+
+    with patch("frontend.server.save_config", return_value={"pdl_api_key": "pdl_live_key"}):
+        handler.do_POST()
+
+    assert responses and responses[0] == 200
+    payload = json.loads(handler.wfile.getvalue().decode("utf-8"))
+    assert payload["pdl_api_key"] == "pdl_live_key"

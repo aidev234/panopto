@@ -205,6 +205,36 @@ def _looks_like_block_page(html: str) -> bool:
     return any(marker in lower for marker in BLOCK_PAGE_MARKERS)
 
 
+def _extract_profile_image_from_html(html: str) -> str:
+    soup = BeautifulSoup(str(html or ""), "html.parser")
+    selectors = [
+        "meta[property='og:image']",
+        "meta[name='twitter:image']",
+        "img[src*='avatar']",
+        "img[data-src*='avatar']",
+        "img[src*='profile']",
+        "img[data-src*='profile']",
+    ]
+    fallback: list[str] = []
+    for selector in selectors:
+        for node in soup.select(selector):
+            raw = node.get("content") or node.get("src") or node.get("data-src")
+            value = str(raw or "").strip()
+            if not value:
+                continue
+            if value.startswith("//"):
+                value = f"https:{value}"
+            if value.startswith("/"):
+                value = urljoin("https://www.tikvib.com", value)
+            if not re.match(r"^https?://", value, flags=re.IGNORECASE):
+                continue
+            lowered = value.lower()
+            if "avatar" in lowered or "profile" in lowered:
+                return value
+            fallback.append(value)
+    return fallback[0] if fallback else ""
+
+
 def _iter_rendered_pages(
     username: str,
     max_pages: int,
@@ -491,6 +521,7 @@ def collect_tiktok_posts(
     now_utc = datetime.now(timezone.utc)
     collected: list[TikTokPost] = []
     blocked_detected = False
+    profile_image_url = ""
 
     static_fetch_failed = False
     with requests.Session() as session:
@@ -506,6 +537,8 @@ def collect_tiktok_posts(
                 request_delay_seconds=request_delay_seconds,
                 timeout=timeout,
             ):
+                if not profile_image_url:
+                    profile_image_url = _extract_profile_image_from_html(html)
                 if _looks_like_block_page(html):
                     blocked_detected = True
                     continue
@@ -526,6 +559,8 @@ def collect_tiktok_posts(
             max_pages=max_pages,
             timeout=max(timeout, 40),
         ):
+            if not profile_image_url:
+                profile_image_url = _extract_profile_image_from_html(rendered_html)
             page_posts = _extract_posts_from_html(normalized_username, rendered_html, now_utc=now_utc)
             if _looks_like_block_page(rendered_html):
                 blocked_detected = True
@@ -541,6 +576,8 @@ def collect_tiktok_posts(
             max_pages=max_pages,
             timeout=max(timeout, 45),
         ):
+            if not profile_image_url:
+                profile_image_url = _extract_profile_image_from_html(rendered_html)
             page_posts = _extract_posts_from_html(normalized_username, rendered_html, now_utc=now_utc)
             if _looks_like_block_page(rendered_html):
                 blocked_detected = True
@@ -580,6 +617,7 @@ def collect_tiktok_posts(
             "video_url": post.video_url,
             "thumbnail_url": post.thumbnail_url,
             "views": post.views,
+            "profile_image_url": profile_image_url or None,
         }
         rows.append(
             {

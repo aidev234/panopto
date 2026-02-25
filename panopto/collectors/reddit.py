@@ -303,6 +303,11 @@ def collect_reddit_posts(
         permalink = data.get("permalink") or ""
         source_url = f"https://www.reddit.com{permalink}" if permalink else data.get("url")
         media_metadata = _extract_reddit_media(data, is_comment=is_comment)
+        profile_image_url = _normalize_media_url(
+            data.get("icon_img")
+            or data.get("snoovatar_img")
+            or data.get("author_icon_img")
+        )
 
         collected.append(
             {
@@ -320,6 +325,7 @@ def collect_reddit_posts(
                 "metadata": {
                     "subreddit": data.get("subreddit"),
                     "kind": item.get("kind"),
+                    "profile_image_url": profile_image_url or None,
                     **media_metadata,
                 },
             }

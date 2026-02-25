@@ -163,6 +163,20 @@ def _iter_video_renderers(node: Any) -> Iterable[dict[str, Any]]:
             yield from _iter_video_renderers(item)
 
 
+def _extract_profile_image_url(payload: dict[str, Any]) -> str:
+    metadata = payload.get("metadata") if isinstance(payload, dict) else {}
+    channel_metadata = metadata.get("channelMetadataRenderer") if isinstance(metadata, dict) else {}
+    avatar = channel_metadata.get("avatar") if isinstance(channel_metadata, dict) else {}
+    thumbs = avatar.get("thumbnails") if isinstance(avatar, dict) else []
+    if isinstance(thumbs, list) and thumbs:
+        candidate = thumbs[-1]
+        if isinstance(candidate, dict):
+            url = str(candidate.get("url") or "").strip()
+            if url:
+                return url
+    return ""
+
+
 def _page_indicates_missing_user(html: str) -> bool:
     lower = html.lower()
     signals = [
@@ -218,6 +232,7 @@ def collect_youtube_posts(
 
         for html in _iter_pages(session, normalized_username, max_pages=max_pages, timeout=timeout):
             payload = _extract_initial_data(html)
+            profile_image_url = _extract_profile_image_url(payload)
             if not payload and _page_indicates_missing_user(html):
                 user_missing_signal = True
             for renderer in _iter_video_renderers(payload):
@@ -263,6 +278,7 @@ def collect_youtube_posts(
                             "thumbnail_url": thumbnail_url,
                             "views": views,
                             "published_text": published_text or None,
+                            "profile_image_url": profile_image_url or None,
                         },
                     }
                 )

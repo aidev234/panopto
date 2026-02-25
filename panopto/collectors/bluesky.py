@@ -124,6 +124,7 @@ def collect_bluesky_posts(
         profile_response.raise_for_status()
         profile = profile_response.json() if profile_response.content else {}
         actor_ref = str(profile.get("did") or actor).strip() or actor
+        profile_image_url = str(profile.get("avatar") or "").strip()
 
         cursor: str | None = None
         for page in range(max_pages):
@@ -204,6 +205,7 @@ def collect_bluesky_posts(
                             "author_handle": author_handle,
                             "quote_count": int(quote_count) if isinstance(quote_count, int) else None,
                             "viewer_reason": reason_type or None,
+                            "profile_image_url": profile_image_url or None,
                         },
                     }
                 )

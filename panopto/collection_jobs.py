@@ -30,6 +30,7 @@ def _snapshot(job: dict[str, Any]) -> dict[str, Any]:
         "targets": job["targets"],
         "start_date": job["start_date"],
         "end_date": job["end_date"],
+        "case_id": job.get("case_id", ""),
         "created_at": job["created_at"],
         "updated_at": job["updated_at"],
     }
@@ -75,6 +76,7 @@ def _run_job(job_id: str) -> None:
         targets = list(job["targets"])
         start_date = str(job["start_date"])
         end_date = str(job["end_date"])
+        case_id = str(job.get("case_id") or "")
         db_path = Path(str(job["db_path"]))
         stages = list(job["stages"])
         total_stages = int(job["total_stages"])
@@ -96,6 +98,7 @@ def _run_job(job_id: str) -> None:
                 start_date=stage_start,
                 end_date=stage_end,
                 db_path=db_path,
+                case_id=case_id or None,
                 fail_on_total_failure=False,
             )
             stage_result["stage"] = phase
@@ -129,6 +132,7 @@ def start_collection_job(
     start_date: str,
     end_date: str,
     db_path: Path,
+    case_id: str | None = None,
 ) -> dict[str, Any]:
     if not targets:
         raise InvalidRequestError("at least one target is required")
@@ -146,6 +150,7 @@ def start_collection_job(
         "targets": targets,
         "start_date": start_date,
         "end_date": end_date,
+        "case_id": str(case_id or ""),
         "db_path": str(db_path),
         "stages": stages,
         "created_at": now,

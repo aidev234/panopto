@@ -12,8 +12,7 @@ def test_collect_for_targets_marks_blocked_source_as_failure(monkeypatch, tmp_pa
 
     monkeypatch.setattr(collection_service, "collect_tiktok_posts", _raise_blocked)
     monkeypatch.setattr(collection_service, "save_posts", lambda posts, db_path: 0)
-    monkeypatch.setattr(collection_service, "tag_posts_with_bertopic", lambda db_path: {"status": "skipped"})
-    monkeypatch.setattr(collection_service, "query_posts", lambda **kwargs: {"count": 0, "posts": [], "themes": []})
+    monkeypatch.setattr(collection_service, "query_posts", lambda **kwargs: {"count": 0, "posts": []})
 
     payload = collection_service.collect_for_targets(
         targets=[{"platform": "tiktok", "username": "aoc"}],

@@ -11,10 +11,10 @@ from urllib.parse import unquote
 
 from panopto.collectors.bluesky import collect_bluesky_posts, normalize_bluesky_username
 from panopto.collectors.instagram import collect_instagram_posts, normalize_instagram_username
+from panopto.analysis.llm_warning_assessor import apply_warning_assessments
 from panopto.errors import SourceAccessBlockedError, UsernameNotFoundError
 from panopto.collectors.reddit import collect_reddit_posts
 from panopto.collectors.tiktok import collect_tiktok_posts
-from panopto.analysis.theme_modeling import tag_posts_with_bertopic
 from panopto.collectors.twitter import collect_twitter_posts
 from panopto.storage.posts import save_posts
 from panopto.collectors.youtube import collect_youtube_posts, normalize_youtube_username
@@ -129,6 +129,7 @@ def collect_for_targets(
     start_date: str,
     end_date: str,
     db_path: Path,
+    case_id: str | None = None,
     fail_on_total_failure: bool = True,
 ) -> dict[str, Any]:
     if not targets:
@@ -307,12 +308,16 @@ def collect_for_targets(
             raise UsernameNotFoundError(platform=str(first["platform"]), username=str(first["username"]))
         raise InvalidRequestError(f"collection failed: {first['message']}")
 
-    inserted = save_posts(posts, db_path=str(db_path))
-    theme_result = tag_posts_with_bertopic(db_path=str(db_path))
+    enriched_posts = apply_warning_assessments(posts)
+    if case_id:
+        inserted = save_posts(enriched_posts, db_path=str(db_path), case_id=case_id)
+    else:
+        inserted = save_posts(enriched_posts, db_path=str(db_path))
     payload = query_posts(
         query="",
         sort_order="newest",
         db_path=db_path,
+        case_id=case_id or "",
         start_date=start_date,
         end_date=end_date,
         include_tags={target["platform"] for target in targets},
@@ -323,11 +328,10 @@ def collect_for_targets(
         "inserted": inserted,
         "count": payload["count"],
         "posts": payload["posts"],
-        "themes": payload.get("themes", []),
         "targets": targets,
         "per_target": per_target,
         "errors": failures,
         "start_date": start_date,
         "end_date": end_date,
-        "theme_tagging": theme_result,
+        "case_id": case_id or "",
     }

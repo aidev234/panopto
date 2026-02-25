@@ -15,10 +15,12 @@ def test_index_uses_local_assets_only():
     assert "id=\"insightsTabOps\"" in html
     assert "id=\"insightsTabGeo\"" in html
     assert "id=\"insightsTabSignals\"" in html
+    assert "id=\"insightsTabNotes\"" in html
     assert "id=\"clearSearchBtn\"" in html
     assert "id=\"collectionContext\"" in html
     assert "id=\"contextTargets\"" in html
     assert "id=\"contextRange\"" in html
+    assert "id=\"postingTimezoneMap\"" in html
 
 
 def test_collection_target_platform_options_include_instagram():

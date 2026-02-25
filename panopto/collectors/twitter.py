@@ -634,6 +634,62 @@ def _page_indicates_missing_user(html: str) -> bool:
     return any(pattern in lowered for pattern in patterns)
 
 
+def _extract_profile_image_from_html(html: str) -> str:
+    def _is_profile_image_url(url: str) -> bool:
+        lowered = str(url or "").lower()
+        if not lowered:
+            return False
+        include_tokens = (
+            "/profile_images/",
+            "profile_images",
+            "avatar",
+            "profile_image",
+            "pfp",
+        )
+        exclude_tokens = (
+            "/profile_banners/",
+            "/media/",
+            "ext_tw_video_thumb",
+            "hashflags",
+            "twemoji",
+            "sticky/default_profile_images",
+            "abs.twimg.com",
+            "/emoji/",
+        )
+        if any(token in lowered for token in exclude_tokens):
+            return False
+        return any(token in lowered for token in include_tokens)
+
+    # Prefer explicit profile-image JSON fields when available.
+    json_patterns = [
+        r'"profile_image_url_https"\s*:\s*"([^"]+)"',
+        r'"profile_image_url"\s*:\s*"([^"]+)"',
+    ]
+    for pattern in json_patterns:
+        for match in re.findall(pattern, html or ""):
+            raw_url = str(match).replace("\\/", "/")
+            url = _normalize_media_url(raw_url)
+            if url and _is_profile_image_url(url):
+                return url
+
+    soup = BeautifulSoup(html, "html.parser")
+    selectors = [
+        "img[src*='/profile_images/']",
+        "img[data-src*='/profile_images/']",
+        "img[src*='profile_image']",
+        "img[data-src*='profile_image']",
+        "img[src*='avatar']",
+        "img[data-src*='avatar']",
+    ]
+    for selector in selectors:
+        for node in soup.select(selector):
+            raw = node.get("src") or node.get("data-src")
+            url = _normalize_media_url(raw)
+            if url and _is_profile_image_url(url):
+                return url
+    return ""
+
+
 def _iter_rendered_pages(
     username: str,
     max_pages: int,
@@ -769,6 +825,7 @@ def collect_twitter_posts(
 
     collected: list[TwitterPost] = []
     user_missing_signal = False
+    profile_image_url = ""
 
     with requests.Session() as session:
         session.headers.update(DEFAULT_HEADERS)
@@ -785,6 +842,8 @@ def collect_twitter_posts(
             timeout=timeout,
             render_proxy_template=effective_render_proxy,
         ):
+            if not profile_image_url:
+                profile_image_url = _extract_profile_image_from_html(html)
             page_posts = _extract_posts_from_html(username=normalized_username, html=html)
             if not page_posts and _page_indicates_missing_user(html):
                 user_missing_signal = True
@@ -801,6 +860,8 @@ def collect_twitter_posts(
             timeout=timeout,
             browser_proxy=effective_browser_proxy,
         ):
+            if not profile_image_url:
+                profile_image_url = _extract_profile_image_from_html(rendered_html)
             page_posts = _extract_posts_from_html(username=normalized_username, html=rendered_html)
             if not page_posts and _page_indicates_missing_user(rendered_html):
                 user_missing_signal = True
@@ -851,7 +912,10 @@ def collect_twitter_posts(
                 "source_url": post.source_url,
                 "post_type": post.post_type,
                 "referenced_username": post.referenced_username,
-                "metadata": post.raw_metadata,
+                "metadata": {
+                    **(post.raw_metadata or {}),
+                    "profile_image_url": str((post.raw_metadata or {}).get("profile_image_url") or profile_image_url or "").strip() or None,
+                },
             }
         )
 

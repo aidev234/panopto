@@ -37,15 +37,12 @@ class TestTwitterStorage(unittest.TestCase):
             with sqlite3.connect(db_path) as conn:
                 row_count = conn.execute("SELECT COUNT(*) FROM twitter_posts").fetchone()[0]
                 row = conn.execute(
-                    "SELECT post_type, source_url, topic_id, theme_label, theme_tag FROM twitter_posts WHERE source_post_id = 'abc123'"
+                    "SELECT post_type, source_url FROM twitter_posts WHERE source_post_id = 'abc123'"
                 ).fetchone()
 
             self.assertEqual(row_count, 1)
             self.assertEqual(row[0], "post")
             self.assertEqual(row[1], "https://x.com/sama/status/abc123")
-            self.assertIsNone(row[2])
-            self.assertIsNone(row[3])
-            self.assertIsNone(row[4])
 
     def test_clear_posts_wipes_rows(self):
         with tempfile.TemporaryDirectory() as tmpdir:

@@ -314,6 +314,48 @@ def _looks_like_block_page(html: str) -> bool:
     return any(marker in lower for marker in BLOCK_PAGE_MARKERS)
 
 
+def _extract_profile_image_from_html(html: str) -> str:
+    soup = BeautifulSoup(str(html or ""), "html.parser")
+    selectors = [
+        "meta[property='og:image']",
+        "meta[name='twitter:image']",
+        "img[src*='profile']",
+        "img[data-src*='profile']",
+        "img[src*='avatar']",
+        "img[data-src*='avatar']",
+    ]
+    fallback: list[str] = []
+    for selector in selectors:
+        for node in soup.select(selector):
+            raw = node.get("content") or node.get("src") or node.get("data-src")
+            value = str(raw or "").strip()
+            if not value:
+                continue
+            if value.startswith("//"):
+                value = f"https:{value}"
+            if value.startswith("/"):
+                value = urljoin("https://www.instagram.com", value)
+            if not re.match(r"^https?://", value, flags=re.IGNORECASE):
+                continue
+            lowered = value.lower()
+            if "profile" in lowered or "avatar" in lowered:
+                return value
+            fallback.append(value)
+    return fallback[0] if fallback else ""
+
+
+def _attach_profile_image(rows: list[dict[str, Any]], profile_image_url: str) -> None:
+    if not profile_image_url:
+        return
+    for row in rows:
+        metadata = row.get("metadata")
+        if not isinstance(metadata, dict):
+            metadata = {}
+            row["metadata"] = metadata
+        if not str(metadata.get("profile_image_url") or "").strip():
+            metadata["profile_image_url"] = profile_image_url
+
+
 def _dismiss_browser_overlays(page: Any) -> None:
     try:
         page.evaluate(
@@ -569,6 +611,7 @@ def collect_instagram_posts(
     rows: list[dict[str, Any]] = []
     browser_rows: list[dict[str, Any]] = []
     blocked_detected = False
+    profile_image_url = ""
 
     with requests.Session() as session:
         session.headers.update(DEFAULT_HEADERS)
@@ -590,10 +633,14 @@ def collect_instagram_posts(
             request_delay_seconds=request_delay_seconds,
             timeout=timeout,
         ):
+            if not profile_image_url:
+                profile_image_url = _extract_profile_image_from_html(html)
             if _looks_like_block_page(html):
                 blocked_detected = True
                 continue
-            rows.extend(_extract_posts_from_html(normalized_username, html, now_utc=now_utc))
+            page_rows = _extract_posts_from_html(normalized_username, html, now_utc=now_utc)
+            _attach_profile_image(page_rows, profile_image_url)
+            rows.extend(page_rows)
 
     needs_browser_backfill = False
     if rows:
@@ -614,10 +661,14 @@ def collect_instagram_posts(
             max_pages=max_pages,
             timeout=max(timeout, 40),
         ):
+            if not profile_image_url:
+                profile_image_url = _extract_profile_image_from_html(html)
             if _looks_like_block_page(html):
                 blocked_detected = True
                 continue
-            browser_rows.extend(_extract_posts_from_html(normalized_username, html, now_utc=now_utc))
+            page_rows = _extract_posts_from_html(normalized_username, html, now_utc=now_utc)
+            _attach_profile_image(page_rows, profile_image_url)
+            browser_rows.extend(page_rows)
     if browser_rows:
         rows.extend(browser_rows)
 
@@ -627,10 +678,14 @@ def collect_instagram_posts(
             max_pages=max_pages,
             timeout=max(timeout, 45),
         ):
+            if not profile_image_url:
+                profile_image_url = _extract_profile_image_from_html(html)
             if _looks_like_block_page(html):
                 blocked_detected = True
                 continue
-            rows.extend(_extract_posts_from_html(normalized_username, html, now_utc=now_utc))
+            page_rows = _extract_posts_from_html(normalized_username, html, now_utc=now_utc)
+            _attach_profile_image(page_rows, profile_image_url)
+            rows.extend(page_rows)
 
     deduped: dict[str, dict[str, Any]] = {}
     for row in rows:

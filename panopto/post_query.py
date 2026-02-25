@@ -27,28 +27,6 @@ _NUMERIC_COUNTER_TAIL = re.compile(
 )
 _PROFILE_TIME_FRAGMENT = re.compile(r"\b\d+\s*[smhdw]\b\s+view profile\b", re.IGNORECASE)
 _VIEW_PROFILE = re.compile(r"\bview profile\b", re.IGNORECASE)
-_THEME_TEMPORAL_TOKEN = re.compile(
-    r"^(?:"
-    r"\d{1,4}|"
-    r"\d+[smhdwy]|"
-    r"\d{1,2}:\d{2}(?:[ap]m)?|"
-    r"\d+(?:sec(?:ond)?s?|min(?:ute)?s?|hr(?:s)?|hour(?:s)?|day(?:s)?|week(?:s)?|month(?:s)?|year(?:s)?)|"
-    r"today|yesterday|tomorrow|tonight|now|recent(?:ly)?|current(?:ly)?|latest|"
-    r"jan|january|feb|february|mar|march|apr|april|may|jun|june|"
-    r"jul|july|aug|august|sep|sept|september|oct|october|nov|november|dec|december"
-    r")$",
-    re.IGNORECASE,
-)
-
-
-def _is_temporal_theme_label(label: str) -> bool:
-    normalized = label.strip().lower()
-    if not normalized:
-        return False
-    tokens = re.findall(r"[a-z0-9:]+", normalized)
-    if not tokens:
-        return False
-    return all(_THEME_TEMPORAL_TOKEN.match(token) for token in tokens)
 
 
 def parse_day(raw: str) -> date | None:
@@ -145,18 +123,22 @@ def _matches_query(post: dict[str, str], query: str) -> bool:
     )
     threat_text = " ".join(str(item) for item in post.get("threat_matches", []) if str(item).strip())
     selector_text = " ".join(str(item) for item in post.get("selector_matches", []) if str(item).strip())
+    llm_primary_text = " ".join(str(item) for item in post.get("llm_primary_warning_behaviours", []) if str(item).strip())
+    llm_secondary_text = " ".join(str(item) for item in post.get("llm_secondary_risk_factors", []) if str(item).strip())
+    llm_theme_text = str(post.get("llm_underlying_theme", "") or "")
     haystack = " ".join(
         [
             str(post.get("username", "") or ""),
             str(post.get("display_name", "") or ""),
             str(post.get("platform", "") or ""),
             str(post.get("post_type", "") or ""),
-            str(post.get("theme_label", "") or ""),
-            " ".join(post.get("theme_keywords", [])),
             " ".join(post.get("tags", [])),
             entity_text,
             threat_text,
             selector_text,
+            llm_primary_text,
+            llm_secondary_text,
+            llm_theme_text,
             str(post.get("content", "") or ""),
         ]
     ).lower()
@@ -231,18 +213,15 @@ def _matches_tags(post: dict[str, Any], include_tags: set[str], exclude_tags: se
 
     type_tags = {"post", "repost", "reply", "quote", "comment"}
     platform_tags = {"twitter", "reddit", "tiktok", "bluesky", "instagram", "youtube"}
-    include_theme_tags = {tag for tag in include_tags if tag.startswith("theme:")}
     include_platform_tags = include_tags.intersection(platform_tags)
     include_types = include_tags.intersection(type_tags)
-    include_non_types = include_tags - type_tags - include_theme_tags - platform_tags
+    include_non_types = include_tags - type_tags - platform_tags
 
     if include_non_types and not include_non_types.issubset(tags):
         return False
     if include_platform_tags and not tags.intersection(include_platform_tags):
         return False
     if include_types and post.get("post_type") not in include_types:
-        return False
-    if include_theme_tags and not tags.intersection(include_theme_tags):
         return False
     if exclude_tags and tags.intersection(exclude_tags):
         return False
@@ -266,19 +245,7 @@ def _parse_metadata(raw_metadata: str | None) -> dict[str, Any]:
         return {}
 
 
-def _parse_keywords(raw_keywords: str | None) -> list[str]:
-    if not raw_keywords:
-        return []
-    try:
-        parsed = json.loads(raw_keywords)
-        if not isinstance(parsed, list):
-            return []
-        return [str(item) for item in parsed if str(item).strip()]
-    except json.JSONDecodeError:
-        return []
-
-
-def _fetch_posts(db_path: Path) -> Iterable[dict[str, str]]:
+def _fetch_posts(db_path: Path, case_id: str = "") -> Iterable[dict[str, str]]:
     if not db_path.exists():
         return []
 
@@ -290,20 +257,20 @@ def _fetch_posts(db_path: Path) -> Iterable[dict[str, str]]:
             "content",
             "timestamp",
             "collected_at",
+            "case_id" if "case_id" in columns else "NULL AS case_id",
             "raw_metadata" if "raw_metadata" in columns else "NULL AS raw_metadata",
             "platform" if "platform" in columns else "'Twitter' AS platform",
             "post_type" if "post_type" in columns else "'post' AS post_type",
             "source_url" if "source_url" in columns else "NULL AS source_url",
             "referenced_username" if "referenced_username" in columns else "NULL AS referenced_username",
-            "topic_id" if "topic_id" in columns else "NULL AS topic_id",
-            "theme_label" if "theme_label" in columns else "NULL AS theme_label",
-            "theme_keywords" if "theme_keywords" in columns else "NULL AS theme_keywords",
-            "theme_tag" if "theme_tag" in columns else "NULL AS theme_tag",
         ]
         rows = conn.execute(f"SELECT {', '.join(select_parts)} FROM twitter_posts").fetchall()
 
     posts: list[dict[str, Any]] = []
     for row in rows:
+        row_case_id = str(row["case_id"] or "") if "case_id" in row.keys() else ""
+        if case_id and row_case_id != case_id:
+            continue
         username = row["username"] or "unknown"
         platform = (row["platform"] if "platform" in row.keys() else "Twitter") or "Twitter"
         platform_slug = platform.strip().lower()
@@ -315,14 +282,16 @@ def _fetch_posts(db_path: Path) -> Iterable[dict[str, str]]:
         source_url = row["source_url"] if "source_url" in row.keys() else None
         referenced_username = row["referenced_username"] if "referenced_username" in row.keys() else None
         metadata = _parse_metadata(row["raw_metadata"] if "raw_metadata" in row.keys() else None)
-        theme_keywords = _parse_keywords(row["theme_keywords"] if "theme_keywords" in row.keys() else None)
-        theme_label = row["theme_label"] if "theme_label" in row.keys() else None
-        theme_tag = row["theme_tag"] if "theme_tag" in row.keys() else None
+        llm_assessment = metadata.get("llm_assessment") if isinstance(metadata.get("llm_assessment"), dict) else {}
+        llm_primary = [str(item).strip() for item in llm_assessment.get("primary_warning_behaviours", []) if str(item).strip()] if isinstance(llm_assessment.get("primary_warning_behaviours"), list) else []
+        llm_secondary = [str(item).strip() for item in llm_assessment.get("secondary_risk_factors", []) if str(item).strip()] if isinstance(llm_assessment.get("secondary_risk_factors"), list) else []
+        llm_theme = str(llm_assessment.get("underlying_theme") or "").strip()
+        llm_risk_level = str(llm_assessment.get("risk_level") or "").strip()
+        llm_confidence = str(llm_assessment.get("confidence") or "").strip()
+        llm_source = str(llm_assessment.get("source") or "").strip()
         tags = [platform_slug, post_type]
         if referenced_username:
             tags.append("has_reference")
-        if theme_tag:
-            tags.append(theme_tag)
         entities = extract_entities(cleaned_content)
         signals = extract_threat_and_selector_signals(cleaned_content)
         for entity in entities:
@@ -333,6 +302,12 @@ def _fetch_posts(db_path: Path) -> Iterable[dict[str, str]]:
             if entity_tag:
                 tags.append(entity_tag)
         tags.extend(build_signal_tags(signals))
+        if llm_primary:
+            tags.append("llm:primary-warning")
+        if llm_secondary:
+            tags.append("llm:secondary-risk")
+        if llm_risk_level:
+            tags.append(f"llm:risk:{llm_risk_level.lower().replace(' ', '-')}")
         tags = list(dict.fromkeys(tags))
         platform_name = {"twitter": "Twitter", "reddit": "Reddit", "tiktok": "TikTok", "bluesky": "Bluesky", "instagram": "Instagram", "youtube": "YouTube"}.get(
             platform_slug, platform.strip() or "Unknown"
@@ -345,10 +320,6 @@ def _fetch_posts(db_path: Path) -> Iterable[dict[str, str]]:
                 "post_type": post_type,
                 "source_url": source_url,
                 "referenced_username": referenced_username,
-                "topic_id": row["topic_id"] if "topic_id" in row.keys() else None,
-                "theme_label": theme_label,
-                "theme_keywords": theme_keywords,
-                "theme_tag": theme_tag,
                 "tags": tags,
                 "entities": entities,
                 "threat_matches": signals.get("threat_matches", []),
@@ -361,6 +332,14 @@ def _fetch_posts(db_path: Path) -> Iterable[dict[str, str]]:
                 "content": cleaned_content,
                 "timestamp": row["timestamp"] or row["collected_at"] or "",
                 "metadata": metadata,
+                "llm_assessment": llm_assessment,
+                "llm_primary_warning_behaviours": llm_primary,
+                "llm_secondary_risk_factors": llm_secondary,
+                "llm_underlying_theme": llm_theme,
+                "llm_risk_level": llm_risk_level,
+                "llm_confidence": llm_confidence,
+                "llm_source": llm_source,
+                "case_id": row_case_id,
             }
         )
 
@@ -372,6 +351,7 @@ def query_posts(
     sort_order: str = "newest",
     db_path: Path = Path("osint_data.db"),
     *,
+    case_id: str = "",
     start_date: str = "",
     end_date: str = "",
     include_tags: set[str] | None = None,
@@ -385,7 +365,7 @@ def query_posts(
     end_dt = _day_bounds(end_day)[1] if end_day else None
 
     posts = []
-    for post in _fetch_posts(db_path):
+    for post in _fetch_posts(db_path, case_id=case_id):
         if not _matches_query(post, query):
             continue
         if not _matches_tags(post, include_tags=include_tags, exclude_tags=exclude_tags):
@@ -409,18 +389,4 @@ def query_posts(
 
     final_posts = list(deduped.values())
     final_posts.sort(key=lambda post: post["timestamp"] or "", reverse=sort_order != "oldest")
-    theme_counts: dict[str, dict[str, Any]] = {}
-    for post in final_posts:
-        label = str(post.get("theme_label") or "").strip()
-        tag = str(post.get("theme_tag") or "").strip()
-        if not label or not tag:
-            continue
-        if _is_temporal_theme_label(label):
-            continue
-        current = theme_counts.get(tag)
-        if not current:
-            theme_counts[tag] = {"label": label, "tag": tag, "count": 1}
-        else:
-            current["count"] += 1
-    themes = sorted(theme_counts.values(), key=lambda item: (-item["count"], item["label"].lower()))
-    return {"count": len(final_posts), "posts": final_posts, "themes": themes}
+    return {"count": len(final_posts), "posts": final_posts}

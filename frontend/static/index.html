@@ -5,11 +5,255 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>PANOPTO</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=20260218b" />
-    <link rel="stylesheet" href="/styles.css?v=20260218h" />
+    <link rel="stylesheet" href="/styles.css?v=20260220b" />
   </head>
   <body>
     <div id="notifications" class="toast-stack" aria-live="polite" aria-atomic="false"></div>
     <main class="app-shell">
+      <section id="caseWorkspace" class="case-workspace">
+        <div class="case-shell">
+          <div class="case-shell-head">
+            <div>
+              <p class="eyebrow">CASE MANAGEMENT</p>
+              <h2>Persons of Interest</h2>
+              <p class="subtle">Track active cases, threat posture, and latest activity before opening analysis.</p>
+            </div>
+            <div class="case-head-actions">
+              <button id="openConfigBtn" class="secondary-btn" type="button">Configuration</button>
+              <button id="generateDemoCaseBtn" class="secondary-btn" type="button">Generate Demo Case</button>
+              <button id="openNewCaseBtn" type="button">Open New Case</button>
+              <button id="quitSessionCaseBtn" class="secondary-btn danger-btn" type="button">Quit Session</button>
+            </div>
+          </div>
+          <div class="case-controls">
+            <input id="caseSearchInput" type="text" placeholder="Search case name or location..." autocomplete="off" />
+            <select id="caseStatusFilter">
+              <option value="">All status</option>
+              <option value="Open">Open</option>
+              <option value="Under Investigation">Under Investigation</option>
+              <option value="Closed">Closed</option>
+              <option value="Watchlist">Watchlist</option>
+            </select>
+            <select id="caseThreatFilter">
+              <option value="">All threat levels</option>
+              <option value="Low Threat">Low Threat</option>
+              <option value="Moderate Threat">Moderate Threat</option>
+              <option value="Substantial Threat">Substantial Threat</option>
+              <option value="High Threat">High Threat</option>
+              <option value="Very High Threat">Very High Threat</option>
+            </select>
+            <select id="caseSortSelect">
+              <option value="last_edited_desc">Last edited (newest)</option>
+              <option value="opened_desc">Opened (newest)</option>
+              <option value="threat_desc">Threat (highest)</option>
+              <option value="name_asc">Case name (A-Z)</option>
+            </select>
+          </div>
+          <div id="caseTiles" class="case-tiles"></div>
+          <div id="caseTilesEmpty" class="empty hidden">No matching cases yet.</div>
+        </div>
+      </section>
+      <section id="caseEditModal" class="setup-modal hidden" aria-live="polite">
+        <div class="setup-card case-edit-card">
+          <div class="setup-head">
+            <h2>Edit Case Details</h2>
+            <button id="caseEditCancelBtn" class="secondary-btn" type="button">Close</button>
+          </div>
+          <form id="caseEditForm" class="setup-form">
+            <label class="field">
+              <span>Status</span>
+              <select id="caseEditStatusSelect" required>
+                <option value="Open">Open</option>
+                <option value="Under Investigation">Under Investigation</option>
+                <option value="Closed">Closed</option>
+                <option value="Watchlist">Watchlist</option>
+              </select>
+            </label>
+            <label id="caseEditCadenceField" class="field watchlist-cadence-field hidden">
+              <span>Monitoring Refresh Cadence</span>
+              <select id="caseEditCadenceSelect">
+                <option value="">Select cadence...</option>
+                <option value="Every 15 Minutes">Every 15 Minutes</option>
+                <option value="Every 30 Minutes">Every 30 Minutes</option>
+                <option value="Every 45 Minutes">Every 45 Minutes</option>
+                <option value="Hourly">Hourly</option>
+                <option value="Every 2 Hours">Every 2 Hours</option>
+                <option value="Every 4 Hours">Every 4 Hours</option>
+                <option value="Every 6 Hours">Every 6 Hours</option>
+                <option value="Every 12 Hours">Every 12 Hours</option>
+                <option value="Daily">Daily</option>
+                <option value="Every 48 Hours">Every 48 Hours</option>
+                <option value="Weekly">Weekly</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Threat Level</span>
+              <select id="caseEditThreatSelect" required>
+                <option value="Low Threat">Low Threat</option>
+                <option value="Moderate Threat">Moderate Threat</option>
+                <option value="Substantial Threat">Substantial Threat</option>
+                <option value="High Threat">High Threat</option>
+                <option value="Very High Threat">Very High Threat</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Known Location</span>
+              <input id="caseEditLocationSelect" type="text" placeholder="Enter known location" required />
+            </label>
+            <div class="setup-actions-row">
+              <button id="caseEditSaveBtn" type="submit">Save</button>
+              <button id="caseEditCloseBtn" class="secondary-btn" type="button">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </section>
+      <section id="caseSaveModal" class="setup-modal hidden" aria-live="polite">
+        <div class="setup-card case-save-card">
+          <div class="setup-head">
+            <h2>Save Case Details</h2>
+            <button id="caseSaveCancelBtn" class="secondary-btn" type="button">Close</button>
+          </div>
+          <form id="caseSaveForm" class="setup-form">
+            <label class="field">
+              <span>Case Title</span>
+              <input id="caseSaveTitleInput" type="text" placeholder="Enter case title" required />
+            </label>
+            <label class="field">
+              <span>Status</span>
+              <select id="caseSaveStatusSelect" required>
+                <option value="Open">Open</option>
+                <option value="Under Investigation">Under Investigation</option>
+                <option value="Closed">Closed</option>
+                <option value="Watchlist">Watchlist</option>
+              </select>
+            </label>
+            <label id="caseSaveCadenceField" class="field watchlist-cadence-field hidden">
+              <span>Monitoring Refresh Cadence</span>
+              <select id="caseSaveCadenceSelect">
+                <option value="">Select cadence...</option>
+                <option value="Every 15 Minutes">Every 15 Minutes</option>
+                <option value="Every 30 Minutes">Every 30 Minutes</option>
+                <option value="Every 45 Minutes">Every 45 Minutes</option>
+                <option value="Hourly">Hourly</option>
+                <option value="Every 2 Hours">Every 2 Hours</option>
+                <option value="Every 4 Hours">Every 4 Hours</option>
+                <option value="Every 6 Hours">Every 6 Hours</option>
+                <option value="Every 12 Hours">Every 12 Hours</option>
+                <option value="Daily">Daily</option>
+                <option value="Every 48 Hours">Every 48 Hours</option>
+                <option value="Weekly">Weekly</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Threat Level</span>
+              <select id="caseSaveThreatSelect" required>
+                <option value="Low Threat">Low Threat</option>
+                <option value="Moderate Threat">Moderate Threat</option>
+                <option value="Substantial Threat">Substantial Threat</option>
+                <option value="High Threat">High Threat</option>
+                <option value="Very High Threat">Very High Threat</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Known Location</span>
+              <input id="caseSaveLocationInput" type="text" placeholder="Enter known location" required />
+            </label>
+            <fieldset class="field case-save-image-field">
+              <legend>POI Image</legend>
+              <div id="caseSaveImageOptions" class="case-save-image-options"></div>
+            </fieldset>
+            <div class="setup-actions-row">
+              <button id="caseSaveSubmitBtn" type="submit">Save &amp; Quit Case</button>
+              <button id="caseSaveCloseBtn" class="secondary-btn" type="button">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </section>
+      <section id="configModal" class="setup-modal hidden" aria-live="polite">
+        <div class="setup-card case-save-card">
+          <div class="setup-head">
+            <h2>Configuration</h2>
+            <button id="configCloseBtn" class="secondary-btn" type="button">Close</button>
+          </div>
+          <form id="configForm" class="setup-form">
+            <label class="field">
+              <span>People Data Labs API Key</span>
+              <input id="configPdlApiKeyInput" type="password" placeholder="pdl_xxxxxxxxx" autocomplete="off" />
+            </label>
+            <div class="setup-actions-row">
+              <button id="configSaveBtn" type="submit">Save</button>
+              <button id="configCancelBtn" class="secondary-btn" type="button">Cancel</button>
+            </div>
+            <p id="configStatus" class="status"></p>
+          </form>
+        </div>
+      </section>
+      <section id="caseNotesModal" class="setup-modal hidden" aria-live="polite">
+        <div class="setup-card case-notes-card">
+          <div class="setup-head">
+            <h2>Case Notes</h2>
+            <button id="caseNotesCloseBtn" class="secondary-btn" type="button">Close</button>
+          </div>
+          <form id="caseNotesForm" class="setup-form case-notes-form">
+            <div class="case-notes-top">
+              <div class="case-notes-main">
+                <label class="field case-notes-name-field">
+                  <span>Name</span>
+                  <input id="caseNotesNameInput" class="case-notes-name-input" type="text" placeholder="POI name" required />
+                </label>
+                <div class="case-notes-grid">
+                  <label class="field">
+                    <span>Location</span>
+                    <input id="caseNotesLocationInput" type="text" placeholder="Known location" />
+                  </label>
+                  <label class="field">
+                    <span>Age</span>
+                    <input id="caseNotesAgeInput" type="text" placeholder="Age" />
+                  </label>
+                </div>
+                <label class="field">
+                  <span>A.K.A.s</span>
+                  <input id="caseNotesAkasInput" type="text" placeholder="Comma-separated aliases" />
+                </label>
+              </div>
+              <aside class="case-notes-image-side">
+                <img id="caseNotesSubjectImage" class="case-notes-subject-image" alt="Subject image" loading="lazy" />
+                <label class="field">
+                  <span>Subject Image</span>
+                  <select id="caseNotesSubjectImageSelect"></select>
+                </label>
+                <div class="case-notes-upload-row">
+                  <button id="caseNotesSubjectUploadBtn" class="secondary-btn" type="button">Upload Image</button>
+                  <input id="caseNotesSubjectUploadInput" class="hidden" type="file" accept="image/*" />
+                </div>
+              </aside>
+            </div>
+            <label class="field">
+              <span>Context</span>
+              <textarea id="caseNotesContextInput" rows="4" placeholder="Operational context and background"></textarea>
+            </label>
+            <label class="field">
+              <span>Threat / Risk Assessment</span>
+              <textarea id="caseNotesThreatInput" rows="4" placeholder="Threat indicators, intent, capability, risk posture"></textarea>
+            </label>
+            <label class="field">
+              <span>Personal Details</span>
+              <textarea id="caseNotesPersonalInput" rows="4" placeholder="Family, employment, education, routines, known traits"></textarea>
+            </label>
+            <hr class="case-notes-divider" />
+            <div class="case-notes-profiles-head">
+              <h3>Known Profiles</h3>
+              <button id="caseNotesAddProfileBtn" class="secondary-btn" type="button">Add Profile</button>
+            </div>
+            <div id="caseNotesProfilesList" class="case-notes-profiles-list"></div>
+            <div class="setup-actions-row case-notes-actions">
+              <button id="caseNotesExportPdfBtn" class="secondary-btn" type="button">Export PDF</button>
+              <button id="caseNotesSaveBtn" type="submit">Save Notes</button>
+              <button id="caseNotesCancelBtn" class="secondary-btn" type="button">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </section>
       <section id="setupModal" class="setup-modal" aria-live="polite">
         <div class="setup-card">
           <div class="setup-windowbar">
@@ -67,8 +311,15 @@
 
           <form id="reconForm" class="setup-form hidden">
             <label class="field">
-              <span>Recon Username</span>
-              <input id="reconUsernameInput" type="text" placeholder="@johnsmith" autocomplete="off" />
+              <span>Selector Type</span>
+              <select id="reconSelectorType">
+                <option value="username">Username</option>
+                <option value="email">Email</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Selectors (one per line)</span>
+              <textarea id="reconSelectorsInput" rows="5" placeholder="@johnsmith&#10;@janedoe" autocomplete="off"></textarea>
             </label>
             <div class="setup-actions-row">
               <button id="reconBtn" type="submit">Run Recon</button>
@@ -105,14 +356,18 @@
         </div>
       </section>
 
-      <section class="panel">
+      <section class="panel hidden" id="dashboardPanel">
         <div class="app-header">
           <div class="header-top">
             <div>
               <p class="eyebrow">INTEL DASHBOARD</p>
               <h1>PANOPTO</h1>
             </div>
-            <button id="quitBtn" class="secondary-btn danger-btn" type="button">Quit Session</button>
+            <div class="header-actions">
+              <button id="saveQuitCaseBtn" class="secondary-btn" type="button">Save &amp; Quit Case</button>
+              <button id="backToCasesBtn" class="secondary-btn" type="button">Cases</button>
+              <button id="quitBtn" class="secondary-btn danger-btn" type="button">Quit Session</button>
+            </div>
           </div>
           <p class="subtle">
             Browse collected social posts with boolean search. Example:
@@ -171,7 +426,9 @@
                 <div class="filter-group">
                   <label><input id="filterSelectors" type="checkbox" /> Selectors</label>
                   <label><input id="filterIdeologicalIndicators" type="checkbox" /> Ideological Indicators</label>
-                  <label><input id="filterThreatSignals" type="checkbox" /> Threat Signals</label>
+                  <label><input id="filterThreatSignals" type="checkbox" /> Threat Keyword Parse</label>
+                  <label><input id="filterLLMPrimary" type="checkbox" /> LLM Primary</label>
+                  <label><input id="filterLLMSecondary" type="checkbox" /> LLM Secondary</label>
                 </div>
               </div>
             </div>
@@ -180,7 +437,7 @@
         <div id="status" class="status"></div>
       </section>
 
-      <section class="content-grid">
+      <section class="content-grid hidden" id="dashboardContent">
         <section id="results" class="results"></section>
 
         <aside class="insights">
@@ -202,7 +459,7 @@
                   <circle cx="12" cy="11" r="2.2"></circle>
                 </svg>
               </span>
-              <span>Geo / Themes</span>
+              <span>Geo / Entities</span>
             </button>
             <button id="insightsTabSignals" class="insights-tab" type="button" role="tab" aria-selected="false" aria-controls="insightsPanelSignals">
               <span class="insights-tab-icon" aria-hidden="true">
@@ -211,7 +468,18 @@
                   <path d="M20 7v7h-7"></path>
                 </svg>
               </span>
-              <span>Signals</span>
+              <span>Threat Assessment</span>
+            </button>
+            <button id="insightsTabNotes" class="insights-tab" type="button" role="tab" aria-selected="false" aria-controls="insightsPanelNotes">
+              <span class="insights-tab-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" role="img" focusable="false" aria-hidden="true">
+                  <path d="M6 4h12v16H6z"></path>
+                  <path d="M9 8h6"></path>
+                  <path d="M9 12h6"></path>
+                  <path d="M9 16h4"></path>
+                </svg>
+              </span>
+              <span>Case Notes</span>
             </button>
           </div>
 
@@ -237,6 +505,20 @@
               </div>
               <svg id="timelineChart" class="timeline-chart" viewBox="0 0 380 170" role="img" aria-label="Timeline of posts"></svg>
               <p id="timelineEmpty" class="viz-empty hidden">No posts available for timeline.</p>
+            </article>
+
+            <article class="viz-card">
+              <div class="viz-head">
+                <h3>Posting Rhythm</h3>
+                <span id="postingTimezoneInference" class="viz-total">Insufficient data</span>
+              </div>
+              <p id="postingRhythmSummary" class="posting-rhythm-summary">
+                Analyze timestamps to infer active/offline windows and likely timezone.
+              </p>
+              <div id="postingTimezoneMap" class="posting-timezone-map" role="img" aria-label="Likely timezone highlighted on map"></div>
+              <div id="postingHourChart" class="posting-hour-chart" role="img" aria-label="Hourly post frequency by inferred local hour"></div>
+              <div id="postingSourceMix" class="type-mix"></div>
+              <p id="postingRhythmEmpty" class="viz-empty hidden">Not enough timestamped posts to infer rhythm yet.</p>
             </article>
 
             <article class="viz-card">
@@ -276,14 +558,45 @@
 
             <article class="viz-card">
               <div class="viz-head">
-                <h3>Theme Frequency</h3>
+                <h3>Selector Parse</h3>
               </div>
-              <div id="themeMix" class="type-mix"></div>
-              <p id="themeMixEmpty" class="viz-empty hidden">Run theme tagging to see topic clusters.</p>
+              <div id="selectorMix" class="signal-list"></div>
+              <p id="selectorMixEmpty" class="viz-empty hidden">No selectors detected in current results.</p>
             </article>
+
           </section>
 
           <section id="insightsPanelSignals" class="insights-panel hidden">
+            <article class="viz-card">
+              <div class="viz-head">
+                <h3>Primary Warning Behaviours</h3>
+              </div>
+              <svg id="llmPrimaryRadar" class="radar-chart radar-chart-primary" viewBox="0 0 320 240" role="img" aria-label="Primary warning behaviours radar"></svg>
+            </article>
+
+            <article class="viz-card">
+              <div class="viz-head">
+                <h3>Primary Warning Behaviours</h3>
+              </div>
+              <div id="llmPrimaryMix" class="signal-list"></div>
+              <p id="llmPrimaryMixEmpty" class="viz-empty hidden">No primary warning behaviours detected in current results.</p>
+            </article>
+
+            <article class="viz-card">
+              <div class="viz-head">
+                <h3>Secondary Risk Factors</h3>
+              </div>
+              <svg id="llmSecondaryRadar" class="radar-chart radar-chart-secondary" viewBox="0 0 320 240" role="img" aria-label="Secondary risk factors radar"></svg>
+            </article>
+
+            <article class="viz-card">
+              <div class="viz-head">
+                <h3>Secondary Risk Factors</h3>
+              </div>
+              <div id="llmSecondaryMix" class="signal-list"></div>
+              <p id="llmSecondaryMixEmpty" class="viz-empty hidden">No secondary risk factors detected in current results.</p>
+            </article>
+
             <article class="viz-card">
               <div class="viz-head">
                 <h3>Ideological Indicators</h3>
@@ -294,24 +607,25 @@
 
             <article class="viz-card">
               <div class="viz-head">
-                <h3>Threat Signals</h3>
+                <h3>Threat Keyword Parse</h3>
               </div>
               <div id="threatSignalMix" class="signal-list"></div>
-              <p id="threatSignalMixEmpty" class="viz-empty hidden">No threat signals detected in current results.</p>
+              <p id="threatSignalMixEmpty" class="viz-empty hidden">No threat keywords detected in current results.</p>
             </article>
-
+          </section>
+          <section id="insightsPanelNotes" class="insights-panel hidden">
             <article class="viz-card">
               <div class="viz-head">
-                <h3>Selector Signals</h3>
+                <h3>Case Notes</h3>
+                <span class="viz-total">POI Report</span>
               </div>
-              <div id="selectorMix" class="signal-list"></div>
-              <p id="selectorMixEmpty" class="viz-empty hidden">No selectors detected in current results.</p>
+              <p class="viz-empty">Open Case Notes to edit the POI report and recon profile records.</p>
             </article>
           </section>
         </aside>
       </section>
     </main>
 
-    <script src="/app.js?v=20260218h"></script>
+    <script src="/app.js?v=20260219d"></script>
   </body>
 </html>
