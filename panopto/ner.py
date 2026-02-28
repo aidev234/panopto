@@ -8,6 +8,9 @@ from typing import Any
 _LOCATION_GAZETTEER: dict[str, tuple[str, float, float]] = {
     "new york": ("New York", 40.7128, -74.0060),
     "washington dc": ("Washington DC", 38.9072, -77.0369),
+    "washington, dc": ("Washington DC", 38.9072, -77.0369),
+    "washington d.c.": ("Washington DC", 38.9072, -77.0369),
+    "district of columbia": ("Washington DC", 38.9072, -77.0369),
     "washington": ("Washington", 47.7511, -120.7401),
     "los angeles": ("Los Angeles", 34.0522, -118.2437),
     "san francisco": ("San Francisco", 37.7749, -122.4194),
@@ -52,6 +55,12 @@ _PERSON_TITLE_PREFIX = (
 )
 
 _WORD_BOUNDARY_CACHE: dict[str, re.Pattern[str]] = {}
+_WASHINGTON_DC_VARIANTS = (
+    "washington dc",
+    "washington, dc",
+    "washington d.c.",
+    "district of columbia",
+)
 
 
 def _slugify(value: str) -> str:
@@ -77,6 +86,9 @@ def extract_entities(text: str) -> list[dict[str, Any]]:
 
     lowered = content.lower()
     for location, (display, lat, lon) in sorted(_LOCATION_GAZETTEER.items(), key=lambda item: -len(item[0])):
+        if location == "washington" and any(_word_pattern(variant).search(lowered) for variant in _WASHINGTON_DC_VARIANTS):
+            # Avoid ambiguous Washington state tagging when DC context is explicit.
+            continue
         pattern = _word_pattern(location)
         if not pattern.search(lowered):
             continue

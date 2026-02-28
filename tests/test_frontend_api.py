@@ -52,6 +52,67 @@ def test_posts_sorted_and_filterable(tmp_path):
     assert payload["posts"][0]["username"] == "bob"
 
 
+def test_query_posts_does_not_dedupe_across_platforms(tmp_path):
+    db_path = tmp_path / "osint_data.db"
+    with sqlite3.connect(db_path) as conn:
+        conn.execute(
+            """
+            CREATE TABLE twitter_posts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                source_post_id TEXT,
+                case_id TEXT,
+                platform TEXT NOT NULL DEFAULT 'Twitter',
+                username TEXT NOT NULL,
+                content TEXT NOT NULL,
+                timestamp TEXT,
+                post_type TEXT NOT NULL DEFAULT 'post',
+                raw_metadata TEXT,
+                collected_at TEXT NOT NULL
+            )
+            """
+        )
+        conn.executemany(
+            "INSERT INTO twitter_posts (source_post_id, platform, username, content, timestamp, collected_at) VALUES (?, ?, ?, ?, ?, ?)",
+            [
+                ("tw-1", "Twitter", "shared_user", "same text", "2026-02-12T18:15:54+00:00", "2026-02-12T18:16:00+00:00"),
+                ("rd-1", "Reddit", "shared_user", "same text", "2026-02-12T18:15:54+00:00", "2026-02-12T18:16:00+00:00"),
+            ],
+        )
+        conn.commit()
+
+    payload = query_posts(db_path=db_path)
+
+    assert payload["count"] == 2
+    assert sorted(post["platform"] for post in payload["posts"]) == ["Reddit", "Twitter"]
+
+
+def test_query_posts_excludes_unparseable_timestamps_when_date_filter_set(tmp_path):
+    db_path = tmp_path / "osint_data.db"
+    with sqlite3.connect(db_path) as conn:
+        conn.execute(
+            """
+            CREATE TABLE twitter_posts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                source_post_id TEXT,
+                username TEXT NOT NULL,
+                content TEXT NOT NULL,
+                timestamp TEXT,
+                post_type TEXT NOT NULL DEFAULT 'post',
+                raw_metadata TEXT,
+                collected_at TEXT NOT NULL
+            )
+            """
+        )
+        conn.execute(
+            "INSERT INTO twitter_posts (source_post_id, username, content, timestamp, collected_at) VALUES (?, ?, ?, ?, ?)",
+            ("bad-ts", "alice", "undated post", "not-a-date", "2026-02-12T18:16:00+00:00"),
+        )
+        conn.commit()
+
+    payload = query_posts(db_path=db_path, start_date="2026-02-01", end_date="2026-02-28")
+    assert payload["count"] == 0
+
+
 def test_boolean_nested_search(tmp_path):
     db_path = tmp_path / "osint_data.db"
     _seed_db(db_path)
@@ -398,6 +459,53 @@ def test_query_posts_extracts_ner_entities_and_location_tags(tmp_path):
     assert "loc:new-york" in post["tags"]
 
 
+def test_query_posts_extracts_washington_dc_location_tag(tmp_path):
+    db_path = tmp_path / "osint_data.db"
+    with sqlite3.connect(db_path) as conn:
+        conn.execute(
+            """
+            CREATE TABLE twitter_posts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                source_post_id TEXT,
+                username TEXT NOT NULL,
+                content TEXT NOT NULL,
+                timestamp TEXT,
+                likes INTEGER,
+                retweets INTEGER,
+                replies INTEGER,
+                post_type TEXT NOT NULL DEFAULT 'post',
+                source_url TEXT,
+                referenced_username TEXT,
+                platform TEXT NOT NULL DEFAULT 'Twitter',
+                raw_metadata TEXT,
+                collected_at TEXT NOT NULL
+            )
+            """
+        )
+        conn.execute(
+            "INSERT INTO twitter_posts (source_post_id, username, content, timestamp, post_type, platform, collected_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (
+                "dc1",
+                "alice",
+                "Heading to Washington, DC for meetings near the National Mall.",
+                "2026-02-12T18:15:54+00:00",
+                "post",
+                "Twitter",
+                "2026-02-12T18:16:00+00:00",
+            ),
+        )
+        conn.commit()
+
+    payload = query_posts(db_path=db_path)
+    assert payload["count"] == 1
+    post = payload["posts"][0]
+    assert "ner:location" in post["tags"]
+    assert "loc:washington-dc" in post["tags"]
+    assert "loc:washington" not in post["tags"]
+    assert any(entity.get("type") == "location" and entity.get("text") == "Washington DC" for entity in post["entities"])
+    assert not any(entity.get("type") == "location" and entity.get("text") == "Washington" for entity in post["entities"])
+
+
 def test_query_posts_extracts_threat_and_selector_signals(tmp_path):
     db_path = tmp_path / "osint_data.db"
     with sqlite3.connect(db_path) as conn:
@@ -483,12 +591,10 @@ def test_query_posts_exposes_llm_assessment_fields(tmp_path):
                 json.dumps(
                     {
                         "llm_assessment": {
-                            "primary_warning_behaviours": ["Last Resort"],
-                            "secondary_risk_factors": ["Negative Emotional State", "Violent Ideation"],
+                            "tagged_primary": ["Last Resort"],
+                            "tagged_secondary": ["Negative Emotional State", "Violent Ideation"],
                             "underlying_theme": "Perceived compulsion/destiny to act violently",
-                            "risk_level": "High",
-                            "confidence": "high",
-                            "source": "demo_dataset",
+                            "rationale": "Author states a compelled pathway toward violence.",
                         }
                     }
                 ),
@@ -503,9 +609,64 @@ def test_query_posts_exposes_llm_assessment_fields(tmp_path):
     assert post["llm_primary_warning_behaviours"] == ["Last Resort"]
     assert "Negative Emotional State" in post["llm_secondary_risk_factors"]
     assert post["llm_underlying_theme"] == "Perceived compulsion/destiny to act violently"
-    assert post["llm_risk_level"] == "High"
+    assert post["llm_rationale"] == "Author states a compelled pathway toward violence."
     assert "llm:primary-warning" in post["tags"]
     assert "llm:secondary-risk" in post["tags"]
+
+
+def test_query_posts_clears_underlying_theme_without_warning_behaviours(tmp_path):
+    db_path = tmp_path / "osint_data.db"
+    with sqlite3.connect(db_path) as conn:
+        conn.execute(
+            """
+            CREATE TABLE twitter_posts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                source_post_id TEXT,
+                username TEXT NOT NULL,
+                content TEXT NOT NULL,
+                timestamp TEXT,
+                likes INTEGER,
+                retweets INTEGER,
+                replies INTEGER,
+                post_type TEXT NOT NULL DEFAULT 'post',
+                source_url TEXT,
+                referenced_username TEXT,
+                platform TEXT NOT NULL DEFAULT 'Twitter',
+                raw_metadata TEXT,
+                collected_at TEXT NOT NULL
+            )
+            """
+        )
+        conn.execute(
+            "INSERT INTO twitter_posts (source_post_id, username, content, timestamp, post_type, platform, raw_metadata, collected_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                "llm-theme-only",
+                "demo",
+                "Just routine life updates.",
+                "2026-02-12T18:15:54+00:00",
+                "post",
+                "Twitter",
+                json.dumps(
+                    {
+                        "llm_assessment": {
+                            "tagged_primary": [],
+                            "tagged_secondary": [],
+                            "underlying_theme": "Routine commentary",
+                            "rationale": "none",
+                        }
+                    }
+                ),
+                "2026-02-12T18:16:00+00:00",
+            ),
+        )
+        conn.commit()
+
+    payload = query_posts(db_path=db_path)
+    assert payload["count"] == 1
+    post = payload["posts"][0]
+    assert post["llm_primary_warning_behaviours"] == []
+    assert post["llm_secondary_risk_factors"] == []
+    assert post["llm_underlying_theme"] == ""
 
 
 def test_collect_endpoint_rejects_invalid_dates():
@@ -639,6 +800,48 @@ def test_collect_endpoint_internal_value_error_returns_500():
     assert responses and responses[0] == 500
     payload = json.loads(handler.wfile.getvalue().decode("utf-8"))
     assert payload["error"]["code"] == "internal_error"
+
+
+def test_session_end_requires_loopback_client():
+    handler = PostExplorerHandler.__new__(PostExplorerHandler)
+    body = json.dumps({"shutdown": True}).encode("utf-8")
+    handler.path = "/api/session/end"
+    handler.headers = {"Content-Length": str(len(body))}
+    handler.rfile = BytesIO(body)
+    handler.wfile = BytesIO()
+    handler.client_address = ("10.0.0.25", 44444)
+
+    responses = []
+    handler.send_response = lambda code: responses.append(code)
+    handler.send_header = lambda *args, **kwargs: None
+    handler.end_headers = lambda *args, **kwargs: None
+
+    with patch("frontend.server.clear_posts") as clear_mock:
+        handler.do_POST()
+
+    clear_mock.assert_not_called()
+    assert responses and responses[0] == 403
+    payload = json.loads(handler.wfile.getvalue().decode("utf-8"))
+    assert payload["error"]["code"] == "forbidden"
+
+
+def test_posts_endpoint_rejects_db_path_outside_allowed_roots():
+    handler = PostExplorerHandler.__new__(PostExplorerHandler)
+    handler.path = "/api/posts?db_path=/etc/passwd"
+    handler.headers = {}
+    handler.rfile = BytesIO()
+    handler.wfile = BytesIO()
+
+    responses = []
+    handler.send_response = lambda code: responses.append(code)
+    handler.send_header = lambda *args, **kwargs: None
+    handler.end_headers = lambda *args, **kwargs: None
+
+    handler.do_GET()
+
+    assert responses and responses[0] == 400
+    payload = json.loads(handler.wfile.getvalue().decode("utf-8"))
+    assert payload["error"]["code"] == "invalid_request"
 
 
 def test_query_posts_filters_by_case_id(tmp_path):
@@ -776,11 +979,30 @@ def test_cases_demo_endpoint_creates_case_and_posts(tmp_path):
         assert payload["case"]["case_id"]
         assert payload["case"]["case_notes"]["name"] == "SMITH, John"
         assert payload["case"]["case_notes"]["known_profiles"]
+        assert len(payload["case"]["case_notes"]["known_profiles"]) >= 8
+        sites = [str(item.get("site", "")).lower() for item in payload["case"]["case_notes"]["known_profiles"]]
+        assert any("twitter" in site for site in sites)
+        assert any("github" in site for site in sites)
+        assert any("threads" in site for site in sites)
+        assert all(str(item.get("screenshot_url", "")).strip() for item in payload["case"]["case_notes"]["known_profiles"])
         assert payload["inserted_posts"] >= 1
         posts_payload = query_posts(db_path=db_path, case_id=payload["case"]["case_id"])
         assert posts_payload["count"] >= 1
         assert any(
             (post.get("llm_primary_warning_behaviours") or post.get("llm_secondary_risk_factors"))
+            for post in posts_payload["posts"]
+        )
+        assert not any(
+            (
+                isinstance(post.get("metadata"), dict)
+                and (
+                    post["metadata"].get("media")
+                    or post["metadata"].get("image_urls")
+                    or post["metadata"].get("embed_url")
+                    or post["metadata"].get("media_urls")
+                    or post["metadata"].get("video_url")
+                )
+            )
             for post in posts_payload["posts"]
         )
 
@@ -993,17 +1215,40 @@ def test_config_endpoint_get_returns_config():
     handler.send_header = lambda *args, **kwargs: None
     handler.end_headers = lambda *args, **kwargs: None
 
-    with patch("frontend.server.load_config", return_value={"pdl_api_key": "pdl_test_key"}):
+    with patch(
+        "frontend.server.load_public_config",
+        return_value={
+            "pdl_api_key_configured": True,
+            "osint_industries_api_key_configured": True,
+            "osint_industries_use_premium": True,
+            "numverify_api_key_configured": True,
+            "openai_api_key_configured": True,
+            "secret_storage_mode": "encrypted_file",
+        },
+    ):
         handler.do_GET()
 
     assert responses and responses[0] == 200
     payload = json.loads(handler.wfile.getvalue().decode("utf-8"))
-    assert payload["pdl_api_key"] == "pdl_test_key"
+    assert payload["pdl_api_key_configured"] is True
+    assert payload["osint_industries_api_key_configured"] is True
+    assert payload["osint_industries_use_premium"] is True
+    assert payload["numverify_api_key_configured"] is True
+    assert payload["openai_api_key_configured"] is True
+    assert payload["secret_storage_mode"] == "encrypted_file"
 
 
 def test_config_endpoint_post_saves_config():
     handler = PostExplorerHandler.__new__(PostExplorerHandler)
-    body = json.dumps({"pdl_api_key": "pdl_live_key"}).encode("utf-8")
+    body = json.dumps(
+        {
+            "pdl_api_key": "pdl_live_key",
+            "osint_industries_api_key": "oi_live_key",
+            "osint_industries_use_premium": True,
+            "numverify_api_key": "numverify_live_key",
+            "openai_api_key": "sk-test-live-key",
+        }
+    ).encode("utf-8")
     handler.path = "/api/config"
     handler.headers = {"Content-Length": str(len(body))}
     handler.rfile = BytesIO(body)
@@ -1014,9 +1259,176 @@ def test_config_endpoint_post_saves_config():
     handler.send_header = lambda *args, **kwargs: None
     handler.end_headers = lambda *args, **kwargs: None
 
-    with patch("frontend.server.save_config", return_value={"pdl_api_key": "pdl_live_key"}):
+    with patch(
+        "frontend.server.save_config",
+        return_value={},
+    ) as save_mock:
+        with patch(
+            "frontend.server.load_public_config",
+            return_value={
+                "pdl_api_key_configured": True,
+                "osint_industries_api_key_configured": True,
+                "osint_industries_use_premium": True,
+                "numverify_api_key_configured": True,
+                "openai_api_key_configured": True,
+                "secret_storage_mode": "encrypted_file",
+            },
+        ):
+            handler.do_POST()
+
+    save_mock.assert_called_once()
+
+    assert responses and responses[0] == 200
+    payload = json.loads(handler.wfile.getvalue().decode("utf-8"))
+    assert payload["pdl_api_key_configured"] is True
+    assert payload["osint_industries_api_key_configured"] is True
+    assert payload["osint_industries_use_premium"] is True
+    assert payload["numverify_api_key_configured"] is True
+    assert payload["openai_api_key_configured"] is True
+
+
+def test_llm_estimate_endpoint_returns_estimate_payload():
+    handler = PostExplorerHandler.__new__(PostExplorerHandler)
+    body = json.dumps({"posts": [{"row_id": 1, "content": "sample post", "metadata": {}}]}).encode("utf-8")
+    handler.path = "/api/llm/estimate"
+    handler.headers = {"Content-Length": str(len(body))}
+    handler.rfile = BytesIO(body)
+    handler.wfile = BytesIO()
+
+    responses = []
+    handler.send_response = lambda code: responses.append(code)
+    handler.send_header = lambda *args, **kwargs: None
+    handler.end_headers = lambda *args, **kwargs: None
+
+    with patch(
+        "frontend.server.estimate_warning_assessment_cost",
+        return_value={"candidate_posts": 1, "estimated_total_cost_usd": 0.0012},
+    ):
         handler.do_POST()
 
     assert responses and responses[0] == 200
     payload = json.loads(handler.wfile.getvalue().decode("utf-8"))
-    assert payload["pdl_api_key"] == "pdl_live_key"
+    assert payload["estimate"]["candidate_posts"] == 1
+
+
+def test_llm_run_endpoint_persists_assessment_updates():
+    handler = PostExplorerHandler.__new__(PostExplorerHandler)
+    body = json.dumps(
+        {
+            "case_id": "case_1",
+            "posts": [{"row_id": 7, "content": "sample post", "metadata": {}}],
+        }
+    ).encode("utf-8")
+    handler.path = "/api/llm/run"
+    handler.headers = {"Content-Length": str(len(body))}
+    handler.rfile = BytesIO(body)
+    handler.wfile = BytesIO()
+
+    responses = []
+    handler.send_response = lambda code: responses.append(code)
+    handler.send_header = lambda *args, **kwargs: None
+    handler.end_headers = lambda *args, **kwargs: None
+
+    with patch(
+        "frontend.server.apply_warning_assessments",
+        return_value=[
+            {
+                "row_id": 7,
+                "metadata": {
+                    "llm_assessment": {
+                        "primary_warning_behaviours": ["Fixation"],
+                        "risk_level": "Moderate",
+                    }
+                },
+            }
+        ],
+    ):
+        with patch("frontend.server.update_post_llm_assessments", return_value=1) as persist_mock:
+            handler.do_POST()
+
+    persist_mock.assert_called_once()
+    assert responses and responses[0] == 200
+    payload = json.loads(handler.wfile.getvalue().decode("utf-8"))
+    assert payload["assessed"] == 1
+    assert payload["persisted"] == 1
+
+
+def test_post_assessment_endpoint_persists_manual_edits():
+    handler = PostExplorerHandler.__new__(PostExplorerHandler)
+    body = json.dumps(
+        {
+            "row_id": 19,
+            "case_id": "case_1",
+            "metadata": {
+                "llm_assessment": {
+                    "tagged_primary": ["Fixation", "Fixation"],
+                    "tagged_secondary": ["Stressor"],
+                    "underlying_theme": "Escalating grievance",
+                    "rationale": "analyst override",
+                }
+            },
+        }
+    ).encode("utf-8")
+    handler.path = "/api/posts/assessment"
+    handler.headers = {"Content-Length": str(len(body))}
+    handler.rfile = BytesIO(body)
+    handler.wfile = BytesIO()
+
+    responses = []
+    handler.send_response = lambda code: responses.append(code)
+    handler.send_header = lambda *args, **kwargs: None
+    handler.end_headers = lambda *args, **kwargs: None
+
+    with patch("frontend.server.update_post_llm_assessments", return_value=1) as persist_mock:
+        handler.do_POST()
+
+    persist_mock.assert_called_once()
+    called_updates = persist_mock.call_args.kwargs["updates"]
+    assert called_updates and called_updates[0]["row_id"] == 19
+    llm = called_updates[0]["metadata"]["llm_assessment"]
+    assert llm["tagged_primary"] == ["Fixation"]
+    assert llm["primary_warning_behaviours"] == ["Fixation"]
+    assert llm["tagged_secondary"] == ["Stressor"]
+    assert llm["secondary_risk_factors"] == ["Stressor"]
+    assert llm["underlying_theme"] == "Escalating grievance"
+    assert responses and responses[0] == 200
+    payload = json.loads(handler.wfile.getvalue().decode("utf-8"))
+    assert payload["persisted"] == 1
+
+
+def test_post_assessment_endpoint_clears_theme_without_behaviours():
+    handler = PostExplorerHandler.__new__(PostExplorerHandler)
+    body = json.dumps(
+        {
+            "row_id": 21,
+            "case_id": "case_1",
+            "metadata": {
+                "llm_assessment": {
+                    "tagged_primary": [],
+                    "tagged_secondary": [],
+                    "underlying_theme": "Should be removed",
+                    "rationale": "analyst override",
+                }
+            },
+        }
+    ).encode("utf-8")
+    handler.path = "/api/posts/assessment"
+    handler.headers = {"Content-Length": str(len(body))}
+    handler.rfile = BytesIO(body)
+    handler.wfile = BytesIO()
+
+    responses = []
+    handler.send_response = lambda code: responses.append(code)
+    handler.send_header = lambda *args, **kwargs: None
+    handler.end_headers = lambda *args, **kwargs: None
+
+    with patch("frontend.server.update_post_llm_assessments", return_value=1) as persist_mock:
+        handler.do_POST()
+
+    persist_mock.assert_called_once()
+    called_updates = persist_mock.call_args.kwargs["updates"]
+    llm = called_updates[0]["metadata"]["llm_assessment"]
+    assert llm["tagged_primary"] == []
+    assert llm["tagged_secondary"] == []
+    assert llm["underlying_theme"] == ""
+    assert responses and responses[0] == 200

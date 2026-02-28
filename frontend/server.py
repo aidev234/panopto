@@ -4,26 +4,36 @@ from __future__ import annotations
 
 import json
 import base64
+import binascii
 import html
+import ipaddress
+import io
 import mimetypes
 import re
+import subprocess
 import sys
+import tempfile
 import threading
 import socket
 import textwrap
+import time
+import webbrowser
+from datetime import datetime, timezone
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
+from uuid import uuid4
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
 from panopto.collection_service import InvalidRequestError, collect_for_targets, parse_targets
+from panopto.analysis.llm_warning_assessor import apply_warning_assessments, estimate_warning_assessment_cost
 from panopto.errors import UsernameNotFoundError
 from panopto.post_query import normalize_tag, query_posts
 from panopto.collection_jobs import get_collection_job_status, start_collection_job
-from panopto.config import load_config, save_config
+from panopto.config import load_public_config, save_config
 from panopto.recon import normalize_recon_selectors, run_recon
 from panopto.storage.posts import (
     clear_posts,
@@ -31,11 +41,35 @@ from panopto.storage.posts import (
     create_demo_case,
     delete_case,
     list_cases,
+    save_posts,
     update_case,
+    update_post_llm_assessments,
 )
 
 DEFAULT_DB_PATH = ROOT_DIR / "osint_data.db"
 STATIC_DIR = Path(__file__).resolve().parent / "static"
+_ALLOWED_DB_ROOTS = [ROOT_DIR.resolve(), Path("/tmp").resolve()]
+
+
+def _resolve_api_db_path(raw_value: str | Path | None) -> Path:
+    if raw_value is None:
+        return DEFAULT_DB_PATH
+    text = str(raw_value).strip()
+    if not text:
+        return DEFAULT_DB_PATH
+
+    candidate = Path(text).expanduser()
+    if not candidate.is_absolute():
+        candidate = ROOT_DIR / candidate
+    resolved = candidate.resolve()
+
+    if resolved.suffix.lower() != ".db":
+        raise InvalidRequestError("db_path must reference a .db file")
+
+    for allowed_root in _ALLOWED_DB_ROOTS:
+        if resolved == allowed_root or allowed_root in resolved.parents:
+            return resolved
+    raise InvalidRequestError("db_path must remain inside the project directory or /tmp")
 
 
 def _pdf_escape(text: str) -> str:
@@ -136,6 +170,87 @@ def _image_source_to_data_uri(source: str) -> str:
     return ""
 
 
+def _extract_underlying_themes(posts: list[dict]) -> list[str]:
+    counts: dict[str, int] = {}
+    for row in posts:
+        if not isinstance(row, dict):
+            continue
+        metadata = row.get("metadata") if isinstance(row.get("metadata"), dict) else {}
+        llm = metadata.get("llm_assessment") if isinstance(metadata.get("llm_assessment"), dict) else {}
+        theme = str(llm.get("underlying_theme") or row.get("llm_underlying_theme") or "").strip()
+        if not theme:
+            continue
+        counts[theme] = counts.get(theme, 0) + 1
+    ranked = sorted(counts.items(), key=lambda item: item[1], reverse=True)
+    return [item[0] for item in ranked[:10]]
+
+
+def _extract_pdf_text(raw_pdf: bytes) -> str:
+    try:
+        from pypdf import PdfReader  # type: ignore
+
+        reader = PdfReader(io.BytesIO(raw_pdf))
+        chunks: list[str] = []
+        for page in reader.pages:
+            chunks.append(str(page.extract_text() or ""))
+        text = "\n".join(chunks).strip()
+        if text:
+            return text
+    except Exception:
+        pass
+
+    try:
+        with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as handle:
+            tmp_path = Path(handle.name)
+            handle.write(raw_pdf)
+        try:
+            completed = subprocess.run(
+                ["pdftotext", str(tmp_path), "-"],
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=15,
+            )
+            text = str(completed.stdout or "").strip()
+            if text:
+                return text
+        finally:
+            try:
+                tmp_path.unlink(missing_ok=True)
+            except Exception:
+                pass
+    except Exception:
+        pass
+    return ""
+
+
+def _extract_uploaded_text(*, file_name: str, file_mime_type: str, file_content_base64: str) -> tuple[str, str]:
+    name = str(file_name or "").strip()
+    mime = str(file_mime_type or "").strip().lower()
+    b64 = str(file_content_base64 or "").strip()
+    if not b64:
+        return "", "missing file data"
+    try:
+        raw = base64.b64decode(b64, validate=True)
+    except (binascii.Error, ValueError):
+        return "", "invalid file encoding"
+    if len(raw) > 10 * 1024 * 1024:
+        return "", "file too large (max 10MB)"
+
+    suffix = Path(name).suffix.lower()
+    if suffix == ".pdf" or mime == "application/pdf":
+        text = _extract_pdf_text(raw)
+        if not text:
+            return "", "unable to extract text from PDF"
+        return text, ""
+    if suffix in {".txt", ".md"} or mime.startswith("text/"):
+        try:
+            return raw.decode("utf-8", errors="ignore").strip(), ""
+        except Exception:
+            return "", "unable to decode text file"
+    return "", "unsupported file type (allowed: PDF, TXT, MD)"
+
+
 def _build_case_notes_pdf_stylized(case_row: dict, posts: list[dict]) -> bytes:
     from playwright.sync_api import sync_playwright  # type: ignore
 
@@ -146,6 +261,7 @@ def _build_case_notes_pdf_stylized(case_row: dict, posts: list[dict]) -> bytes:
     akas = str(notes.get("akas") or "").strip() or "None"
     context = str(notes.get("context") or "").strip() or "No context provided."
     threat = str(notes.get("threat_risk_assessment") or "").strip() or "No threat assessment provided."
+    underlying_themes = _extract_underlying_themes(posts)
     personal = str(notes.get("personal_details") or "").strip() or "No personal details provided."
     subject_image = _image_source_to_data_uri(str(notes.get("subject_image_url") or case_row.get("poi_image_url") or "").strip())
     profiles_raw = notes.get("known_profiles") if isinstance(notes.get("known_profiles"), list) else []
@@ -221,6 +337,7 @@ def _build_case_notes_pdf_stylized(case_row: dict, posts: list[dict]) -> bytes:
           <section>
             <h2>Threat / Risk Assessment</h2>
             <p>{_html_escape(threat)}</p>
+            <p>{_html_escape('Underlying Themes: ' + (', '.join(underlying_themes) if underlying_themes else 'None'))}</p>
           </section>
           <section>
             <h2>Personal Details</h2>
@@ -267,6 +384,7 @@ def _build_case_notes_pdf_fallback(case_row: dict, posts: list[dict]) -> bytes:
     akas = str(notes.get("akas") or "").strip()
     context = str(notes.get("context") or "").strip()
     threat = str(notes.get("threat_risk_assessment") or "").strip()
+    underlying_themes = _extract_underlying_themes(posts)
     personal = str(notes.get("personal_details") or "").strip()
     profiles = notes.get("known_profiles") if isinstance(notes.get("known_profiles"), list) else []
     if not profiles:
@@ -316,6 +434,9 @@ def _build_case_notes_pdf_fallback(case_row: dict, posts: list[dict]) -> bytes:
     cursor_y -= 4
     add_line("Threat / Risk Assessment", bold=True, size=13, gap=20)
     add_wrapped(threat or "None", width=95)
+    cursor_y -= 3
+    add_line("Underlying Themes", bold=True, size=12, gap=16)
+    add_wrapped(", ".join(underlying_themes) if underlying_themes else "None", width=95)
     cursor_y -= 4
     add_line("Personal Details", bold=True, size=13, gap=20)
     add_wrapped(personal or "None", width=95)
@@ -401,6 +522,30 @@ def _build_case_notes_pdf(case_row: dict, posts: list[dict]) -> bytes:
 
 
 class PostExplorerHandler(SimpleHTTPRequestHandler):
+    def _request_is_loopback(self) -> bool:
+        client = getattr(self, "client_address", None)
+        if not client:
+            return True
+        host = str(client[0] if isinstance(client, tuple) and client else "").strip()
+        if not host:
+            return True
+        try:
+            address = ipaddress.ip_address(host.split("%", 1)[0])
+            if isinstance(address, ipaddress.IPv6Address) and address.ipv4_mapped:
+                address = address.ipv4_mapped
+            return bool(address.is_loopback)
+        except ValueError:
+            return host.lower() in {"localhost"}
+
+    def _enforce_loopback_only(self, *, reason: str) -> bool:
+        if self._request_is_loopback():
+            return True
+        self._send_json(
+            {"error": {"code": "forbidden", "message": f"{reason} is limited to localhost requests"}},
+            status=403,
+        )
+        return False
+
     def _write_body(self, body: bytes) -> None:
         try:
             self.wfile.write(body)
@@ -442,7 +587,7 @@ class PostExplorerHandler(SimpleHTTPRequestHandler):
             return
 
         if parsed.path == "/api/config":
-            self._send_json(load_config())
+            self._send_json(load_public_config())
             return
 
         if parsed.path == "/api/collect/status":
@@ -475,7 +620,11 @@ class PostExplorerHandler(SimpleHTTPRequestHandler):
             exclude_tags_raw = params.get("exclude_tags", [""])[0]
             include_tags = {normalize_tag(tag) for tag in include_tags_raw.split(",") if tag.strip()}
             exclude_tags = {normalize_tag(tag) for tag in exclude_tags_raw.split(",") if tag.strip()}
-            db_path = Path(params.get("db_path", [str(DEFAULT_DB_PATH)])[0])
+            try:
+                db_path = _resolve_api_db_path(params.get("db_path", [str(DEFAULT_DB_PATH)])[0])
+            except InvalidRequestError as exc:
+                self._send_json({"error": {"code": "invalid_request", "message": str(exc)}}, status=400)
+                return
 
             payload = query_posts(
                 query=query,
@@ -505,6 +654,8 @@ class PostExplorerHandler(SimpleHTTPRequestHandler):
         parsed = urlparse(self.path)
 
         if parsed.path == "/api/session/end":
+            if not self._enforce_loopback_only(reason="session shutdown"):
+                return
             body = self._read_json_body(default={})
             should_shutdown = bool(body.get("shutdown", True))
             clear_posts(str(DEFAULT_DB_PATH), clear_cases=True)
@@ -542,8 +693,255 @@ class PostExplorerHandler(SimpleHTTPRequestHandler):
             body = self._read_json_body()
             if body is None:
                 return
-            payload = save_config(pdl_api_key=body.get("pdl_api_key"))
-            self._send_json(payload)
+            payload = save_config(
+                pdl_api_key=body.get("pdl_api_key"),
+                osint_industries_api_key=body.get("osint_industries_api_key"),
+                osint_industries_use_premium=body.get("osint_industries_use_premium"),
+                numverify_api_key=body.get("numverify_api_key"),
+                openai_api_key=body.get("openai_api_key"),
+                clear_pdl_api_key=body.get("clear_pdl_api_key"),
+                clear_osint_industries_api_key=body.get("clear_osint_industries_api_key"),
+                clear_numverify_api_key=body.get("clear_numverify_api_key"),
+                clear_openai_api_key=body.get("clear_openai_api_key"),
+            )
+            _ = payload
+            self._send_json(load_public_config())
+            return
+
+        if parsed.path == "/api/posts/manual":
+            body = self._read_json_body()
+            if body is None:
+                return
+            case_id = str(body.get("case_id", "")).strip()
+            if not case_id:
+                self._send_json(
+                    {"error": {"code": "invalid_request", "message": "case_id is required"}},
+                    status=400,
+                )
+                return
+            text = str(body.get("text", "")).strip()
+            author_name = str(body.get("author_name", "")).strip()
+            source_url = str(body.get("source_url", "")).strip()
+            source = str(body.get("source", "")).strip()
+            file_name = str(body.get("file_name", "")).strip()
+            file_mime_type = str(body.get("file_mime_type", "")).strip()
+            file_content_base64 = str(body.get("file_content_base64", "")).strip()
+            from_file = bool(file_name and file_content_base64)
+
+            extracted_file_text = ""
+            if from_file:
+                extracted_file_text, extraction_error = _extract_uploaded_text(
+                    file_name=file_name,
+                    file_mime_type=file_mime_type,
+                    file_content_base64=file_content_base64,
+                )
+                if extraction_error:
+                    self._send_json(
+                        {"error": {"code": "invalid_request", "message": extraction_error}},
+                        status=400,
+                    )
+                    return
+
+            content_parts = [part for part in [text, extracted_file_text] if str(part).strip()]
+            content = "\n\n".join(content_parts).strip()
+            if not content:
+                self._send_json(
+                    {"error": {"code": "invalid_request", "message": "text or file content is required"}},
+                    status=400,
+                )
+                return
+
+            username = author_name if author_name else "manual_entry"
+            platform = source if source else "Manual"
+            metadata = {
+                "manual_insert": True,
+                "manual_insert_from_file": from_file,
+                "manual_insert_file_name": file_name if from_file else "",
+                "manual_insert_file_type": file_mime_type if from_file else "",
+                "manual_insert_author_name": author_name,
+                "manual_insert_source": source,
+            }
+            post = {
+                "post_id": f"manual-{uuid4().hex[:12]}",
+                "platform": platform,
+                "username": username,
+                "content": content,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "source_url": source_url,
+                "post_type": "post",
+                "metadata": metadata,
+            }
+            inserted = save_posts([post], db_path=str(DEFAULT_DB_PATH), case_id=case_id)
+            self._send_json(
+                {
+                    "status": "ok",
+                    "inserted": inserted,
+                    "from_file": from_file,
+                    "content_length": len(content),
+                },
+                status=201,
+            )
+            return
+
+        if parsed.path == "/api/posts/assessment":
+            body = self._read_json_body()
+            if body is None:
+                return
+            try:
+                row_id = int(body.get("row_id"))
+            except (TypeError, ValueError):
+                self._send_json(
+                    {"error": {"code": "invalid_request", "message": "row_id must be an integer"}},
+                    status=400,
+                )
+                return
+            metadata = body.get("metadata")
+            if not isinstance(metadata, dict):
+                self._send_json(
+                    {"error": {"code": "invalid_request", "message": "metadata object is required"}},
+                    status=400,
+                )
+                return
+            case_id = str(body.get("case_id", "")).strip() or None
+            llm = metadata.get("llm_assessment")
+            if not isinstance(llm, dict):
+                llm = {}
+
+            def _normalize_llm_list(raw_value: object) -> list[str]:
+                if not isinstance(raw_value, list):
+                    return []
+                output: list[str] = []
+                seen: set[str] = set()
+                for item in raw_value:
+                    clean = str(item or "").strip()
+                    if not clean:
+                        continue
+                    key = clean.lower()
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    output.append(clean)
+                return output
+
+            primary = _normalize_llm_list(
+                llm.get("tagged_primary")
+                if isinstance(llm.get("tagged_primary"), list)
+                else llm.get("primary_warning_behaviours")
+            )
+            secondary = _normalize_llm_list(
+                llm.get("tagged_secondary")
+                if isinstance(llm.get("tagged_secondary"), list)
+                else llm.get("secondary_risk_factors")
+            )
+            normalized_llm = {
+                "tagged_primary": primary,
+                "tagged_secondary": secondary,
+                "primary_warning_behaviours": primary,
+                "secondary_risk_factors": secondary,
+                "underlying_theme": str(llm.get("underlying_theme") or "").strip(),
+                "rationale": str(llm.get("rationale") or "").strip(),
+            }
+            if not primary and not secondary:
+                normalized_llm["underlying_theme"] = ""
+            metadata["llm_assessment"] = normalized_llm
+
+            persisted = update_post_llm_assessments(
+                updates=[{"row_id": row_id, "metadata": metadata}],
+                db_path=str(DEFAULT_DB_PATH),
+                case_id=case_id,
+            )
+            if persisted <= 0:
+                self._send_json(
+                    {"error": {"code": "not_found", "message": "post not found"}},
+                    status=404,
+                )
+                return
+            self._send_json(
+                {
+                    "status": "ok",
+                    "persisted": persisted,
+                    "row_id": row_id,
+                }
+            )
+            return
+
+        if parsed.path == "/api/llm/estimate":
+            body = self._read_json_body()
+            if body is None:
+                return
+            posts = body.get("posts")
+            if not isinstance(posts, list):
+                self._send_json(
+                    {"error": {"code": "invalid_request", "message": "posts list is required"}},
+                    status=400,
+                )
+                return
+            expected_output_tokens = body.get("expected_output_tokens_per_post", 220)
+            try:
+                estimate = estimate_warning_assessment_cost(
+                    posts,
+                    expected_output_tokens_per_post=int(expected_output_tokens),
+                )
+            except Exception as exc:
+                self._send_json(
+                    {"error": {"code": "invalid_request", "message": str(exc)}},
+                    status=400,
+                )
+                return
+            self._send_json({"estimate": estimate})
+            return
+
+        if parsed.path == "/api/llm/run":
+            body = self._read_json_body()
+            if body is None:
+                return
+            posts = body.get("posts")
+            case_id = str(body.get("case_id", "")).strip()
+            if not isinstance(posts, list):
+                self._send_json(
+                    {"error": {"code": "invalid_request", "message": "posts list is required"}},
+                    status=400,
+                )
+                return
+            try:
+                assessed_posts = apply_warning_assessments(posts)
+            except Exception as exc:
+                self._send_json(
+                    {"error": {"code": "internal_error", "message": str(exc)}},
+                    status=500,
+                )
+                return
+
+            updates: list[dict[str, object]] = []
+            assessed_count = 0
+            for original, assessed in zip(posts, assessed_posts):
+                if not isinstance(assessed, dict):
+                    continue
+                metadata = assessed.get("metadata")
+                if not isinstance(metadata, dict):
+                    continue
+                llm = metadata.get("llm_assessment")
+                if not isinstance(llm, dict) or not llm:
+                    continue
+                original_metadata = original.get("metadata") if isinstance(original, dict) else {}
+                original_llm = original_metadata.get("llm_assessment") if isinstance(original_metadata, dict) else {}
+                if isinstance(original_llm, dict) and original_llm:
+                    continue
+                assessed_count += 1
+                updates.append({"row_id": assessed.get("row_id"), "metadata": metadata})
+
+            persisted = update_post_llm_assessments(
+                updates=updates,
+                db_path=str(DEFAULT_DB_PATH),
+                case_id=case_id or None,
+            )
+            self._send_json(
+                {
+                    "status": "ok",
+                    "assessed": assessed_count,
+                    "persisted": persisted,
+                }
+            )
             return
 
         if parsed.path == "/api/cases/demo":
@@ -658,7 +1056,11 @@ class PostExplorerHandler(SimpleHTTPRequestHandler):
             start_date = str(body.get("start_date", "")).strip()
             end_date = str(body.get("end_date", "")).strip()
             case_id = str(body.get("case_id", "")).strip() or None
-            db_path = Path(body.get("db_path", str(DEFAULT_DB_PATH)))
+            try:
+                db_path = _resolve_api_db_path(body.get("db_path", str(DEFAULT_DB_PATH)))
+            except InvalidRequestError as exc:
+                self._send_json({"error": {"code": "invalid_request", "message": str(exc)}}, status=400)
+                return
             targets = parse_targets(body)
             try:
                 response = start_collection_job(
@@ -705,7 +1107,11 @@ class PostExplorerHandler(SimpleHTTPRequestHandler):
         start_date = str(body.get("start_date", "")).strip()
         end_date = str(body.get("end_date", "")).strip()
         case_id = str(body.get("case_id", "")).strip() or None
-        db_path = Path(body.get("db_path", str(DEFAULT_DB_PATH)))
+        try:
+            db_path = _resolve_api_db_path(body.get("db_path", str(DEFAULT_DB_PATH)))
+        except InvalidRequestError as exc:
+            self._send_json({"error": {"code": "invalid_request", "message": str(exc)}}, status=400)
+            return
         targets = parse_targets(body)
 
         try:
@@ -802,9 +1208,23 @@ class PostExplorerHandler(SimpleHTTPRequestHandler):
         super().end_headers()
 
 
-def run(host: str = "0.0.0.0", port: int = 8000):
+def run(host: str = "127.0.0.1", port: int = 8000):
+    open_host = host
+    if host in {"0.0.0.0", "::", ""}:
+        open_host = "127.0.0.1"
+    url = f"http://{open_host}:{port}"
+
+    def _open_browser() -> None:
+        # Give the server a brief head start before opening the page.
+        time.sleep(0.25)
+        try:
+            webbrowser.open(url, new=2, autoraise=True)
+        except Exception:
+            pass
+
     server = ThreadingHTTPServer((host, port), PostExplorerHandler)
-    print(f"OSINT Post Explorer running at http://{host}:{port}")
+    threading.Thread(target=_open_browser, daemon=True).start()
+    print(f"OSINT Post Explorer running at {url}")
     server.serve_forever()
 
 

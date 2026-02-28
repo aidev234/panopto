@@ -620,6 +620,79 @@ def _iter_pages(
             time.sleep(delay_seconds)
 
 
+def _extract_post_id_from_url(url: str | None) -> str | None:
+    value = str(url or "").strip()
+    if not value:
+        return None
+    match = re.search(r"/status/(\d+)", value)
+    return match.group(1) if match else None
+
+
+def _iter_rss_posts(
+    username: str,
+    session: requests.Session,
+    *,
+    timeout: int,
+) -> list[TwitterPost]:
+    """Fallback parser for Nitter/Xcancel RSS feeds."""
+    posts: list[TwitterPost] = []
+    seen_links: set[str] = set()
+    for host in _source_hosts():
+        if "twitterwebviewer.com" in host:
+            continue
+        rss_urls = [
+            f"https://{host}/{quote(username, safe='')}/rss",
+            f"https://{host}/rss/{quote(username, safe='')}",
+        ]
+        for rss_url in rss_urls:
+            try:
+                response = session.get(rss_url, timeout=timeout)
+            except requests.RequestException:
+                continue
+            if response.status_code != 200:
+                continue
+            body = str(response.text or "").strip()
+            if not body or "<rss" not in body.lower():
+                continue
+            soup = BeautifulSoup(body, "xml")
+            items = soup.find_all("item")
+            if not items:
+                continue
+            for item in items:
+                link_text = str((item.find("link").text if item.find("link") else "") or "").strip()
+                if not link_text or link_text in seen_links:
+                    continue
+                seen_links.add(link_text)
+                title_text = str((item.find("title").text if item.find("title") else "") or "").strip()
+                content_text = ""
+                if item.find("description"):
+                    content_text = str(item.find("description").text or "").strip()
+                if not content_text and title_text:
+                    # Nitter titles are commonly "username: tweet text".
+                    content_text = re.sub(r"^[^:]{1,80}:\s*", "", title_text).strip()
+                if not content_text:
+                    continue
+                raw_time = str((item.find("pubDate").text if item.find("pubDate") else "") or "").strip()
+                timestamp = _parse_datetime(raw_time)
+                post_id = _extract_post_id_from_url(link_text)
+                posts.append(
+                    TwitterPost(
+                        post_id=post_id,
+                        username=username,
+                        content=BeautifulSoup(content_text, "html.parser").get_text(" ", strip=True),
+                        timestamp=timestamp,
+                        likes=None,
+                        retweets=None,
+                        replies=None,
+                        source_url=link_text,
+                        post_type="post",
+                        referenced_username=None,
+                        raw_metadata={"raw_timestamp": raw_time},
+                    )
+                )
+    return posts
+
+
 def _page_indicates_missing_user(html: str) -> bool:
     lowered = html.lower()
     patterns = [
@@ -850,6 +923,15 @@ def collect_twitter_posts(
             if not page_posts:
                 break
             collected.extend(page_posts)
+
+        if not collected:
+            collected.extend(
+                _iter_rss_posts(
+                    username=normalized_username,
+                    session=session,
+                    timeout=timeout,
+                )
+            )
 
     should_use_browser = browser_fallback and (not collected or browser_enrich_existing)
     if should_use_browser:

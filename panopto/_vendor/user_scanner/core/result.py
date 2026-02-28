@@ -156,18 +156,26 @@ class Result:
         username = ""
         if self.username:
             username = f"({self.username})"
-        
-        # Added logic to include URL in console output if show_url is True
-        url_display = f" [{self.url}]" if show_url and self.url else ""
-
         color = self.get_output_color()
         icon = self.get_output_icon()
+
+        # Added logic to include URL in console output if show_url is True
+        ## Color the URL in white for better visibility
+        url_display = f" {Fore.WHITE}[{self.url}]{color}" if show_url and self.url else ""
 
         reason = f" ({self.get_reason()})" if self.has_reason() else ""
         return f"  {color}{icon} {site_name}{url_display} {username}: {status_text}{reason}{Style.RESET_ALL}"
 
-    def show(self, show_url=False):
-        """Prints the console output and returns itself for chaining"""
+    def is_found(self) -> bool:
+        """Returns True if the target was found or registered (Status.TAKEN)"""
+        return self.status == Status.TAKEN
+
+
+    def show(self, show_url=False, only_found=False):
+        """Prints the console output and returns itself for chaining.
+        If only_found is True, only results with Status.TAKEN are printed."""
         # Updated show() to accept and pass the show_url flag
+        if only_found and self.status != Status.TAKEN:
+            return self
         print(self.get_console_output(show_url=show_url))
         return self

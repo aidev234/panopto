@@ -1,18 +1,19 @@
 import asyncio
 from pathlib import Path
 from types import ModuleType
-from typing import List
-
+from typing import List, Optional, Set
 from colorama import Fore, Style
 
 from user_scanner.core.helpers import find_category, load_categories, load_modules
-from user_scanner.core.result import Result
+from user_scanner.core.result import Result, Status
 
 # Concurrency control
-MAX_CONCURRENT_REQUESTS = 15
+MAX_CONCURRENT_REQUESTS = 25
 
 
-async def _async_worker(module: ModuleType, email: str, sem: asyncio.Semaphore, show_url: bool = False) -> Result:
+async def _async_worker(module: ModuleType, email: str, sem: asyncio.Semaphore,
+                        show_url: bool = False, only_found: bool = False,
+                        printed_cats: Optional[Set] = None) -> Result:
     async with sem:
         module_name = module.__name__.split(".")[-1]
         func_name = f"validate_{module_name}"
@@ -27,7 +28,9 @@ async def _async_worker(module: ModuleType, email: str, sem: asyncio.Semaphore, 
 
         if not hasattr(module, func_name):
             return (
-                Result.error(f"Function {func_name} not found").update(**params).show(show_url=show_url)
+                Result.error(f"Function {func_name} not found")
+                .update(**params)
+                .show(show_url=show_url, only_found=only_found)
             )
 
         func = getattr(module, func_name)
@@ -38,41 +41,63 @@ async def _async_worker(module: ModuleType, email: str, sem: asyncio.Semaphore, 
         except Exception as e:
             result = Result.error(e)
 
-        return result.update(**params).show(show_url=show_url)
+        result.update(**params)
+
+        # Logic to print header dynamically for --only-found streaming
+        if only_found and result.status == Status.TAKEN:
+            if printed_cats is not None and actual_cat not in printed_cats:
+                print(
+                    f"\n{Fore.MAGENTA}== {actual_cat.upper()} SITES =={Style.RESET_ALL}")
+                printed_cats.add(actual_cat)
+
+        return result.show(show_url=show_url, only_found=only_found)
 
 
-async def _run_batch(modules: List[ModuleType], email: str, show_url: bool = False) -> List[Result]:
+async def _run_batch(modules: List[ModuleType], email: str, show_url: bool = False,
+                     only_found: bool = False, printed_cats: Optional[Set] = None) -> List[Result]:
     sem = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
     tasks = []
     for module in modules:
-        tasks.append(_async_worker(module, email, sem, show_url=show_url))
+        tasks.append(_async_worker(module, email, sem, show_url=show_url,
+                                   only_found=only_found, printed_cats=printed_cats))
 
     if not tasks:
         return []
     return list(await asyncio.gather(*tasks))
 
 
-def run_email_module_batch(module: ModuleType, email: str, show_url: bool = False) -> List[Result]:
-    return asyncio.run(_run_batch([module], email, show_url=show_url))
+def run_email_module_batch(module: ModuleType, email: str, show_url: bool = False, only_found: bool = False) -> List[Result]:
+    return asyncio.run(_run_batch([module], email, show_url=show_url, only_found=only_found))
 
 
-def run_email_category_batch(category_path: Path, email: str, show_url: bool = False) -> List[Result]:
+def run_email_category_batch(category_path: Path, email: str, show_url: bool = False, only_found: bool = False) -> List[Result]:
     cat_name = category_path.stem.capitalize()
-    print(f"\n{Fore.MAGENTA}== {cat_name} SITES =={Style.RESET_ALL}")
-
     modules = load_modules(category_path)
-    return asyncio.run(_run_batch(modules, email, show_url=show_url))
+    printed_cats = set()
+
+    if not only_found:
+        print(f"\n{Fore.MAGENTA}== {cat_name.upper()} SITES =={Style.RESET_ALL}")
+        printed_cats.add(cat_name)
+
+    return asyncio.run(_run_batch(modules, email, show_url=show_url,
+                                  only_found=only_found, printed_cats=printed_cats))
 
 
-def run_email_full_batch(email: str, show_url: bool = False) -> List[Result]:
+def run_email_full_batch(email: str, show_url: bool = False, only_found: bool = False) -> List[Result]:
     categories = load_categories(is_email=True)
     all_results = []
+    printed_cats = set()
 
     for cat_name, cat_path in categories.items():
-        print(f"\n{Fore.MAGENTA}== {cat_name.upper()} SITES =={Style.RESET_ALL}")
-
         modules = load_modules(cat_path)
-        cat_results = asyncio.run(_run_batch(modules, email, show_url=show_url))
+
+        if not only_found:
+            print(
+                f"\n{Fore.MAGENTA}== {cat_name.upper()} SITES =={Style.RESET_ALL}")
+            printed_cats.add(cat_name)
+
+        cat_results = asyncio.run(_run_batch(modules, email, show_url=show_url,
+                                             only_found=only_found, printed_cats=printed_cats))
         all_results.extend(cat_results)
 
     return all_results

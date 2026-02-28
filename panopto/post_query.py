@@ -219,8 +219,10 @@ def _matches_tags(post: dict[str, Any], include_tags: set[str], exclude_tags: se
 
     if include_non_types and not include_non_types.issubset(tags):
         return False
-    if include_platform_tags and not tags.intersection(include_platform_tags):
-        return False
+    if include_platform_tags:
+        known_platform_present = bool(tags.intersection(platform_tags))
+        if known_platform_present and not tags.intersection(include_platform_tags):
+            return False
     if include_types and post.get("post_type") not in include_types:
         return False
     if exclude_tags and tags.intersection(exclude_tags):
@@ -253,6 +255,8 @@ def _fetch_posts(db_path: Path, case_id: str = "") -> Iterable[dict[str, str]]:
         conn.row_factory = sqlite3.Row
         columns = {row[1] for row in conn.execute("PRAGMA table_info(twitter_posts)").fetchall()}
         select_parts = [
+            "id",
+            "source_post_id",
             "username",
             "content",
             "timestamp",
@@ -282,13 +286,25 @@ def _fetch_posts(db_path: Path, case_id: str = "") -> Iterable[dict[str, str]]:
         source_url = row["source_url"] if "source_url" in row.keys() else None
         referenced_username = row["referenced_username"] if "referenced_username" in row.keys() else None
         metadata = _parse_metadata(row["raw_metadata"] if "raw_metadata" in row.keys() else None)
-        llm_assessment = metadata.get("llm_assessment") if isinstance(metadata.get("llm_assessment"), dict) else {}
-        llm_primary = [str(item).strip() for item in llm_assessment.get("primary_warning_behaviours", []) if str(item).strip()] if isinstance(llm_assessment.get("primary_warning_behaviours"), list) else []
-        llm_secondary = [str(item).strip() for item in llm_assessment.get("secondary_risk_factors", []) if str(item).strip()] if isinstance(llm_assessment.get("secondary_risk_factors"), list) else []
-        llm_theme = str(llm_assessment.get("underlying_theme") or "").strip()
-        llm_risk_level = str(llm_assessment.get("risk_level") or "").strip()
-        llm_confidence = str(llm_assessment.get("confidence") or "").strip()
-        llm_source = str(llm_assessment.get("source") or "").strip()
+        llm_assessment_raw = metadata.get("llm_assessment") if isinstance(metadata.get("llm_assessment"), dict) else {}
+        llm_primary_source = llm_assessment_raw.get("tagged_primary")
+        if not isinstance(llm_primary_source, list):
+            llm_primary_source = llm_assessment_raw.get("primary_warning_behaviours")
+        llm_secondary_source = llm_assessment_raw.get("tagged_secondary")
+        if not isinstance(llm_secondary_source, list):
+            llm_secondary_source = llm_assessment_raw.get("secondary_risk_factors")
+        llm_primary = [str(item).strip() for item in llm_primary_source if str(item).strip()] if isinstance(llm_primary_source, list) else []
+        llm_secondary = [str(item).strip() for item in llm_secondary_source if str(item).strip()] if isinstance(llm_secondary_source, list) else []
+        llm_theme = str(llm_assessment_raw.get("underlying_theme") or "").strip()
+        if not llm_primary and not llm_secondary:
+            llm_theme = ""
+        llm_rationale = str(llm_assessment_raw.get("rationale") or "").strip()
+        llm_assessment = {
+            "tagged_primary": llm_primary,
+            "tagged_secondary": llm_secondary,
+            "underlying_theme": llm_theme,
+            "rationale": llm_rationale,
+        }
         tags = [platform_slug, post_type]
         if referenced_username:
             tags.append("has_reference")
@@ -306,14 +322,14 @@ def _fetch_posts(db_path: Path, case_id: str = "") -> Iterable[dict[str, str]]:
             tags.append("llm:primary-warning")
         if llm_secondary:
             tags.append("llm:secondary-risk")
-        if llm_risk_level:
-            tags.append(f"llm:risk:{llm_risk_level.lower().replace(' ', '-')}")
         tags = list(dict.fromkeys(tags))
         platform_name = {"twitter": "Twitter", "reddit": "Reddit", "tiktok": "TikTok", "bluesky": "Bluesky", "instagram": "Instagram", "youtube": "YouTube"}.get(
             platform_slug, platform.strip() or "Unknown"
         )
         posts.append(
             {
+                "row_id": row["id"] if "id" in row.keys() else None,
+                "post_id": row["source_post_id"] if "source_post_id" in row.keys() else None,
                 "username": username,
                 "display_name": _extract_display_name(raw_content, username) if platform_slug == "twitter" else username,
                 "platform": platform_name,
@@ -336,9 +352,7 @@ def _fetch_posts(db_path: Path, case_id: str = "") -> Iterable[dict[str, str]]:
                 "llm_primary_warning_behaviours": llm_primary,
                 "llm_secondary_risk_factors": llm_secondary,
                 "llm_underlying_theme": llm_theme,
-                "llm_risk_level": llm_risk_level,
-                "llm_confidence": llm_confidence,
-                "llm_source": llm_source,
+                "llm_rationale": llm_rationale,
                 "case_id": row_case_id,
             }
         )
@@ -371,17 +385,23 @@ def query_posts(
         if not _matches_tags(post, include_tags=include_tags, exclude_tags=exclude_tags):
             continue
         post_dt = _parse_timestamp(post.get("timestamp", ""))
+        if (start_dt or end_dt) and post_dt is None:
+            continue
         if start_dt and post_dt and post_dt < start_dt:
             continue
         if end_dt and post_dt and post_dt > end_dt:
             continue
         posts.append(post)
 
-    deduped: dict[tuple[str, str], dict[str, Any]] = {}
+    deduped: dict[tuple[str, str, str], dict[str, Any]] = {}
     for post in posts:
+        identity = str(post.get("post_id") or "").strip()
+        if not identity:
+            identity = f"{post.get('timestamp','')}|{post.get('content','')}"
         key = (
+            str(post.get("platform", "")).strip().lower(),
             post.get("username", ""),
-            f"{post.get('timestamp','')}|{post.get('content','')}",
+            identity,
         )
         existing = deduped.get(key)
         if not existing or _post_rank(post) > _post_rank(existing):

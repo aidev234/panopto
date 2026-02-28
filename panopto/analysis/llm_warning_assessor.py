@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 import json
 from functools import lru_cache
+import math
 import os
 from pathlib import Path
 import re
@@ -14,6 +15,8 @@ import xml.etree.ElementTree as ET
 
 import requests
 
+from panopto.config import load_config
+
 ASSETS_DIR = Path(__file__).resolve().parent / "assets" / "llm_warning_assessment"
 PROMPT_PATH = ASSETS_DIR / "prompt.txt"
 GUIDE_PATH = ASSETS_DIR / "llm_assessment_guide.docx"
@@ -21,15 +24,6 @@ DEMO_DATASET_PATH = ASSETS_DIR / "demo_dataset.xlsx"
 
 XLSX_NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
 WORD_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
-
-RISK_LEVEL_ALIASES = {
-    "very high": "Very High",
-    "high": "High",
-    "moderate": "Moderate",
-    "medium": "Moderate",
-    "low": "Low",
-}
-
 
 def _normalize_text(value: str) -> str:
     return re.sub(r"\s+", " ", str(value or "").strip().lower())
@@ -48,18 +42,6 @@ def _split_labels(value: str) -> list[str]:
         seen.add(key)
         items.append(clean)
     return items
-
-
-def _normalize_risk_level(value: str) -> str:
-    clean = _normalize_text(value)
-    if not clean:
-        return "Unknown"
-    if clean in RISK_LEVEL_ALIASES:
-        return RISK_LEVEL_ALIASES[clean]
-    for key, label in RISK_LEVEL_ALIASES.items():
-        if key in clean:
-            return label
-    return "Unknown"
 
 
 def _column_to_index(column_name: str) -> int:
@@ -192,45 +174,36 @@ def _find_demo_assessment(text: str) -> dict[str, Any] | None:
     entry = lookup.get(key)
     if not isinstance(entry, dict):
         return None
+    return _normalize_assessment_payload(
+        {
+            "tagged_primary": list(entry.get("primary_warning_behaviours") or []),
+            "tagged_secondary": list(entry.get("secondary_risk_factors") or []),
+            "underlying_theme": str(entry.get("underlying_theme") or "").strip(),
+            "rationale": "",
+        }
+    )
+
+
+def _normalize_assessment_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    primary_raw = payload.get("tagged_primary")
+    if not isinstance(primary_raw, list):
+        primary_raw = payload.get("primary_warning_behaviours")
+    secondary_raw = payload.get("tagged_secondary")
+    if not isinstance(secondary_raw, list):
+        secondary_raw = payload.get("secondary_risk_factors")
+    primary = [str(item).strip() for item in (primary_raw if isinstance(primary_raw, list) else []) if str(item).strip()]
+    secondary = [str(item).strip() for item in (secondary_raw if isinstance(secondary_raw, list) else []) if str(item).strip()]
+    tagged_primary = list(dict.fromkeys(primary))
+    tagged_secondary = list(dict.fromkeys(secondary))
+    underlying_theme = str(payload.get("underlying_theme") or "").strip()
+    if not tagged_primary and not tagged_secondary:
+        underlying_theme = ""
     return {
-        "primary_warning_behaviours": list(entry.get("primary_warning_behaviours") or []),
-        "secondary_risk_factors": list(entry.get("secondary_risk_factors") or []),
-        "underlying_theme": str(entry.get("underlying_theme") or "").strip(),
-        "risk_level": _derive_risk_level(
-            list(entry.get("primary_warning_behaviours") or []),
-            list(entry.get("secondary_risk_factors") or []),
-        ),
-        "confidence": "high",
-        "source": "demo_dataset",
+        "tagged_primary": tagged_primary,
+        "tagged_secondary": tagged_secondary,
+        "underlying_theme": underlying_theme,
+        "rationale": str(payload.get("rationale") or "").strip(),
     }
-
-
-def _derive_risk_level(primary: list[str], secondary: list[str]) -> str:
-    prim = {str(item).strip().lower() for item in primary if str(item).strip()}
-    sec = {str(item).strip().lower() for item in secondary if str(item).strip()}
-    if not prim and not sec:
-        return "Unknown"
-    high_triggers = {
-        "pathway",
-        "directly communicated threat",
-        "last resort",
-        "testing violence (novel aggression)",
-        "violent identification",
-    }
-    moderate_triggers = {
-        "fixation",
-        "leakage",
-        "violent ideation",
-        "suicidal ideation",
-        "capability (resources)",
-        "capability (knowledge)",
-        "capability (access)",
-    }
-    if prim.intersection(high_triggers):
-        return "High"
-    if prim.intersection(moderate_triggers) or sec.intersection(moderate_triggers):
-        return "Moderate"
-    return "Low"
 
 
 def _build_chat_messages(content: str) -> list[dict[str, str]]:
@@ -240,10 +213,10 @@ def _build_chat_messages(content: str) -> list[dict[str, str]]:
     system_prompt = (
         "You are a behavioural threat assessment analyst. "
         "Return strict JSON only with this schema: "
-        "{\"primary_warning_behaviours\": string[], \"secondary_risk_factors\": string[], "
-        "\"underlying_theme\": string, \"risk_level\": string, \"confidence\": string, \"rationale\": string}. "
+        "{\"tagged_primary\": string[], \"tagged_secondary\": string[], "
+        "\"underlying_theme\": string, \"rationale\": string}. "
         "Do not include markdown fences. Use concise rationale. "
-        "If no clear indicator exists, keep arrays empty and risk_level as Low or Unknown."
+        "If no clear indicator exists, keep arrays empty."
     )
     if prompt_text:
         system_prompt = f"{system_prompt}\n\nOperator brief:\n{prompt_text}"
@@ -279,24 +252,16 @@ def _parse_openai_response(payload: dict[str, Any]) -> dict[str, Any] | None:
         return None
     if not isinstance(parsed, dict):
         return None
-    primary = [str(item).strip() for item in parsed.get("primary_warning_behaviours", []) if str(item).strip()] if isinstance(parsed.get("primary_warning_behaviours"), list) else []
-    secondary = [str(item).strip() for item in parsed.get("secondary_risk_factors", []) if str(item).strip()] if isinstance(parsed.get("secondary_risk_factors"), list) else []
-    risk_level = _normalize_risk_level(str(parsed.get("risk_level") or ""))
-    confidence_raw = str(parsed.get("confidence") or "").strip().lower()
-    confidence = confidence_raw if confidence_raw in {"low", "medium", "high"} else "medium"
-    return {
-        "primary_warning_behaviours": list(dict.fromkeys(primary)),
-        "secondary_risk_factors": list(dict.fromkeys(secondary)),
-        "underlying_theme": str(parsed.get("underlying_theme") or "").strip(),
-        "risk_level": risk_level,
-        "confidence": confidence,
-        "rationale": str(parsed.get("rationale") or "").strip(),
-        "source": "openai",
-    }
+    return _normalize_assessment_payload(parsed)
 
 
 def _assess_with_openai(content: str) -> dict[str, Any] | None:
     api_key = str(os.getenv("OPENAI_API_KEY") or "").strip()
+    if not api_key:
+        try:
+            api_key = str(load_config().get("openai_api_key") or "").strip()
+        except Exception:
+            api_key = ""
     disabled = str(os.getenv("PANOPTO_LLM_DISABLE") or "").strip().lower() in {"1", "true", "yes"}
     if disabled or not api_key:
         return None
@@ -337,6 +302,7 @@ def apply_warning_assessments(posts: list[dict[str, Any]]) -> list[dict[str, Any
 
         existing = metadata.get("llm_assessment")
         if isinstance(existing, dict) and existing:
+            metadata["llm_assessment"] = _normalize_assessment_payload(existing)
             row["metadata"] = metadata
             output.append(row)
             continue
@@ -355,31 +321,102 @@ def apply_warning_assessments(posts: list[dict[str, Any]]) -> list[dict[str, Any
                 assessment = None
 
         if isinstance(assessment, dict) and assessment:
-            assessment["assessed_at"] = datetime.now(timezone.utc).isoformat()
-            metadata["llm_assessment"] = assessment
+            metadata["llm_assessment"] = _normalize_assessment_payload(assessment)
 
         row["metadata"] = metadata
         output.append(row)
     return output
 
 
+def estimate_warning_assessment_cost(
+    posts: list[dict[str, Any]],
+    *,
+    expected_output_tokens_per_post: int = 220,
+) -> dict[str, Any]:
+    """Approximate token/cost for running OpenAI assessment on provided posts."""
+
+    model = str(os.getenv("PANOPTO_LLM_MODEL") or "gpt-4.1-mini").strip()
+    input_cost_per_1m = float(str(os.getenv("PANOPTO_LLM_INPUT_COST_PER_1M") or "0.40").strip() or "0.40")
+    output_cost_per_1m = float(str(os.getenv("PANOPTO_LLM_OUTPUT_COST_PER_1M") or "1.60").strip() or "1.60")
+    expected_output_tokens_per_post = max(1, int(expected_output_tokens_per_post))
+
+    candidates: list[dict[str, Any]] = []
+    for post in posts:
+        if not isinstance(post, dict):
+            continue
+        metadata = post.get("metadata") if isinstance(post.get("metadata"), dict) else {}
+        existing = metadata.get("llm_assessment") if isinstance(metadata.get("llm_assessment"), dict) else {}
+        content = str(post.get("content") or "").strip()
+        if not content:
+            continue
+        if existing:
+            continue
+        candidates.append(post)
+
+    total_input_tokens = 0
+    for post in candidates:
+        content = str(post.get("content") or "").strip()
+        # Approximate by converting message payload size to tokens (4 chars/token heuristic).
+        messages = _build_chat_messages(content)
+        payload_chars = len(json.dumps(messages, ensure_ascii=True))
+        input_tokens = max(1, math.ceil(payload_chars / 4))
+        total_input_tokens += input_tokens
+
+    total_output_tokens = expected_output_tokens_per_post * len(candidates)
+    estimated_input_cost = (total_input_tokens / 1_000_000.0) * input_cost_per_1m
+    estimated_output_cost = (total_output_tokens / 1_000_000.0) * output_cost_per_1m
+    total_estimated_cost = estimated_input_cost + estimated_output_cost
+
+    return {
+        "model": model,
+        "total_posts": len(posts),
+        "candidate_posts": len(candidates),
+        "expected_output_tokens_per_post": expected_output_tokens_per_post,
+        "estimated_input_tokens": total_input_tokens,
+        "estimated_output_tokens": total_output_tokens,
+        "input_cost_per_1m": input_cost_per_1m,
+        "output_cost_per_1m": output_cost_per_1m,
+        "estimated_input_cost_usd": round(estimated_input_cost, 6),
+        "estimated_output_cost_usd": round(estimated_output_cost, 6),
+        "estimated_total_cost_usd": round(total_estimated_cost, 6),
+    }
+
+
 def build_demo_posts(*, username: str = "demo_subject", now: datetime | None = None) -> list[dict[str, Any]]:
     """Build demo posts seeded from the curated spreadsheet dataset."""
 
-    base_now = now if now is not None else datetime.now(timezone.utc)
+    dc_tz = timezone(timedelta(hours=-5))
+    base_now = now if now is not None else datetime.now(dc_tz)
+    if base_now.tzinfo is None:
+        base_now = base_now.replace(tzinfo=dc_tz)
+    else:
+        base_now = base_now.astimezone(dc_tz)
     assets = load_assessment_assets()
     entries = list(assets.get("dataset_entries") or [])
     posts: list[dict[str, Any]] = []
+    local_hours = [8, 9, 10, 12, 13, 15, 17, 18, 19, 20, 21]
     for index, entry in enumerate(entries[:28]):
         content = str(entry.get("content") or "").strip()
         if not content:
             continue
-        post_time = base_now - timedelta(hours=index * 3)
+        target_hour = local_hours[index % len(local_hours)]
+        target_minute = (index * 7) % 60
+        post_time = (base_now - timedelta(days=index // len(local_hours))).replace(
+            hour=target_hour,
+            minute=target_minute,
+            second=0,
+            microsecond=0,
+        )
         date_hint = str(entry.get("date") or "").strip()
         if date_hint:
             try:
-                day = datetime.fromisoformat(f"{date_hint}T00:00:00+00:00")
-                post_time = day + timedelta(minutes=index)
+                day = datetime.fromisoformat(f"{date_hint}T00:00:00-05:00")
+                post_time = day.replace(
+                    hour=target_hour,
+                    minute=target_minute,
+                    second=0,
+                    microsecond=0,
+                )
             except ValueError:
                 pass
 
@@ -395,16 +432,10 @@ def build_demo_posts(*, username: str = "demo_subject", now: datetime | None = N
                 "metadata": {
                     "profile_image_url": "https://images.unsplash.com/photo-1599566150163-29194dcaad36?auto=format&fit=crop&w=256&q=80",
                     "llm_assessment": {
-                        "primary_warning_behaviours": list(entry.get("primary_warning_behaviours") or []),
-                        "secondary_risk_factors": list(entry.get("secondary_risk_factors") or []),
+                        "tagged_primary": list(entry.get("primary_warning_behaviours") or []),
+                        "tagged_secondary": list(entry.get("secondary_risk_factors") or []),
                         "underlying_theme": str(entry.get("underlying_theme") or "").strip(),
-                        "risk_level": _derive_risk_level(
-                            list(entry.get("primary_warning_behaviours") or []),
-                            list(entry.get("secondary_risk_factors") or []),
-                        ),
-                        "confidence": "high",
-                        "source": "demo_dataset",
-                        "assessed_at": base_now.isoformat(),
+                        "rationale": "",
                     },
                 },
             }
@@ -414,65 +445,71 @@ def build_demo_posts(*, username: str = "demo_subject", now: datetime | None = N
             "post_id": "demo-noise-1",
             "platform": "Twitter",
             "username": username,
-            "content": "Rain all week in Queens. Anyone know a good indoor climbing gym?",
-            "timestamp": (base_now - timedelta(hours=7)).isoformat(),
+            "content": "Traffic around Dupont Circle was gridlocked again. Looking for a quieter route into downtown Washington DC.",
+            "timestamp": base_now.replace(hour=18, minute=12, second=0, microsecond=0).isoformat(),
             "source_url": f"https://x.com/{username}/status/demo-noise-1",
             "post_type": "post",
+            "metadata": {"llm_assessment": {"tagged_primary": [], "tagged_secondary": [], "underlying_theme": "Travel planning and commuting", "rationale": ""}},
         },
         {
             "post_id": "demo-selector-1",
             "platform": "Reddit",
             "username": username,
-            "content": "Email me at demo.subject@proton.me with the lease template please.",
-            "timestamp": (base_now - timedelta(hours=9)).isoformat(),
+            "content": "Email me at demo.subject@proton.me with the Capitol Hill sublet checklist.",
+            "timestamp": base_now.replace(hour=16, minute=30, second=0, microsecond=0).isoformat(),
             "source_url": f"https://www.reddit.com/user/{username}/comments/demo-selector-1",
             "post_type": "comment",
+            "metadata": {"llm_assessment": {"tagged_primary": [], "tagged_secondary": [], "underlying_theme": "Operational logistics", "rationale": ""}},
         },
         {
             "post_id": "demo-selector-2",
             "platform": "Twitter",
             "username": username,
-            "content": "Call +1 646 555 0199 after 8pm if the meetup location changes.",
-            "timestamp": (base_now - timedelta(hours=10)).isoformat(),
+            "content": "Call +1 202 555 0199 after 8pm if the Navy Yard meetup location changes. Backup on Telegram @demo_subject_ops.",
+            "timestamp": base_now.replace(hour=20, minute=5, second=0, microsecond=0).isoformat(),
             "source_url": f"https://x.com/{username}/status/demo-selector-2",
             "post_type": "post",
+            "metadata": {"llm_assessment": {"tagged_primary": [], "tagged_secondary": [], "underlying_theme": "Coordination and rendezvous", "rationale": ""}},
         },
         {
             "post_id": "demo-noise-2",
             "platform": "Instagram",
             "username": username,
-            "content": "Coffee + notebook + subway delays. Standard Tuesday.",
-            "timestamp": (base_now - timedelta(hours=12)).isoformat(),
+            "content": "Coffee near Union Station before heading to a meeting by the National Mall in Washington, DC.",
+            "timestamp": base_now.replace(hour=8, minute=45, second=0, microsecond=0).isoformat(),
             "source_url": f"https://www.instagram.com/p/demo-noise-2/",
             "post_type": "post",
+            "metadata": {"llm_assessment": {"tagged_primary": [], "tagged_secondary": [], "underlying_theme": "Daily routine", "rationale": ""}},
         },
         {
             "post_id": "demo-noise-3",
             "platform": "YouTube",
             "username": username,
-            "content": "Uploaded: Late-night drive playlist and city timelapse.",
-            "timestamp": (base_now - timedelta(hours=15)).isoformat(),
+            "content": "Uploaded: Late-night drive playlist and DC skyline timelapse from Georgetown waterfront.",
+            "timestamp": base_now.replace(hour=21, minute=10, second=0, microsecond=0).isoformat(),
             "source_url": "https://www.youtube.com/watch?v=demo-noise-3",
             "post_type": "post",
-            "metadata": {"embed_url": "https://www.youtube.com/embed/demo-noise-3"},
+            "metadata": {"llm_assessment": {"tagged_primary": [], "tagged_secondary": [], "underlying_theme": "Media sharing", "rationale": ""}},
         },
         {
             "post_id": "demo-selector-3",
             "platform": "Bluesky",
             "username": username,
-            "content": "Backup contact: ops.demo@pm.me - use this if the main inbox bounces.",
-            "timestamp": (base_now - timedelta(hours=18)).isoformat(),
+            "content": "Backup contact: ops.demo@pm.me - use this if the NoMa inbox bounces. Matrix handle: @demo_subject:example.org",
+            "timestamp": base_now.replace(hour=14, minute=25, second=0, microsecond=0).isoformat(),
             "source_url": f"https://bsky.app/profile/{username}.bsky.social/post/demo-selector-3",
             "post_type": "post",
+            "metadata": {"llm_assessment": {"tagged_primary": [], "tagged_secondary": [], "underlying_theme": "Fallback communication channel", "rationale": ""}},
         },
         {
             "post_id": "demo-noise-4",
             "platform": "Twitter",
             "username": username,
-            "content": "Watching Knicks highlights. Defense finally looks organized.",
-            "timestamp": (base_now - timedelta(hours=22)).isoformat(),
+            "content": "Watching highlights after getting back from Adams Morgan. Long day in Washington DC.",
+            "timestamp": base_now.replace(hour=22, minute=5, second=0, microsecond=0).isoformat(),
             "source_url": f"https://x.com/{username}/status/demo-noise-4",
             "post_type": "reply",
+            "metadata": {"llm_assessment": {"tagged_primary": [], "tagged_secondary": [], "underlying_theme": "End-of-day debrief", "rationale": ""}},
         },
     ]
     default_avatar = "https://images.unsplash.com/photo-1599566150163-29194dcaad36?auto=format&fit=crop&w=256&q=80"

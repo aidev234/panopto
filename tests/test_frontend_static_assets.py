@@ -32,3 +32,5 @@ def test_collection_target_platform_options_include_instagram():
     assert "function setInsightsTab(" in app_js
     assert "function applyMixFilters(" in app_js
     assert "data-mix-filter" in app_js
+    assert "data-assessment-toggle" in app_js
+    assert "persistThreatAssessmentUpdate" in app_js

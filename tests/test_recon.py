@@ -126,6 +126,9 @@ def test_normalize_recon_selectors_supports_multi_selector_types():
         [
             {"type": "username", "value": "@AOC"},
             {"type": "email", "value": "PERSON@example.com"},
+            {"type": "phone", "value": "+1 (202) 555-0199"},
+            {"type": "name", "value": "Jane Doe"},
+            {"type": "wallet", "value": "0x742d35Cc6634C0532925a3b844Bc454e4438f44e"},
             {"type": "email", "value": "PERSON@example.com"},
             {"type": "unknown", "value": "x"},
         ]
@@ -134,6 +137,9 @@ def test_normalize_recon_selectors_supports_multi_selector_types():
     assert selectors == [
         {"type": "username", "value": "AOC"},
         {"type": "email", "value": "person@example.com"},
+        {"type": "phone", "value": "+12025550199"},
+        {"type": "name", "value": "Jane Doe"},
+        {"type": "wallet", "value": "0x742d35Cc6634C0532925a3b844Bc454e4438f44e"},
     ]
 
 
@@ -328,3 +334,80 @@ def test_run_recon_builds_facebook_profile_url_for_username_scan():
     assert row["site_key"] == "facebook"
     assert row["profile_url"] == "https://www.facebook.com/MattCampbellca/"
     assert row["category"] == "unsupported_with_url"
+
+
+def test_run_recon_includes_osint_profiles_and_spec_results():
+    osint_profile = {
+        "title": "Jane Doe",
+        "name": "Jane Doe",
+        "first_name": "Jane",
+        "last_name": "Doe",
+        "username": "janedoe",
+        "email": "jane@example.com",
+        "profile_url": "https://x.com/janedoe",
+        "website": "https://janedoe.example.com",
+        "picture_url": "https://cdn.example.com/jane.jpg",
+        "bio": "Open source investigator",
+        "source": "osint_industries",
+    }
+    osint_spec = {
+        "query_type": "username",
+        "query_value": "janedoe",
+        "title": "Jane Doe",
+        "spec": {"title": "Jane Doe", "username": "janedoe"},
+    }
+
+    with patch("panopto.recon._run_user_scanner_selector", return_value=[]):
+        with patch(
+            "panopto.recon.load_config",
+            return_value={
+                "pdl_api_key": "",
+                "osint_industries_api_key": "oi_test_key",
+                "osint_industries_use_premium": True,
+            },
+        ):
+            with patch("panopto.recon._fetch_osint_profiles", return_value=([osint_profile], [osint_spec])):
+                with patch("panopto.recon._capture_profile_screenshot", return_value="/recon_shots/osint-test.png?v=1"):
+                    payload = run_recon([{"type": "username", "value": "janedoe"}])
+
+    assert payload["osint_profiles"] == [osint_profile]
+    assert payload["osint_spec_results"] == [osint_spec]
+    assert any(row.get("source") == "osint_industries" for row in payload.get("results", []))
+    assert any(row.get("screenshot_url") == "/recon_shots/osint-test.png?v=1" for row in payload.get("results", []))
+    assert {"platform": "twitter", "username": "janedoe"} in payload.get("collection_targets", [])
+
+
+def test_run_recon_includes_numverify_phone_results():
+    numverify_payload = {
+        "valid": True,
+        "number": "+12025550199",
+        "international_format": "+1 202-555-0199",
+        "country_name": "United States of America",
+        "location": "Washington",
+        "carrier": "Verizon",
+        "line_type": "mobile",
+    }
+
+    with patch("panopto.recon._run_user_scanner_selector", return_value=[]):
+        with patch(
+            "panopto.recon.load_config",
+            return_value={
+                "pdl_api_key": "",
+                "osint_industries_api_key": "",
+                "osint_industries_use_premium": False,
+                "numverify_api_key": "numverify_test_key",
+            },
+        ):
+            with patch("panopto.recon._fetch_numverify_profile", return_value=numverify_payload):
+                payload = run_recon([{"type": "phone", "value": "+1 (202) 555-0199"}])
+
+    assert len(payload["numverify_profiles"]) == 1
+    profile = payload["numverify_profiles"][0]
+    assert profile["country_name"] == "United States of America"
+    assert profile["carrier"] == "Verizon"
+    assert any(
+        row.get("source") == "numverify"
+        and row.get("site_key") == "numverify"
+        and row.get("status") == "present"
+        for row in payload.get("results", [])
+    )

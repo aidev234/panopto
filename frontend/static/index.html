@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>PANOPTO</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=20260218b" />
-    <link rel="stylesheet" href="/styles.css?v=20260220b" />
+    <link rel="stylesheet" href="/styles.css?v=20260227c" />
   </head>
   <body>
     <div id="notifications" class="toast-stack" aria-live="polite" aria-atomic="false"></div>
@@ -19,10 +19,14 @@
               <p class="subtle">Track active cases, threat posture, and latest activity before opening analysis.</p>
             </div>
             <div class="case-head-actions">
-              <button id="openConfigBtn" class="secondary-btn" type="button">Configuration</button>
-              <button id="generateDemoCaseBtn" class="secondary-btn" type="button">Generate Demo Case</button>
-              <button id="openNewCaseBtn" type="button">Open New Case</button>
-              <button id="quitSessionCaseBtn" class="secondary-btn danger-btn" type="button">Quit Session</button>
+              <div class="action-cluster">
+                <button id="openConfigBtn" class="secondary-btn" type="button">Configuration</button>
+                <button id="generateDemoCaseBtn" class="secondary-btn" type="button">Generate Demo Case</button>
+                <button id="openNewCaseBtn" class="primary-btn" type="button">Open New Case</button>
+              </div>
+              <div class="action-cluster action-cluster-danger">
+                <button id="quitSessionCaseBtn" class="secondary-btn danger-btn" type="button">Quit Session</button>
+              </div>
             </div>
           </div>
           <div class="case-controls">
@@ -179,6 +183,26 @@
             <label class="field">
               <span>People Data Labs API Key</span>
               <input id="configPdlApiKeyInput" type="password" placeholder="pdl_xxxxxxxxx" autocomplete="off" />
+              <small id="configPdlApiKeyHint" class="status"></small>
+            </label>
+            <label class="field">
+              <span>OSINT Industries API Key</span>
+              <input id="configOsintIndustriesApiKeyInput" type="password" placeholder="oi_xxxxxxxxx" autocomplete="off" />
+              <small id="configOsintIndustriesApiKeyHint" class="status"></small>
+            </label>
+            <label class="field">
+              <span>OSINT Industries Premium Endpoint</span>
+              <input id="configOsintIndustriesPremiumInput" type="checkbox" />
+            </label>
+            <label class="field">
+              <span>Numverify API Key</span>
+              <input id="configNumverifyApiKeyInput" type="password" placeholder="numverify/apilayer key" autocomplete="off" />
+              <small id="configNumverifyApiKeyHint" class="status"></small>
+            </label>
+            <label class="field">
+              <span>OpenAI API Key</span>
+              <input id="configOpenAiApiKeyInput" type="password" placeholder="sk-..." autocomplete="off" />
+              <small id="configOpenAiApiKeyHint" class="status"></small>
             </label>
             <div class="setup-actions-row">
               <button id="configSaveBtn" type="submit">Save</button>
@@ -311,15 +335,11 @@
 
           <form id="reconForm" class="setup-form hidden">
             <label class="field">
-              <span>Selector Type</span>
-              <select id="reconSelectorType">
-                <option value="username">Username</option>
-                <option value="email">Email</option>
-              </select>
-            </label>
-            <label class="field">
-              <span>Selectors (one per line)</span>
-              <textarea id="reconSelectorsInput" rows="5" placeholder="@johnsmith&#10;@janedoe" autocomplete="off"></textarea>
+              <span>Selectors</span>
+              <div id="reconSelectorsList" class="recon-selectors-list"></div>
+              <div class="setup-actions-row recon-add-row">
+                <button id="addReconSelectorBtn" class="secondary-btn" type="button" aria-label="Add selector">+</button>
+              </div>
             </label>
             <div class="setup-actions-row">
               <button id="reconBtn" type="submit">Run Recon</button>
@@ -364,9 +384,13 @@
               <h1>PANOPTO</h1>
             </div>
             <div class="header-actions">
-              <button id="saveQuitCaseBtn" class="secondary-btn" type="button">Save &amp; Quit Case</button>
-              <button id="backToCasesBtn" class="secondary-btn" type="button">Cases</button>
-              <button id="quitBtn" class="secondary-btn danger-btn" type="button">Quit Session</button>
+              <div class="action-cluster">
+                <button id="backToCasesBtn" class="secondary-btn" type="button">Cases</button>
+                <button id="saveQuitCaseBtn" class="secondary-btn" type="button">Save &amp; Quit Case</button>
+              </div>
+              <div class="action-cluster action-cluster-danger">
+                <button id="quitBtn" class="secondary-btn danger-btn" type="button">Quit Session</button>
+              </div>
             </div>
           </div>
           <p class="subtle">
@@ -379,56 +403,78 @@
           </div>
         </div>
 
-        <div class="controls">
-          <div class="search-wrap">
-            <input
-              id="searchInput"
-              type="text"
-              placeholder="Search posts, usernames, platform..."
-              autocomplete="off"
-            />
-            <button id="clearSearchBtn" class="icon-btn clear-search-btn" type="button" title="Clear search" aria-label="Clear search">×</button>
+        <div class="dashboard-toolbar">
+          <div class="controls">
+            <div class="search-wrap">
+              <input
+                id="searchInput"
+                type="text"
+                placeholder="Search posts, usernames, platform..."
+                autocomplete="off"
+              />
+              <button id="clearSearchBtn" class="icon-btn clear-search-btn" type="button" title="Clear search" aria-label="Clear search">×</button>
+            </div>
+            <select id="sortSelect">
+              <option value="newest">Newest first</option>
+              <option value="oldest">Oldest first</option>
+            </select>
           </div>
-          <select id="sortSelect">
-            <option value="newest">Newest first</option>
-            <option value="oldest">Oldest first</option>
-          </select>
-        </div>
-        <div class="actions">
-          <div class="filter-menu">
-            <button id="filterToggleBtn" class="secondary-btn" type="button" aria-expanded="false" aria-controls="filterPanel">
-              Filters
-            </button>
-            <div id="filterPanel" class="filters hidden">
-              <div class="filter-section">
-                <p class="filter-label">Sources</p>
-                <div class="filter-group">
-                  <label><input id="filterTwitter" type="checkbox" checked /> Twitter</label>
-                  <label><input id="filterReddit" type="checkbox" checked /> Reddit</label>
-                  <label><input id="filterTiktok" type="checkbox" checked /> TikTok</label>
-                  <label><input id="filterBluesky" type="checkbox" checked /> Bluesky</label>
-                  <label><input id="filterInstagram" type="checkbox" checked /> Instagram</label>
-                  <label><input id="filterYoutube" type="checkbox" checked /> YouTube</label>
+          <div class="actions">
+            <div class="view-toggle" role="group" aria-label="Result view">
+              <button id="viewPostsBtn" class="secondary-btn view-toggle-btn is-active" type="button" aria-pressed="true">
+                <span class="view-toggle-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" role="img" focusable="false"><path d="M4 6.5h16"></path><path d="M4 12h16"></path><path d="M4 17.5h9"></path></svg>
+                </span>
+                <span>Post / Assessment</span>
+              </button>
+              <button id="viewMediaBtn" class="secondary-btn view-toggle-btn" type="button" aria-pressed="false">
+                <span class="view-toggle-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" role="img" focusable="false"><rect x="4" y="5" width="16" height="14" rx="2"></rect><path d="M4 14l4.5-4.5 3.5 3 3-2.6 5 4.1"></path><circle cx="9" cy="9" r="1.2"></circle></svg>
+                </span>
+                <span>Image Grid</span>
+              </button>
+              <button id="viewFootprintBtn" class="secondary-btn view-toggle-btn" type="button" aria-pressed="false">
+                <span class="view-toggle-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" role="img" focusable="false"><circle cx="11" cy="11" r="6.5"></circle><path d="M16.5 16.5L21 21"></path></svg>
+                </span>
+                <span>Digital Footprint</span>
+              </button>
+            </div>
+            <div id="filterMenu" class="filter-menu">
+              <button id="filterToggleBtn" class="secondary-btn" type="button" aria-expanded="false" aria-controls="filterPanel">
+                Filters
+              </button>
+              <div id="filterPanel" class="filters hidden">
+                <div class="filter-section">
+                  <p class="filter-label">Sources</p>
+                  <div class="filter-group">
+                    <label><input id="filterTwitter" type="checkbox" checked /> Twitter</label>
+                    <label><input id="filterReddit" type="checkbox" checked /> Reddit</label>
+                    <label><input id="filterTiktok" type="checkbox" checked /> TikTok</label>
+                    <label><input id="filterBluesky" type="checkbox" checked /> Bluesky</label>
+                    <label><input id="filterInstagram" type="checkbox" checked /> Instagram</label>
+                    <label><input id="filterYoutube" type="checkbox" checked /> YouTube</label>
+                  </div>
                 </div>
-              </div>
-              <div class="filter-section">
-                <p class="filter-label">Post Types</p>
-                <div class="filter-group">
-                  <label><input id="filterPost" type="checkbox" checked /> Posts</label>
-                  <label><input id="filterRepost" type="checkbox" checked /> Reposts</label>
-                  <label><input id="filterReply" type="checkbox" checked /> Replies</label>
-                  <label><input id="filterQuote" type="checkbox" checked /> Quotes</label>
-                  <label><input id="filterComment" type="checkbox" checked /> Comments</label>
+                <div class="filter-section">
+                  <p class="filter-label">Post Types</p>
+                  <div class="filter-group">
+                    <label><input id="filterPost" type="checkbox" checked /> Posts</label>
+                    <label><input id="filterRepost" type="checkbox" checked /> Reposts</label>
+                    <label><input id="filterReply" type="checkbox" checked /> Replies</label>
+                    <label><input id="filterQuote" type="checkbox" checked /> Quotes</label>
+                    <label><input id="filterComment" type="checkbox" checked /> Comments</label>
+                  </div>
                 </div>
-              </div>
-              <div class="filter-section">
-                <p class="filter-label">Signals</p>
-                <div class="filter-group">
-                  <label><input id="filterSelectors" type="checkbox" /> Selectors</label>
-                  <label><input id="filterIdeologicalIndicators" type="checkbox" /> Ideological Indicators</label>
-                  <label><input id="filterThreatSignals" type="checkbox" /> Threat Keyword Parse</label>
-                  <label><input id="filterLLMPrimary" type="checkbox" /> LLM Primary</label>
-                  <label><input id="filterLLMSecondary" type="checkbox" /> LLM Secondary</label>
+                <div class="filter-section">
+                  <p class="filter-label">Signals</p>
+                  <div class="filter-group">
+                    <label><input id="filterSelectors" type="checkbox" /> Selectors</label>
+                    <label><input id="filterIdeologicalIndicators" type="checkbox" /> Ideological Indicators</label>
+                    <label><input id="filterThreatSignals" type="checkbox" /> Threat Keyword Parse</label>
+                    <label><input id="filterLLMPrimary" type="checkbox" /> LLM Primary</label>
+                    <label><input id="filterLLMSecondary" type="checkbox" /> LLM Secondary</label>
+                  </div>
                 </div>
               </div>
             </div>
@@ -490,9 +536,10 @@
                 <span id="collectionStreamsSummary" class="viz-total">Idle</span>
               </div>
               <div class="stream-actions">
-                <button id="newCollectionBtn" class="secondary-btn stream-btn" type="button">New Collection</button>
+                <button id="newCollectionBtn" class="primary-btn stream-btn" type="button">New Collection</button>
                 <button id="refreshStreamsBtn" class="secondary-btn stream-btn" type="button">Refresh Status</button>
                 <button id="rerunFailedBtn" class="secondary-btn stream-btn" type="button">Rerun Failed</button>
+                <button id="openManualInsertBtn" class="secondary-btn stream-btn" type="button">Manual Content Insert</button>
               </div>
               <div id="collectionStreams" class="stream-list"></div>
               <p id="collectionStreamsEmpty" class="viz-empty">Start a collection to monitor per-source progress.</p>
@@ -567,6 +614,38 @@
           </section>
 
           <section id="insightsPanelSignals" class="insights-panel hidden">
+            <article id="llmCoverageCard" class="viz-card hidden">
+              <div class="viz-head">
+                <h3>Assessment Coverage</h3>
+                <span class="viz-total llm-coverage-observed">
+                  <span class="llm-coverage-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" role="img" focusable="false">
+                      <path d="M12 3l9 16H3z"></path>
+                      <path d="M12 9v5"></path>
+                      <circle cx="12" cy="17.2" r="1"></circle>
+                    </svg>
+                  </span>
+                  <span>Observed</span>
+                </span>
+              </div>
+              <div class="signal-list">
+                <div id="llmCoveragePrimary" class="signal-row signal-llm-row"></div>
+                <div id="llmCoverageSecondary" class="signal-row signal-llm-secondary-row"></div>
+              </div>
+            </article>
+
+            <article id="aiThreatAssessmentCard" class="viz-card">
+              <div class="viz-head">
+                <h3>AI Threat Assessment</h3>
+                <span class="viz-total">Manual Run</span>
+              </div>
+              <p class="viz-empty">Estimate cost before running OpenAI assessment across currently loaded posts.</p>
+              <div class="setup-actions-row">
+                <button id="runAiThreatAssessmentBtn" class="secondary-btn" type="button">Run AI Threat Assessment</button>
+              </div>
+              <p id="aiThreatAssessmentStatus" class="status"></p>
+            </article>
+
             <article class="viz-card">
               <div class="viz-head">
                 <h3>Primary Warning Behaviours</h3>
@@ -599,6 +678,14 @@
 
             <article class="viz-card">
               <div class="viz-head">
+                <h3>Underlying Themes</h3>
+              </div>
+              <div id="llmThemeMix" class="signal-list"></div>
+              <p id="llmThemeMixEmpty" class="viz-empty hidden">No underlying themes detected in current results.</p>
+            </article>
+
+            <article class="viz-card">
+              <div class="viz-head">
                 <h3>Ideological Indicators</h3>
               </div>
               <div id="threatMix" class="signal-list"></div>
@@ -623,9 +710,78 @@
             </article>
           </section>
         </aside>
+        <section id="footprintView" class="footprint-view hidden">
+          <article class="viz-card footprint-card">
+            <div class="viz-head">
+              <h3>Digital Footprint</h3>
+              <span class="viz-total">Recon</span>
+            </div>
+            <form id="footprintReconForm" class="setup-form">
+              <label class="field">
+                <span>Selectors</span>
+                <div id="footprintSelectorsList" class="recon-selectors-list"></div>
+                <div class="setup-actions-row recon-add-row">
+                  <button id="addFootprintSelectorBtn" class="secondary-btn" type="button" aria-label="Add selector">+</button>
+                </div>
+              </label>
+              <div class="setup-actions-row">
+                <button id="footprintReconBtn" type="submit">Run Recon Query</button>
+                <button id="footprintUseTargetsBtn" class="secondary-btn hidden" type="button" disabled>Use Active Profiles for Collection</button>
+              </div>
+            </form>
+            <div id="footprintReconResults" class="recon-results hidden"></div>
+            <p id="footprintReconStatus" class="status"></p>
+          </article>
+        </section>
       </section>
     </main>
 
-    <script src="/app.js?v=20260219d"></script>
+    <section id="manualInsertModal" class="setup-modal hidden" aria-live="polite">
+      <div class="setup-card manual-insert-card">
+        <div class="setup-head">
+          <h2>Manual Content Insert</h2>
+          <button id="manualInsertCloseBtn" class="secondary-btn" type="button">Close</button>
+        </div>
+        <form id="manualInsertForm" class="setup-form">
+          <label class="field">
+            <span>Freeform Text</span>
+            <textarea id="manualInsertTextInput" rows="8" placeholder="Paste content to insert as a post..."></textarea>
+          </label>
+          <label class="field">
+            <span>File Upload (PDF/TXT)</span>
+            <input id="manualInsertFileInput" type="file" accept=".pdf,.txt,.md,text/plain,application/pdf" />
+          </label>
+          <label class="field">
+            <span>Author Name (optional)</span>
+            <input id="manualInsertAuthorInput" type="text" placeholder="Analyst Note / Author" autocomplete="off" />
+          </label>
+          <label class="field">
+            <span>URL (optional)</span>
+            <input id="manualInsertUrlInput" type="url" placeholder="example.com/source" autocomplete="off" />
+          </label>
+          <label class="field">
+            <span>Source (optional)</span>
+            <input id="manualInsertSourceInput" type="text" placeholder="Manual / Report / Website" autocomplete="off" />
+          </label>
+          <div class="setup-actions-row">
+            <button id="manualInsertSaveBtn" type="submit">Save as Post</button>
+            <button id="manualInsertCancelBtn" class="secondary-btn" type="button">Cancel</button>
+          </div>
+          <p id="manualInsertStatus" class="status"></p>
+        </form>
+      </div>
+    </section>
+
+    <section id="postModal" class="setup-modal hidden" aria-live="polite">
+      <div class="setup-card post-modal-card-shell">
+        <div class="setup-head">
+          <h2 id="postModalTitle">Post Details</h2>
+          <button id="postModalCloseBtn" class="secondary-btn" type="button">Close</button>
+        </div>
+        <div id="postModalBody" class="post-modal-body"></div>
+      </div>
+    </section>
+
+    <script src="/app.js?v=20260228b"></script>
   </body>
 </html>

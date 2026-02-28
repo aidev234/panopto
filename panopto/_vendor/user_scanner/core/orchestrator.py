@@ -29,36 +29,48 @@ def _worker_single(module: ModuleType, username: str) -> Result:
         return Result.error(e, site_name=site_name, username=username)
 
 
-def run_user_module(module: ModuleType, username: str, show_url: bool = False) -> List[Result]:
+def run_user_module(module: ModuleType, username: str, show_url: bool = False, only_found: bool = False) -> List[Result]:
     result = _worker_single(module, username)
 
     category = find_category(module)
     if category:
         result.update(category=category)
 
-    print(result.get_console_output(show_url=show_url))
+    # Use the result.show logic which handles the only_found filtering
+    result.show(show_url=show_url, only_found=only_found)
 
     return [result]
 
 
-def run_user_category(category_path: Path, username: str, show_url: bool = False) -> List[Result]:
+def run_user_category(category_path: Path, username: str, show_url: bool = False, only_found: bool = False) -> List[Result]:
     category_name = category_path.stem.capitalize()
-    print(f"\n{Fore.MAGENTA}== {category_name} SITES =={Style.RESET_ALL}")
-
     results = []
     modules = load_modules(category_path)
+    header_printed = False 
 
     with ThreadPoolExecutor(max_workers=20) as executor:
+        # map returns results as they are finished, allowing for "streaming" output
         exec_map = executor.map(lambda m: _worker_single(m, username), modules)
         for result in exec_map:
             result.update(category=category_name)
             results.append(result)
-            result.show(show_url=show_url)
+
+            if only_found:
+                if result.is_found():
+                    if not header_printed:
+                        print(f"\n{Fore.MAGENTA}== {category_name.upper()} SITES =={Style.RESET_ALL}")
+                        header_printed = True
+                    result.show(show_url=show_url, only_found=only_found)
+            else:
+                if not header_printed:
+                    print(f"\n{Fore.MAGENTA}== {category_name.upper()} SITES =={Style.RESET_ALL}")
+                    header_printed = True
+                result.show(show_url=show_url, only_found=only_found)
 
     return results
 
 
-def run_user_full(username: str, show_url: bool = False) -> List[Result]:
+def run_user_full(username: str, show_url: bool = False, only_found: bool = False) -> List[Result]:
     results = []
     all_modules = []
     categories = list(load_categories().items())
@@ -73,21 +85,29 @@ def run_user_full(username: str, show_url: bool = False) -> List[Result]:
             module_to_cat[get_site_name(m)] = display_name
 
     with ThreadPoolExecutor(max_workers=60) as executor:
-        exec_map = executor.map(
-            lambda m: _worker_single(m, username), all_modules)
+        exec_map = executor.map(lambda m: _worker_single(m, username), all_modules)
         for result in exec_map:
             site_name = result.site_name
             cat_name = module_to_cat.get(site_name, "Unknown") if site_name else "Unknown"
 
-            if cat_name not in printed_categories:
-                print(f"\n{Fore.MAGENTA}== {cat_name} SITES =={Style.RESET_ALL}")
-                printed_categories.add(cat_name)
-
             result.update(category=cat_name)
             results.append(result)
-            result.show(show_url=show_url)
+
+            if only_found:
+                if result.is_found():
+                    if cat_name not in printed_categories:
+                        print(f"\n{Fore.MAGENTA}== {cat_name.upper()} SITES =={Style.RESET_ALL}")
+                        printed_categories.add(cat_name)
+                    result.show(show_url=show_url, only_found=only_found)
+            else:
+                if cat_name not in printed_categories:
+                    print(f"\n{Fore.MAGENTA}== {cat_name.upper()} SITES =={Style.RESET_ALL}")
+                    printed_categories.add(cat_name)
+                result.show(show_url=show_url, only_found=only_found)
 
     return results
+
+
 
 
 def make_request(url: str, **kwargs) -> httpx.Response:

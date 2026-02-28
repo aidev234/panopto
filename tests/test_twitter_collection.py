@@ -286,6 +286,36 @@ class TestTwitterCollection(unittest.TestCase):
                     request_delay_seconds=0,
                 )
 
+    def test_collect_uses_rss_fallback_when_html_pages_empty(self):
+        rss_post = twitter_collection.TwitterPost(
+            post_id="909090",
+            username="sama",
+            content="RSS fallback tweet",
+            timestamp=datetime(2026, 2, 10, 12, 0, 0, tzinfo=timezone.utc),
+            likes=None,
+            retweets=None,
+            replies=None,
+            source_url="https://xcancel.com/sama/status/909090",
+            post_type="post",
+            referenced_username=None,
+            raw_metadata={"raw_timestamp": "Mon, 10 Feb 2026 12:00:00 GMT"},
+        )
+
+        with (
+            patch("panopto.collectors.twitter._iter_pages", return_value=["<html></html>"]),
+            patch("panopto.collectors.twitter._iter_rss_posts", return_value=[rss_post]),
+        ):
+            results = twitter_collection.collect_twitter_posts(
+                "sama",
+                "30 days",
+                browser_fallback=False,
+                request_delay_seconds=0,
+            )
+
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]["post_id"], "909090")
+        self.assertEqual(results[0]["content"], "RSS fallback tweet")
+
 
 if __name__ == "__main__":
     unittest.main()

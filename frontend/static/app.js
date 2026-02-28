@@ -13,6 +13,14 @@ const quitSessionCaseBtn = document.getElementById('quitSessionCaseBtn');
 const configModal = document.getElementById('configModal');
 const configForm = document.getElementById('configForm');
 const configPdlApiKeyInput = document.getElementById('configPdlApiKeyInput');
+const configPdlApiKeyHint = document.getElementById('configPdlApiKeyHint');
+const configOsintIndustriesApiKeyInput = document.getElementById('configOsintIndustriesApiKeyInput');
+const configOsintIndustriesApiKeyHint = document.getElementById('configOsintIndustriesApiKeyHint');
+const configOsintIndustriesPremiumInput = document.getElementById('configOsintIndustriesPremiumInput');
+const configNumverifyApiKeyInput = document.getElementById('configNumverifyApiKeyInput');
+const configNumverifyApiKeyHint = document.getElementById('configNumverifyApiKeyHint');
+const configOpenAiApiKeyInput = document.getElementById('configOpenAiApiKeyInput');
+const configOpenAiApiKeyHint = document.getElementById('configOpenAiApiKeyHint');
 const configSaveBtn = document.getElementById('configSaveBtn');
 const configCloseBtn = document.getElementById('configCloseBtn');
 const configCancelBtn = document.getElementById('configCancelBtn');
@@ -64,8 +72,20 @@ const backToCasesBtn = document.getElementById('backToCasesBtn');
 const saveQuitCaseBtn = document.getElementById('saveQuitCaseBtn');
 const clearSearchBtn = document.getElementById('clearSearchBtn');
 const sortSelect = document.getElementById('sortSelect');
+const viewPostsBtn = document.getElementById('viewPostsBtn');
+const viewMediaBtn = document.getElementById('viewMediaBtn');
+const viewFootprintBtn = document.getElementById('viewFootprintBtn');
+const filterMenu = document.getElementById('filterMenu');
 const statusEl = document.getElementById('status');
 const resultsEl = document.getElementById('results');
+const footprintView = document.getElementById('footprintView');
+const footprintReconForm = document.getElementById('footprintReconForm');
+const footprintSelectorsList = document.getElementById('footprintSelectorsList');
+const addFootprintSelectorBtn = document.getElementById('addFootprintSelectorBtn');
+const footprintReconBtn = document.getElementById('footprintReconBtn');
+const footprintUseTargetsBtn = document.getElementById('footprintUseTargetsBtn');
+const footprintReconResults = document.getElementById('footprintReconResults');
+const footprintReconStatus = document.getElementById('footprintReconStatus');
 const collectionContext = document.getElementById('collectionContext');
 const contextTargets = document.getElementById('contextTargets');
 const contextRange = document.getElementById('contextRange');
@@ -78,8 +98,8 @@ const modeChooser = document.getElementById('modeChooser');
 const modeReconBtn = document.getElementById('modeReconBtn');
 const modeCollectionBtn = document.getElementById('modeCollectionBtn');
 const reconForm = document.getElementById('reconForm');
-const reconSelectorType = document.getElementById('reconSelectorType');
-const reconSelectorsInput = document.getElementById('reconSelectorsInput');
+const reconSelectorsList = document.getElementById('reconSelectorsList');
+const addReconSelectorBtn = document.getElementById('addReconSelectorBtn');
 const reconBtn = document.getElementById('reconBtn');
 const reconResults = document.getElementById('reconResults');
 const reconStatus = document.getElementById('reconStatus');
@@ -140,6 +160,14 @@ const llmPrimaryMixEmpty = document.getElementById('llmPrimaryMixEmpty');
 const llmSecondaryRadar = document.getElementById('llmSecondaryRadar');
 const llmSecondaryMix = document.getElementById('llmSecondaryMix');
 const llmSecondaryMixEmpty = document.getElementById('llmSecondaryMixEmpty');
+const llmThemeMix = document.getElementById('llmThemeMix');
+const llmThemeMixEmpty = document.getElementById('llmThemeMixEmpty');
+const llmCoverageCard = document.getElementById('llmCoverageCard');
+const llmCoveragePrimary = document.getElementById('llmCoveragePrimary');
+const llmCoverageSecondary = document.getElementById('llmCoverageSecondary');
+const aiThreatAssessmentCard = document.getElementById('aiThreatAssessmentCard');
+const runAiThreatAssessmentBtn = document.getElementById('runAiThreatAssessmentBtn');
+const aiThreatAssessmentStatus = document.getElementById('aiThreatAssessmentStatus');
 const leadsList = document.getElementById('leadsList');
 const leadsEmpty = document.getElementById('leadsEmpty');
 const insightsTabOps = document.getElementById('insightsTabOps');
@@ -155,6 +183,22 @@ const collectionStreamsSummary = document.getElementById('collectionStreamsSumma
 const collectionStreamsEmpty = document.getElementById('collectionStreamsEmpty');
 const refreshStreamsBtn = document.getElementById('refreshStreamsBtn');
 const rerunFailedBtn = document.getElementById('rerunFailedBtn');
+const openManualInsertBtn = document.getElementById('openManualInsertBtn');
+const manualInsertModal = document.getElementById('manualInsertModal');
+const manualInsertForm = document.getElementById('manualInsertForm');
+const manualInsertTextInput = document.getElementById('manualInsertTextInput');
+const manualInsertFileInput = document.getElementById('manualInsertFileInput');
+const manualInsertAuthorInput = document.getElementById('manualInsertAuthorInput');
+const manualInsertUrlInput = document.getElementById('manualInsertUrlInput');
+const manualInsertSourceInput = document.getElementById('manualInsertSourceInput');
+const manualInsertSaveBtn = document.getElementById('manualInsertSaveBtn');
+const manualInsertCloseBtn = document.getElementById('manualInsertCloseBtn');
+const manualInsertCancelBtn = document.getElementById('manualInsertCancelBtn');
+const manualInsertStatus = document.getElementById('manualInsertStatus');
+const postModal = document.getElementById('postModal');
+const postModalTitle = document.getElementById('postModalTitle');
+const postModalBody = document.getElementById('postModalBody');
+const postModalCloseBtn = document.getElementById('postModalCloseBtn');
 const notificationsEl = document.getElementById('notifications');
 
 let requestTimer;
@@ -173,6 +217,8 @@ let activeEndDate = '';
 let activeUsername = '';
 let activeTargets = [];
 let latestPosts = [];
+let latestRenderedPosts = [];
+let activeResultsView = 'posts';
 let reconTargets = [];
 let reconLeads = [];
 let reconProfiles = [];
@@ -193,6 +239,8 @@ let lastCollectionUpdatedAt = '';
 let dashboardBaseStatus = '';
 let collectionProgressStatus = '';
 let collectionAppendMode = false;
+let activeThreatAssessmentEditorPostIndex = null;
+const threatAssessmentSaveInFlight = new Set();
 const collectionSourceState = new Map();
 const collectionNoticeKeys = new Set();
 const collectionIssueKeys = new Set();
@@ -738,6 +786,7 @@ async function openCase(caseId) {
   renderCollectionContext();
   dashboardBaseStatus = found ? `Active case: ${found.case_name}` : '';
   updateStatusLine();
+  seedReconFromCaseNotes(found);
   showDashboard();
   await refreshPosts();
 }
@@ -845,6 +894,110 @@ function normalizeKnownProfiles(rawProfiles) {
     });
   }
   return output;
+}
+
+const COLLECTION_READY_SITE_KEYS = new Set(['twitter', 'reddit', 'tiktok', 'bluesky', 'instagram', 'youtube']);
+
+function _siteKeyFromKnownProfile(profile) {
+  const rawSite = String(profile?.site || '').trim();
+  const normalized = normalizePlatformName(rawSite) || inferPlatformFromProfileUrl(profile?.url);
+  if (normalized) return normalized;
+  const compact = rawSite.toLowerCase();
+  if (compact.includes('twitter') || compact.includes('x.com') || compact.includes('x /')) return 'twitter';
+  if (compact.includes('reddit')) return 'reddit';
+  if (compact.includes('tiktok')) return 'tiktok';
+  if (compact.includes('bluesky') || compact.includes('bsky')) return 'bluesky';
+  if (compact.includes('instagram')) return 'instagram';
+  if (compact.includes('youtube')) return 'youtube';
+  if (compact.includes('github')) return 'github';
+  if (compact.includes('linkedin')) return 'linkedin';
+  if (compact.includes('threads')) return 'threads';
+  return '';
+}
+
+function _collectionTargetFromKnownProfile(profile, siteKey) {
+  if (!COLLECTION_READY_SITE_KEYS.has(siteKey)) return null;
+  const handle = extractHandleFromProfileUrl(profile?.url);
+  if (!handle) return null;
+  return {
+    platform: siteKey,
+    username: adjustTargetUsernameForCollection(siteKey, handle),
+  };
+}
+
+function seedReconFromCaseNotes(caseRow) {
+  const notes = normalizeCaseNotesObject(caseRow?.case_notes || {});
+  const knownProfiles = normalizeKnownProfiles(notes.known_profiles);
+  if (!knownProfiles.length) {
+    reconProfiles = [];
+    reconTargets = [];
+    reconLeads = [];
+    reconPersonDataProfile = {};
+    reconPersonDataProfiles = [];
+    renderLeadsList();
+    renderReconResults({ results: [], checked: 0, present_count: 0 }, reconResults);
+    renderReconResults({ results: [], checked: 0, present_count: 0 }, footprintReconResults);
+    if (footprintReconStatus) footprintReconStatus.textContent = 'No seeded digital footprint profiles found in case notes.';
+    return;
+  }
+
+  const results = knownProfiles.map((profile) => {
+    const siteKey = _siteKeyFromKnownProfile(profile);
+    return {
+      site: siteKey || String(profile.site || '').trim() || 'unknown',
+      status: 'present',
+      profile_url: String(profile.url || '').trim(),
+      profile_image_url: normalizeProfileImageUrl(profile.image_url),
+      screenshot_url: String(profile.screenshot_url || '').trim(),
+      source: 'seed',
+      supported_for_collection: COLLECTION_READY_SITE_KEYS.has(siteKey),
+      reason: '',
+    };
+  });
+
+  const collectionReadyProfiles = results.filter((row) => row.supported_for_collection && String(row.profile_url || '').trim());
+  const unsupportedProfilesWithUrl = results.filter((row) => !row.supported_for_collection && String(row.profile_url || '').trim());
+  const knownPresentWithoutUrl = results.filter((row) => !String(row.profile_url || '').trim());
+
+  const targetMap = new Map();
+  for (const profile of knownProfiles) {
+    const siteKey = _siteKeyFromKnownProfile(profile);
+    const target = _collectionTargetFromKnownProfile(profile, siteKey);
+    if (!target) continue;
+    const key = `${target.platform}|${String(target.username || '').toLowerCase()}`;
+    if (targetMap.has(key)) continue;
+    targetMap.set(key, target);
+  }
+
+  reconProfiles = results;
+  reconTargets = Array.from(targetMap.values());
+  reconLeads = unsupportedProfilesWithUrl.map((row) => ({
+    site: row.site,
+    profile_url: row.profile_url,
+    screenshot_url: row.screenshot_url,
+    source: 'seed',
+  }));
+  reconPersonDataProfile = {};
+  reconPersonDataProfiles = [];
+  renderLeadsList();
+
+  const payload = {
+    results,
+    checked: results.length,
+    present_count: results.length,
+    collection_ready_profiles: collectionReadyProfiles,
+    unsupported_profiles_with_url: unsupportedProfilesWithUrl,
+    known_present_without_url: knownPresentWithoutUrl,
+    osint_profiles: [],
+    numverify_profiles: [],
+    person_data_profile: {},
+    person_data_profiles: [],
+  };
+  renderReconResults(payload, reconResults);
+  renderReconResults(payload, footprintReconResults);
+  if (footprintReconStatus) {
+    footprintReconStatus.textContent = `Loaded ${results.length} seeded profile hit(s) from case notes.`;
+  }
 }
 
 function defaultKnownProfilesFromRecon() {
@@ -1385,64 +1538,466 @@ function llmAssessmentFromPost(post) {
   return null;
 }
 
+const LLM_INDICATOR_DESCRIPTORS = {
+  pathway: 'Observable preparation for attack activity such as planning, target selection, or testing response.',
+  fixation: 'Intense, obsessive preoccupation that dominates thinking and impairs normal functioning.',
+  leakage: 'Indirect or veiled communication suggesting attack intent to third parties.',
+  'directly communicated threat': 'Explicitly stated threat or declared intent to attack a target.',
+  'last resort': 'Language presenting violent action as urgent, necessary, or the only option left.',
+  'violent identification': 'Adoption of a warrior identity, martyr framing, or idolization of attackers.',
+  'testing violence': 'References to recent offline violence used to test capability or barriers.',
+  'testing violence (novel aggression)': 'References to recent offline violence used to test capability or barriers.',
+  'sudden behaviour change': 'Major break from baseline behavior such as withdrawal, relocation, or settling affairs.',
+  'personal grievance': 'Strong anger, resentment, humiliation, or victimhood directed at a person/group/society.',
+  stressor: 'Significant destabilizing stressors such as loss, conflict, legal/financial pressure, or failure.',
+  'concerning history': 'History of problematic or violent behavior that elevates future violence risk.',
+  'negative emotional state': 'Pervasive hopelessness, despair, isolation, nihilism, or worthlessness.',
+  'suicidal ideation': 'Suicidal thoughts/fantasies/attempts, especially when intertwined with violence.',
+  'mental health risk': 'Indicators of severe psychological distress like paranoia, delusions, or disorganization.',
+  'violent ideation': 'Communicated violent fantasies/threats indicating propensity for aggressive action.',
+  'violent fascination': 'Unusual interest in violent extremist content, gore, weapons, or mass violence.',
+  'violent justification': 'Attempts to justify, excuse, or legitimize the use of violence.',
+  grandiosity: 'Inflated beliefs of personal importance or heroic/existential significance.',
+  'hostile worldview': 'Us-vs-them framing with dehumanizing hostility toward perceived outgroups.',
+  incitement: 'Attempts to recruit, mobilize, or encourage others toward violence.',
+  'extremist beliefs': 'Uncompromising extremist ideology, especially with violence advocacy.',
+  fame: 'Desire for notoriety through extreme or violent acts.',
+  networks: 'Claimed links or participation in extremist networks or communities.',
+  'capability (knowledge)': 'Skills/training/knowledge relevant to planning or executing violence.',
+  'capability (resources)': 'Access to tools or materials that could enable an attack.',
+  'capability (access)': 'Proximity/insider access or specific target-location knowledge that enables attack.',
+  'protective factor': 'Mitigating conditions (support, coping, opportunities, anti-violence stance) that reduce risk.',
+};
+
+const LLM_PRIMARY_BEHAVIOUR_KEYS = new Set([
+  'pathway',
+  'fixation',
+  'leakage',
+  'directly communicated threat',
+  'last resort',
+  'violent identification',
+  'testing violence (novel aggression)',
+  'sudden behaviour change',
+]);
+
+const LLM_SECONDARY_BEHAVIOUR_KEYS = new Set([
+  'personal grievance',
+  'stressor',
+  'concerning history',
+  'negative emotional state',
+  'suicidal ideation',
+  'mental health risk',
+  'violent ideation',
+  'violent fascination',
+  'violent justification',
+  'grandiosity',
+  'hostile worldview',
+  'incitement',
+  'extremist beliefs',
+  'fame',
+  'networks',
+  'capability (knowledge)',
+  'capability (resources)',
+  'capability (access)',
+]);
+
+function normalizeLlmIndicatorKey(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, ' ');
+}
+
+function normalizeLlmCoverageIndicatorKey(value) {
+  const key = normalizeLlmIndicatorKey(value);
+  if (key === 'testing violence') return 'testing violence (novel aggression)';
+  return key;
+}
+
+function llmIndicatorDescriptor(indicator) {
+  const key = normalizeLlmIndicatorKey(indicator);
+  return LLM_INDICATOR_DESCRIPTORS[key] || 'Indicator from the behavioural threat assessment guide.';
+}
+
+function llmAssessmentPrimary(assessment) {
+  if (!assessment || typeof assessment !== 'object') return [];
+  if (Array.isArray(assessment.tagged_primary)) return assessment.tagged_primary;
+  if (Array.isArray(assessment.primary_warning_behaviours)) return assessment.primary_warning_behaviours;
+  return [];
+}
+
+function llmAssessmentSecondary(assessment) {
+  if (!assessment || typeof assessment !== 'object') return [];
+  if (Array.isArray(assessment.tagged_secondary)) return assessment.tagged_secondary;
+  if (Array.isArray(assessment.secondary_risk_factors)) return assessment.secondary_risk_factors;
+  return [];
+}
+
 function llmAssessmentHasIndicators(assessment) {
   if (!assessment || typeof assessment !== 'object') return false;
-  const primary = Array.isArray(assessment.primary_warning_behaviours) ? assessment.primary_warning_behaviours : [];
-  const secondary = Array.isArray(assessment.secondary_risk_factors) ? assessment.secondary_risk_factors : [];
+  const primary = llmAssessmentPrimary(assessment);
+  const secondary = llmAssessmentSecondary(assessment);
   const theme = String(assessment.underlying_theme || '').trim();
   return primary.length > 0 || secondary.length > 0 || Boolean(theme);
 }
 
-function renderLLMAssessmentDetail(post) {
+function _normalizeAssessmentList(values) {
+  if (!Array.isArray(values)) return [];
+  const output = [];
+  const seen = new Set();
+  for (const item of values) {
+    const clean = String(item || '').trim().replace(/\s+/g, ' ');
+    if (!clean) continue;
+    const key = clean.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    output.push(clean);
+  }
+  return output;
+}
+
+function normalizeEditableLlmAssessment(assessment) {
+  const source = assessment && typeof assessment === 'object' ? assessment : {};
+  return {
+    tagged_primary: _normalizeAssessmentList(llmAssessmentPrimary(source)),
+    tagged_secondary: _normalizeAssessmentList(llmAssessmentSecondary(source)),
+    underlying_theme: String(source.underlying_theme || '').trim(),
+    rationale: String(source.rationale || '').trim(),
+  };
+}
+
+function buildPersistedLlmAssessment(assessment, fallbackAssessment = {}) {
+  const normalized = normalizeEditableLlmAssessment(assessment);
+  const fallback = fallbackAssessment && typeof fallbackAssessment === 'object' ? fallbackAssessment : {};
+  const rationale = normalized.rationale || String(fallback.rationale || '').trim();
+  const underlyingTheme = normalized.tagged_primary.length || normalized.tagged_secondary.length
+    ? normalized.underlying_theme
+    : '';
+  return {
+    tagged_primary: normalized.tagged_primary,
+    tagged_secondary: normalized.tagged_secondary,
+    primary_warning_behaviours: normalized.tagged_primary,
+    secondary_risk_factors: normalized.tagged_secondary,
+    underlying_theme: underlyingTheme,
+    rationale,
+  };
+}
+
+function cloneJsonObject(value) {
+  if (!value || typeof value !== 'object') return {};
+  try {
+    return JSON.parse(JSON.stringify(value));
+  } catch (_error) {
+    return {};
+  }
+}
+
+function applyLocalLlmAssessmentUpdate(rowId, nextAssessment) {
+  const targetRowId = Number(rowId);
+  if (!Number.isFinite(targetRowId)) return;
+  const normalized = buildPersistedLlmAssessment(nextAssessment, nextAssessment);
+  for (const post of latestPosts) {
+    if (!post || Number(post.row_id) !== targetRowId) continue;
+    if (!post.metadata || typeof post.metadata !== 'object') post.metadata = {};
+    post.metadata.llm_assessment = { ...normalized };
+    post.llm_assessment = {
+      tagged_primary: [...normalized.tagged_primary],
+      tagged_secondary: [...normalized.tagged_secondary],
+      underlying_theme: normalized.underlying_theme,
+      rationale: normalized.rationale,
+    };
+    post.llm_primary_warning_behaviours = [...normalized.tagged_primary];
+    post.llm_secondary_risk_factors = [...normalized.tagged_secondary];
+    post.llm_underlying_theme = normalized.underlying_theme;
+    post.llm_rationale = normalized.rationale;
+  }
+}
+
+async function persistThreatAssessmentUpdate(postIndex, nextAssessment, options = {}) {
+  const opts = options && typeof options === 'object' ? options : {};
+  const closeEditor = Boolean(opts.closeEditor);
+  const index = Number(postIndex);
+  const post = latestRenderedPosts[index];
+  if (!post || typeof post !== 'object') return false;
+  const rowId = Number(post.row_id);
+  if (!Number.isFinite(rowId)) {
+    showNotification('Threat assessment update failed: post row id missing.', 'error');
+    return false;
+  }
+  if (threatAssessmentSaveInFlight.has(rowId)) return false;
+  threatAssessmentSaveInFlight.add(rowId);
+  renderPosts(latestPosts);
+  try {
+    const currentAssessment = normalizeEditableLlmAssessment(llmAssessmentFromPost(post));
+    const persistedAssessment = buildPersistedLlmAssessment(nextAssessment, currentAssessment);
+    const metadata = cloneJsonObject(post.metadata);
+    metadata.llm_assessment = persistedAssessment;
+    const response = await fetch('/api/posts/assessment', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        row_id: rowId,
+        case_id: String(activeCaseId || post.case_id || '').trim(),
+        metadata,
+      }),
+    });
+    if (!response.ok) {
+      const message = await parseErrorResponse(response);
+      throw new Error(message);
+    }
+    applyLocalLlmAssessmentUpdate(rowId, persistedAssessment);
+    if (closeEditor || !persistedAssessment.tagged_primary.length && !persistedAssessment.tagged_secondary.length) {
+      activeThreatAssessmentEditorPostIndex = null;
+    }
+    renderPosts(latestPosts);
+    return true;
+  } catch (error) {
+    console.error(error);
+    showNotification(`Threat assessment update failed: ${error.message || 'unknown error'}`, 'error');
+    renderPosts(latestPosts);
+    return false;
+  } finally {
+    threatAssessmentSaveInFlight.delete(rowId);
+  }
+}
+
+function renderLLMCoverage(posts) {
+  if (!(llmCoverageCard instanceof HTMLElement) || !llmCoveragePrimary || !llmCoverageSecondary) return;
+  const list = Array.isArray(posts) ? posts : [];
+  const assessments = list
+    .map((post) => llmAssessmentFromPost(post))
+    .filter((assessment) => assessment && typeof assessment === 'object');
+
+  const hasAssessment = assessments.length > 0;
+  llmCoverageCard.classList.toggle('hidden', !hasAssessment);
+  if (!hasAssessment) {
+    llmCoveragePrimary.innerHTML = '';
+    llmCoverageSecondary.innerHTML = '';
+    return;
+  }
+
+  const observedPrimary = new Set();
+  const observedSecondary = new Set();
+  for (const assessment of assessments) {
+    for (const indicator of llmAssessmentPrimary(assessment)) {
+      const key = normalizeLlmCoverageIndicatorKey(indicator);
+      if (LLM_PRIMARY_BEHAVIOUR_KEYS.has(key)) observedPrimary.add(key);
+    }
+    for (const indicator of llmAssessmentSecondary(assessment)) {
+      const key = normalizeLlmCoverageIndicatorKey(indicator);
+      if (LLM_SECONDARY_BEHAVIOUR_KEYS.has(key)) observedSecondary.add(key);
+    }
+  }
+
+  const coverageRow = (label, numerator, denominator) => `
+    <span class="llm-coverage-row-label">
+      <span class="llm-coverage-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" role="img" focusable="false">
+          <path d="M12 3l9 16H3z"></path>
+          <path d="M12 9v5"></path>
+          <circle cx="12" cy="17.2" r="1"></circle>
+        </svg>
+      </span>
+      <span>${escapeHtml(label)}</span>
+    </span>
+    <strong class="llm-coverage-ratio">${numerator}/${denominator}</strong>
+  `;
+
+  llmCoveragePrimary.innerHTML = coverageRow('Primary Warning Behaviours', observedPrimary.size, LLM_PRIMARY_BEHAVIOUR_KEYS.size);
+  llmCoverageSecondary.innerHTML = coverageRow('Secondary Warning Behaviours', observedSecondary.size, LLM_SECONDARY_BEHAVIOUR_KEYS.size);
+}
+
+function renderLLMAssessmentDetail(post, index, options = {}) {
   if (activeInsightsTab !== 'signals') return '';
   const assessment = llmAssessmentFromPost(post);
   if (!llmAssessmentHasIndicators(assessment)) return '';
-  const primary = Array.isArray(assessment.primary_warning_behaviours) ? assessment.primary_warning_behaviours : [];
-  const secondary = Array.isArray(assessment.secondary_risk_factors) ? assessment.secondary_risk_factors : [];
-  const theme = String(assessment.underlying_theme || '').trim();
+  const editable = options.assessmentEditable !== false;
+  const normalized = normalizeEditableLlmAssessment(assessment);
+  const primary = normalized.tagged_primary;
+  const secondary = normalized.tagged_secondary;
+  const theme = normalized.underlying_theme;
+  const isEditing = editable && activeThreatAssessmentEditorPostIndex === Number(index);
+  const isSaving = threatAssessmentSaveInFlight.has(Number(post?.row_id));
+  const allTags = [
+    ...primary.map((item) => ({ label: String(item || '').trim(), kind: 'primary' })),
+    ...secondary.map((item) => ({ label: String(item || '').trim(), kind: 'secondary' })),
+  ].filter((item) => item.label);
+  const editablePills = allTags.length
+    ? allTags.map((item) => `
+      <button
+        type="button"
+        class="llm-pill llm-pill-editable ${item.kind}"
+        data-assessment-remove-tag
+        data-assessment-tag-kind="${escapeAttr(item.kind)}"
+        data-assessment-tag-label="${escapeAttr(item.label)}"
+        title="Remove ${escapeAttr(item.label)}"
+        ${isSaving ? 'disabled' : ''}
+      >
+        <span>${escapeHtml(item.label)}</span>
+        <span aria-hidden="true">×</span>
+      </button>
+    `).join('')
+    : '<p class="llm-assessment-editor-hint">No tags yet. Add one below.</p>';
   return `
-    <section class="llm-assessment">
-      ${primary.length ? `<p><strong>Primary Warning Behaviours:</strong> ${escapeHtml(primary.join(', '))}</p>` : ''}
-      ${secondary.length ? `<p><strong>Secondary Risk Factors:</strong> ${escapeHtml(secondary.join(', '))}</p>` : ''}
-      ${theme ? `<p><strong>Underlying Theme:</strong> ${escapeHtml(theme)}</p>` : ''}
+    <section class="llm-assessment" data-post-index="${Number(index)}">
+      <div class="llm-assessment-head">
+        ${theme ? `<p class="llm-theme-line">Assessment: Possible ${escapeHtml(theme)}</p>` : '<p class="llm-theme-line llm-theme-empty">Assessment theme not set.</p>'}
+        ${editable ? `<button type="button" class="llm-assessment-toggle" data-assessment-toggle ${isSaving ? 'disabled' : ''}>${isEditing ? 'Done' : 'Edit'}</button>` : ''}
+      </div>
+      ${allTags.length ? `<div class="llm-pill-row">${allTags.map((item) => `<span class="llm-pill ${item.kind}" title="${escapeAttr(llmIndicatorDescriptor(item.label))}">${escapeHtml(item.label)}</span>`).join('')}</div>` : ''}
+      ${editable ? `
+        <div class="llm-assessment-editor${isEditing ? '' : ' hidden'}">
+          <label class="llm-assessment-theme-field">
+            <span>Theme Comment</span>
+            <input type="text" data-assessment-theme-input value="${escapeAttr(theme)}" placeholder="Add theme comment" ${isSaving ? 'disabled' : ''} />
+          </label>
+          <div class="llm-assessment-editor-actions">
+            <button type="button" class="llm-assessment-action-btn" data-assessment-theme-save ${isSaving ? 'disabled' : ''}>Save Theme</button>
+            <button type="button" class="llm-assessment-action-btn subtle" data-assessment-theme-remove ${isSaving ? 'disabled' : ''}>Remove Theme</button>
+          </div>
+          <div class="llm-assessment-tag-editor">
+            <input type="text" data-assessment-tag-input placeholder="Add tag (comma-separated supported)" ${isSaving ? 'disabled' : ''} />
+            <select data-assessment-tag-kind ${isSaving ? 'disabled' : ''}>
+              <option value="primary">Primary Warning</option>
+              <option value="secondary">Secondary Risk</option>
+            </select>
+            <button type="button" class="llm-assessment-action-btn" data-assessment-tag-add ${isSaving ? 'disabled' : ''}>Add</button>
+          </div>
+          <p class="llm-assessment-editor-hint">Click a tag below to remove it.</p>
+          <div class="llm-pill-row llm-pill-row-edit">${editablePills}</div>
+        </div>
+      ` : ''}
     </section>
   `;
 }
 
 function renderPosts(posts) {
   latestPosts = Array.isArray(posts) ? posts : [];
-  if (!posts.length) {
-    resultsEl.innerHTML = '<div class="empty">No posts matched your query.</div>';
-    renderVisuals([]);
+  latestRenderedPosts = activeInsightsTab === 'signals'
+    ? latestPosts.filter((post) => llmAssessmentHasIndicators(llmAssessmentFromPost(post)))
+    : latestPosts;
+  if (!latestRenderedPosts.length) {
+    const message = activeInsightsTab === 'signals'
+      ? 'No posts with primary/secondary threat indicators are available.'
+      : 'No posts matched your query.';
+    resultsEl.innerHTML = `<div class="empty">${escapeHtml(message)}</div>`;
+    renderVisuals(latestRenderedPosts);
     return;
   }
 
-  resultsEl.innerHTML = posts
-    .map((post, index) => {
-      const profileImageUrl = postProfileImageUrl(post) || USER_PLACEHOLDER_AVATAR_URL;
-      return `
-      <article id="post-card-${index}" class="card" data-post-index="${index}">
-        <div class="meta">
-          <div class="account-line">
-            <img class="account-avatar" src="${escapeAttr(profileImageUrl)}" alt="${escapeAttr(accountTag(post))} profile image" loading="lazy" />
-            <span class="account-tag">${escapeHtml(accountTag(post))}</span>
-            <span class="source-tag">${escapeHtml((post.platform || 'Unknown').toUpperCase())}</span>
-            <span class="type-tag">${escapeHtml((post.post_type || 'post').toUpperCase())}</span>
-          </div>
-          <div class="meta-right">
-            <time class="recency">${escapeHtml(formatRecency(post.timestamp))}</time>
-            ${post.source_url ? `<a class="url-icon" href="${escapeHtml(post.source_url)}" target="_blank" rel="noopener noreferrer" title="Open source post">🔗</a>` : ''}
-          </div>
+  resultsEl.innerHTML = activeResultsView === 'media'
+    ? renderMediaGrid(latestRenderedPosts)
+    : latestRenderedPosts.map((post, index) => renderPostCard(post, index)).join('');
+  renderVisuals(latestRenderedPosts);
+}
+
+function renderPostCard(post, index, options = {}) {
+  const includeCardId = options.includeCardId !== false;
+  const fullContent = options.fullContent === true;
+  const assessmentEditable = options.assessmentEditable !== false;
+  const profileImageUrl = postProfileImageUrl(post) || USER_PLACEHOLDER_AVATAR_URL;
+  return `
+    <article ${includeCardId ? `id="post-card-${index}" ` : ''}class="card" data-post-index="${index}">
+      <div class="meta">
+        <div class="account-line">
+          <img class="account-avatar" src="${escapeAttr(profileImageUrl)}" alt="${escapeAttr(accountTag(post))} profile image" loading="lazy" />
+          <span class="account-tag">${escapeHtml(accountTag(post))}</span>
+          <span class="source-tag">${escapeHtml((post.platform || 'Unknown').toUpperCase())}</span>
+          <span class="type-tag">${escapeHtml((post.post_type || 'post').toUpperCase())}</span>
         </div>
-        <div class="content">${renderContentWithSignals(primaryPostText(post), searchInput.value, post)}</div>
-        ${renderLLMAssessmentDetail(post)}
-        ${renderQuoteNest(post)}
-        ${renderPostMedia(post)}
-      </article>
-    `;
-    })
-    .join('');
-  renderVisuals(posts);
+        <div class="meta-right">
+          <time class="recency">${escapeHtml(formatRecency(post.timestamp))}</time>
+          ${post.source_url ? `<a class="url-icon" href="${escapeHtml(post.source_url)}" target="_blank" rel="noopener noreferrer" title="Open source post">🔗</a>` : ''}
+        </div>
+      </div>
+      <div class="content">${postContentMarkup(post, index, { fullContent })}</div>
+      ${renderLLMAssessmentDetail(post, index, { assessmentEditable })}
+      ${renderQuoteNest(post)}
+      ${renderPostMedia(post)}
+    </article>
+  `;
+}
+
+function collectMediaItems(posts) {
+  const items = [];
+  for (let postIndex = 0; postIndex < posts.length; postIndex += 1) {
+    const post = posts[postIndex];
+    const media = normalizeMedia(post);
+    for (let mediaIndex = 0; mediaIndex < media.length; mediaIndex += 1) {
+      const entry = media[mediaIndex];
+      const type = String(entry.type || '').toLowerCase() === 'video' ? 'video' : 'image';
+      const previewUrl = type === 'video' ? String(entry.thumbnail_url || '').trim() : String(entry.url || '').trim();
+      items.push({
+        postIndex,
+        mediaIndex,
+        type,
+        mediaUrl: String(entry.url || '').trim(),
+        previewUrl,
+        posterUrl: String(entry.thumbnail_url || '').trim(),
+      });
+    }
+  }
+  return items;
+}
+
+function renderMediaGrid(posts) {
+  const items = collectMediaItems(posts);
+  if (!items.length) {
+    return '<div class="empty">No images or videos matched your current filters.</div>';
+  }
+  return `
+    <section class="results-media-grid">
+      ${items.map((item) => {
+    const post = posts[item.postIndex];
+    const source = String(post?.platform || 'unknown').trim().toUpperCase();
+    const preview = isHttpUrl(item.previewUrl) ? item.previewUrl : item.mediaUrl;
+    const previewMarkup = item.type === 'video'
+      ? `<video preload="metadata" muted playsinline ${isHttpUrl(item.posterUrl) ? `poster="${escapeAttr(item.posterUrl)}"` : ''}><source src="${escapeAttr(item.mediaUrl)}" type="video/mp4" /></video>`
+      : `<img loading="lazy" src="${escapeAttr(preview)}" alt="Post media preview" />`;
+    return `
+        <button type="button" class="media-grid-tile" data-post-index="${item.postIndex}" data-media-index="${item.mediaIndex}">
+          <span class="media-grid-preview">${previewMarkup}</span>
+          <span class="media-grid-meta">
+            <span class="media-grid-author">${escapeHtml(accountTag(post))}</span>
+            <span class="media-grid-source">${escapeHtml(source)}</span>
+          </span>
+        </button>
+      `;
+  }).join('')}
+    </section>
+  `;
+}
+
+function postContentMarkup(post, index, options = {}) {
+  const fullContent = options.fullContent === true;
+  const text = primaryPostText(post);
+  if (fullContent) return renderContentWithSignals(text, searchInput.value, post);
+  const metadata = post?.metadata || {};
+  const isFileInsert = Boolean(metadata?.manual_insert && metadata?.manual_insert_from_file);
+  if (!isFileInsert || text.length <= 500) {
+    return renderContentWithSignals(text, searchInput.value, post);
+  }
+  const leading = text.slice(0, 500);
+  const trailing = text.slice(500);
+  return `
+    <span class="content-truncated" data-expanded="false" data-content-head="${escapeAttr(leading)}" data-content-rest="${escapeAttr(trailing)}">${renderContentWithSignals(leading, searchInput.value, post)}<span class="content-ellipsis">...</span></span>
+    <button type="button" class="content-more-toggle" data-post-index="${index}" aria-expanded="false">Show more+</button>
+  `;
+}
+
+function postContentMarkup(post, index) {
+  const text = primaryPostText(post);
+  const metadata = post?.metadata || {};
+  const isFileInsert = Boolean(metadata?.manual_insert && metadata?.manual_insert_from_file);
+  if (!isFileInsert || text.length <= 500) {
+    return renderContentWithSignals(text, searchInput.value, post);
+  }
+  const leading = text.slice(0, 500);
+  const trailing = text.slice(500);
+  return `
+    <span class="content-truncated" data-expanded="false" data-content-head="${escapeAttr(leading)}" data-content-rest="${escapeAttr(trailing)}">${renderContentWithSignals(leading, searchInput.value, post)}<span class="content-ellipsis">...</span></span>
+    <button type="button" class="content-more-toggle" data-post-index="${index}" aria-expanded="false">Show more+</button>
+  `;
 }
 
 function primaryPostText(post) {
@@ -1464,6 +2019,11 @@ function primaryPostText(post) {
 }
 
 function scrollToPost(index) {
+  if (activeResultsView !== 'posts') {
+    setResultsView('posts');
+    window.setTimeout(() => scrollToPost(index), 0);
+    return;
+  }
   const target = document.getElementById(`post-card-${index}`);
   if (!target) return;
   target.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -1582,8 +2142,8 @@ function renderContentWithSignals(content, query, post) {
   const selectorTerms = Array.isArray(post?.selector_matches) ? post.selector_matches : [];
   const llmAssessment = llmAssessmentFromPost(post);
   const llmTerms = [
-    ...(Array.isArray(llmAssessment?.primary_warning_behaviours) ? llmAssessment.primary_warning_behaviours : []),
-    ...(Array.isArray(llmAssessment?.secondary_risk_factors) ? llmAssessment.secondary_risk_factors : []),
+    ...llmAssessmentPrimary(llmAssessment),
+    ...llmAssessmentSecondary(llmAssessment),
   ];
 
   const ranges = [
@@ -1827,8 +2387,8 @@ function applySignalTypeFilter(posts) {
     const hasIdeologicalIndicators = ideologicalCategories.length > 0;
     const hasThreatSignals = threatSignalCategories.length > 0 || (Array.isArray(post?.threat_matches) && post.threat_matches.length > 0);
     const assessment = llmAssessmentFromPost(post);
-    const hasLLMPrimary = Array.isArray(assessment?.primary_warning_behaviours) && assessment.primary_warning_behaviours.length > 0;
-    const hasLLMSecondary = Array.isArray(assessment?.secondary_risk_factors) && assessment.secondary_risk_factors.length > 0;
+    const hasLLMPrimary = llmAssessmentPrimary(assessment).length > 0;
+    const hasLLMSecondary = llmAssessmentSecondary(assessment).length > 0;
     return (
       (selectorsOn && hasSelectors)
       || (ideologicalOn && hasIdeologicalIndicators)
@@ -1860,11 +2420,11 @@ function applyMixFilters(posts) {
 function _signalValuesForField(post, fieldName) {
   if (fieldName === 'llm_primary_warning_behaviours') {
     const assessment = llmAssessmentFromPost(post);
-    return Array.isArray(assessment?.primary_warning_behaviours) ? assessment.primary_warning_behaviours : [];
+    return llmAssessmentPrimary(assessment);
   }
   if (fieldName === 'llm_secondary_risk_factors') {
     const assessment = llmAssessmentFromPost(post);
-    return Array.isArray(assessment?.secondary_risk_factors) ? assessment.secondary_risk_factors : [];
+    return llmAssessmentSecondary(assessment);
   }
   return Array.isArray(post?.[fieldName]) ? post[fieldName] : [];
 }
@@ -2705,6 +3265,53 @@ function renderLLMSecondaryMix(posts) {
   _renderRadar(llmSecondaryRadar, items);
 }
 
+function renderLLMThemeMix(posts) {
+  if (!llmThemeMix || !llmThemeMixEmpty) return;
+  const counts = new Map();
+  const list = Array.isArray(posts) ? posts : [];
+  for (let idx = 0; idx < list.length; idx += 1) {
+    const post = list[idx];
+    const assessment = llmAssessmentFromPost(post);
+    const primary = llmAssessmentPrimary(assessment);
+    const secondary = llmAssessmentSecondary(assessment);
+    if (!primary.length && !secondary.length) continue;
+    const theme = String(assessment?.underlying_theme || '').trim();
+    if (!theme) continue;
+    const existing = counts.get(theme);
+    if (existing) {
+      existing.count += 1;
+    } else {
+      counts.set(theme, { text: theme, count: 1, postIndex: idx });
+    }
+  }
+  const rows = Array.from(counts.values())
+    .sort((a, b) => b.count - a.count || a.text.localeCompare(b.text))
+    .slice(0, 12);
+  if (!rows.length) {
+    llmThemeMix.innerHTML = '';
+    llmThemeMixEmpty.classList.remove('hidden');
+    return;
+  }
+  llmThemeMixEmpty.classList.add('hidden');
+  llmThemeMix.innerHTML = rows
+    .map((row) => `<button type="button" class="signal-row signal-llm-theme-row" data-post-index="${row.postIndex}" title="Jump to associated post"><span>${escapeHtml(row.text)}</span><strong>${row.count}</strong></button>`)
+    .join('');
+}
+
+function updateAiThreatAssessmentControls(posts) {
+  if (!(runAiThreatAssessmentBtn instanceof HTMLButtonElement)) return;
+  const candidates = llmAssessmentCandidatePosts(posts);
+  const hasCandidates = candidates.length > 0;
+  if (aiThreatAssessmentCard instanceof HTMLElement) {
+    aiThreatAssessmentCard.classList.toggle('hidden', !hasCandidates);
+  }
+  if (!hasCandidates) {
+    if (aiThreatAssessmentStatus) aiThreatAssessmentStatus.textContent = '';
+    return;
+  }
+  runAiThreatAssessmentBtn.classList.remove('hidden');
+}
+
 function renderVisuals(posts) {
   renderTimeline(posts);
   renderPostingRhythm(posts);
@@ -2714,8 +3321,11 @@ function renderVisuals(posts) {
   renderSelectorMix(posts);
   renderThreatMix(posts);
   renderThreatSignalMix(posts);
+  renderLLMCoverage(posts);
   renderLLMPrimaryMix(posts);
   renderLLMSecondaryMix(posts);
+  renderLLMThemeMix(posts);
+  updateAiThreatAssessmentControls(posts);
   renderTypeMix(posts);
 }
 
@@ -2757,6 +3367,57 @@ function queueRefresh() {
   requestTimer = setTimeout(refreshPosts, 250);
 }
 
+function applyResultsViewButtonState() {
+  const postView = activeResultsView === 'posts';
+  const mediaView = activeResultsView === 'media';
+  const footprintMode = activeResultsView === 'footprint';
+  viewPostsBtn?.classList.toggle('is-active', postView);
+  viewMediaBtn?.classList.toggle('is-active', mediaView);
+  viewFootprintBtn?.classList.toggle('is-active', footprintMode);
+  viewPostsBtn?.setAttribute('aria-pressed', String(postView));
+  viewMediaBtn?.setAttribute('aria-pressed', String(mediaView));
+  viewFootprintBtn?.setAttribute('aria-pressed', String(footprintMode));
+  resultsEl?.classList.toggle('hidden', footprintMode);
+  const insightsEl = dashboardContent?.querySelector('.insights');
+  if (insightsEl instanceof HTMLElement) insightsEl.classList.toggle('hidden', footprintMode);
+  footprintView?.classList.toggle('hidden', !footprintMode);
+  if (filterMenu instanceof HTMLElement) filterMenu.classList.toggle('hidden', footprintMode);
+}
+
+function setResultsView(mode) {
+  const normalized = String(mode || '').trim().toLowerCase();
+  const next = normalized === 'media' ? 'media' : (normalized === 'footprint' ? 'footprint' : 'posts');
+  if (activeResultsView === next) return;
+  activeResultsView = next;
+  if (activeResultsView === 'footprint') {
+    ensureAtLeastOneReconSelectorRow(footprintSelectorsList);
+  }
+  applyResultsViewButtonState();
+  renderPosts(latestPosts);
+}
+
+function openPostModal(postIndex) {
+  const index = Number(postIndex);
+  if (!Number.isFinite(index) || index < 0) return;
+  const post = latestRenderedPosts[index];
+  if (!post) return;
+  if (postModalTitle) {
+    const account = accountTag(post);
+    postModalTitle.textContent = `${account} • ${(post.platform || 'Unknown').toUpperCase()}`;
+  }
+  if (postModalBody) {
+    postModalBody.innerHTML = renderPostCard(post, index, { includeCardId: false, fullContent: true, assessmentEditable: false });
+  }
+  postModal?.classList.remove('hidden');
+  syncModalActiveState();
+}
+
+function closePostModal() {
+  postModal?.classList.add('hidden');
+  if (postModalBody) postModalBody.innerHTML = '';
+  syncModalActiveState();
+}
+
 function setModalOpen(isOpen) {
   if (!isOpen && lockModalUntilCollectionData && !collectionLoadedAnyData) {
     setupStatus.textContent = 'Please wait. Dashboard opens after first result arrives.';
@@ -2768,13 +3429,36 @@ function setModalOpen(isOpen) {
   syncModalActiveState();
 }
 
+function openManualInsertModal() {
+  if (!activeCaseId) {
+    showNotification('Open a case first.', 'warn');
+    return;
+  }
+  if (manualInsertTextInput instanceof HTMLTextAreaElement) manualInsertTextInput.value = '';
+  if (manualInsertFileInput instanceof HTMLInputElement) manualInsertFileInput.value = '';
+  if (manualInsertAuthorInput instanceof HTMLInputElement) manualInsertAuthorInput.value = '';
+  if (manualInsertUrlInput instanceof HTMLInputElement) manualInsertUrlInput.value = '';
+  if (manualInsertSourceInput instanceof HTMLInputElement) manualInsertSourceInput.value = '';
+  if (manualInsertStatus instanceof HTMLElement) manualInsertStatus.textContent = '';
+  manualInsertModal?.classList.remove('hidden');
+  syncModalActiveState();
+  manualInsertTextInput?.focus();
+}
+
+function closeManualInsertModal() {
+  manualInsertModal?.classList.add('hidden');
+  syncModalActiveState();
+}
+
 function syncModalActiveState() {
   const setupOpen = setupModal && !setupModal.classList.contains('hidden');
   const editOpen = caseEditModal && !caseEditModal.classList.contains('hidden');
   const saveOpen = caseSaveModal && !caseSaveModal.classList.contains('hidden');
   const notesOpen = caseNotesModal && !caseNotesModal.classList.contains('hidden');
   const configOpen = configModal && !configModal.classList.contains('hidden');
-  document.body.classList.toggle('modal-active', Boolean(setupOpen || editOpen || saveOpen || notesOpen || configOpen));
+  const manualInsertOpen = manualInsertModal && !manualInsertModal.classList.contains('hidden');
+  const postOpen = postModal && !postModal.classList.contains('hidden');
+  document.body.classList.toggle('modal-active', Boolean(setupOpen || editOpen || saveOpen || notesOpen || configOpen || manualInsertOpen || postOpen));
 }
 
 function openConfigModal() {
@@ -2790,11 +3474,28 @@ function closeConfigModal() {
 }
 
 async function loadConfig() {
+  const setConfiguredHint = (el, configured, mode) => {
+    if (!(el instanceof HTMLElement)) return;
+    const status = configured ? 'Configured' : 'Not configured';
+    const storage = mode ? ` (${mode})` : '';
+    el.textContent = `${status}${storage}`;
+  };
   try {
     const response = await fetch('/api/config');
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const payload = await response.json();
-    if (configPdlApiKeyInput) configPdlApiKeyInput.value = String(payload?.pdl_api_key || '').trim();
+    const storageMode = String(payload?.secret_storage_mode || '').trim();
+    if (configPdlApiKeyInput) configPdlApiKeyInput.value = '';
+    if (configOsintIndustriesApiKeyInput) configOsintIndustriesApiKeyInput.value = '';
+    if (configOsintIndustriesPremiumInput instanceof HTMLInputElement) {
+      configOsintIndustriesPremiumInput.checked = Boolean(payload?.osint_industries_use_premium);
+    }
+    if (configNumverifyApiKeyInput) configNumverifyApiKeyInput.value = '';
+    if (configOpenAiApiKeyInput) configOpenAiApiKeyInput.value = '';
+    setConfiguredHint(configPdlApiKeyHint, Boolean(payload?.pdl_api_key_configured), storageMode);
+    setConfiguredHint(configOsintIndustriesApiKeyHint, Boolean(payload?.osint_industries_api_key_configured), storageMode);
+    setConfiguredHint(configNumverifyApiKeyHint, Boolean(payload?.numverify_api_key_configured), storageMode);
+    setConfiguredHint(configOpenAiApiKeyHint, Boolean(payload?.openai_api_key_configured), storageMode);
   } catch (error) {
     console.error(error);
     if (configStatus) configStatus.textContent = 'Failed to load configuration.';
@@ -2803,24 +3504,115 @@ async function loadConfig() {
 
 async function saveConfig(event) {
   event.preventDefault();
-  if (!configPdlApiKeyInput) return;
+  if (
+    !configPdlApiKeyInput
+    || !configOsintIndustriesApiKeyInput
+    || !configNumverifyApiKeyInput
+    || !configOpenAiApiKeyInput
+    || !(configOsintIndustriesPremiumInput instanceof HTMLInputElement)
+  ) return;
   if (configSaveBtn instanceof HTMLButtonElement) configSaveBtn.disabled = true;
   if (configStatus) configStatus.textContent = 'Saving configuration...';
   try {
+    const body = {
+      osint_industries_use_premium: Boolean(configOsintIndustriesPremiumInput.checked),
+    };
+    const pdlKey = String(configPdlApiKeyInput.value || '').trim();
+    const osintKey = String(configOsintIndustriesApiKeyInput.value || '').trim();
+    const numverifyKey = String(configNumverifyApiKeyInput.value || '').trim();
+    const openAiKey = String(configOpenAiApiKeyInput.value || '').trim();
+    if (pdlKey) body.pdl_api_key = pdlKey;
+    if (osintKey) body.osint_industries_api_key = osintKey;
+    if (numverifyKey) body.numverify_api_key = numverifyKey;
+    if (openAiKey) body.openai_api_key = openAiKey;
     const response = await fetch('/api/config', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pdl_api_key: String(configPdlApiKeyInput.value || '').trim() }),
+      body: JSON.stringify(body),
     });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const payload = await response.json();
-    if (configPdlApiKeyInput) configPdlApiKeyInput.value = String(payload?.pdl_api_key || '').trim();
-    if (configStatus) configStatus.textContent = 'Configuration saved.';
+    await loadConfig();
+    if (configStatus) {
+      configStatus.textContent = 'Configuration saved. API keys are write-only and never returned by the API.';
+    }
   } catch (error) {
     console.error(error);
     if (configStatus) configStatus.textContent = `Failed to save configuration: ${error.message || 'unknown error'}`;
   } finally {
     if (configSaveBtn instanceof HTMLButtonElement) configSaveBtn.disabled = false;
+  }
+}
+
+function readFileAsBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const raw = String(reader.result || '');
+      const splitIndex = raw.indexOf(',');
+      if (splitIndex < 0) {
+        resolve('');
+        return;
+      }
+      resolve(raw.slice(splitIndex + 1));
+    };
+    reader.onerror = () => reject(reader.error || new Error('file read failed'));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function submitManualInsert(event) {
+  event.preventDefault();
+  if (!activeCaseId) {
+    if (manualInsertStatus) manualInsertStatus.textContent = 'Open a case before inserting content.';
+    return;
+  }
+  const text = String(manualInsertTextInput?.value || '').trim();
+  const file = manualInsertFileInput instanceof HTMLInputElement ? manualInsertFileInput.files?.[0] : null;
+  const authorName = String(manualInsertAuthorInput?.value || '').trim();
+  const sourceUrl = String(manualInsertUrlInput?.value || '').trim();
+  const source = String(manualInsertSourceInput?.value || '').trim();
+  if (!text && !file) {
+    if (manualInsertStatus) manualInsertStatus.textContent = 'Enter freeform text or choose a file.';
+    return;
+  }
+  if (sourceUrl && !isHttpUrl(sourceUrl)) {
+    if (manualInsertStatus) manualInsertStatus.textContent = 'URL must start with http:// or https://';
+    return;
+  }
+
+  if (manualInsertSaveBtn instanceof HTMLButtonElement) manualInsertSaveBtn.disabled = true;
+  if (manualInsertStatus) manualInsertStatus.textContent = 'Saving manual content...';
+  try {
+    const payload = {
+      case_id: activeCaseId,
+      text,
+      author_name: authorName,
+      source_url: sourceUrl,
+      source,
+    };
+    if (file) {
+      payload.file_name = String(file.name || '').trim();
+      payload.file_mime_type = String(file.type || '').trim();
+      payload.file_content_base64 = await readFileAsBase64(file);
+    }
+    const response = await fetch('/api/posts/manual', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+      const message = await parseErrorResponse(response);
+      throw new Error(message);
+    }
+    if (manualInsertStatus) manualInsertStatus.textContent = 'Manual content saved as post.';
+    closeManualInsertModal();
+    queueRefresh();
+    showNotification('Manual content inserted.', 'success');
+  } catch (error) {
+    console.error(error);
+    if (manualInsertStatus) manualInsertStatus.textContent = `Manual insert failed: ${error.message || 'unknown error'}`;
+  } finally {
+    if (manualInsertSaveBtn instanceof HTMLButtonElement) manualInsertSaveBtn.disabled = false;
   }
 }
 
@@ -2837,7 +3629,7 @@ function setModalMode(mode) {
     setupSubtitle.textContent = 'Choose reconnaissance or go straight to collection.';
   } else if (recon) {
     setupTitle.textContent = 'Reconnaissance';
-    setupSubtitle.textContent = 'Scan social platforms for active profiles from one @username handle.';
+    setupSubtitle.textContent = 'Scan social platforms and enrichment sources for usernames, emails, phones, names, and wallets.';
   } else {
     setupTitle.textContent = 'Start Collection';
     setupSubtitle.textContent = 'Set targets and date range to fetch and visualize.';
@@ -2861,9 +3653,30 @@ function setSetupFormBusy(isBusy) {
 function setReconBusy(isBusy) {
   reconBtn.disabled = isBusy;
   closeSetupBtn.disabled = isBusy;
-  reconSelectorType.disabled = isBusy;
-  reconSelectorsInput.disabled = isBusy;
+  if (addReconSelectorBtn instanceof HTMLButtonElement) addReconSelectorBtn.disabled = isBusy;
+  if (reconSelectorsList instanceof HTMLElement) {
+    const controls = reconSelectorsList.querySelectorAll('select, input, button');
+    for (const control of controls) {
+      if (control instanceof HTMLSelectElement || control instanceof HTMLInputElement || control instanceof HTMLButtonElement) {
+        control.disabled = isBusy;
+      }
+    }
+  }
   useReconTargetsBtn.disabled = isBusy || !reconTargets.length;
+}
+
+function setFootprintBusy(isBusy) {
+  if (footprintReconBtn instanceof HTMLButtonElement) footprintReconBtn.disabled = isBusy;
+  if (addFootprintSelectorBtn instanceof HTMLButtonElement) addFootprintSelectorBtn.disabled = isBusy;
+  if (footprintUseTargetsBtn instanceof HTMLButtonElement) footprintUseTargetsBtn.disabled = isBusy || !reconTargets.length;
+  if (footprintSelectorsList instanceof HTMLElement) {
+    const controls = footprintSelectorsList.querySelectorAll('select, input, button');
+    for (const control of controls) {
+      if (control instanceof HTMLSelectElement || control instanceof HTMLInputElement || control instanceof HTMLButtonElement) {
+        control.disabled = isBusy;
+      }
+    }
+  }
 }
 
 function getDefaultFaviconDomain(site) {
@@ -2991,14 +3804,7 @@ function attachReconPreviewHandlers(container) {
 
 function personDataProfileMarkup(profile, totalProfiles = 0, pdlProfiles = []) {
   if (!profile || typeof profile !== 'object' || !Object.keys(profile).length) {
-    return `
-      <div class="recon-group">
-        <p>Person Data Profile</p>
-        <div class="recon-pills">
-          <span class="recon-pill">No People Data Labs profile returned for the current recon inputs.</span>
-        </div>
-      </div>
-    `;
+    return '';
   }
   const fullName = String(profile.full_name || '').trim();
   const title = String(profile.job_title || '').trim();
@@ -3150,8 +3956,121 @@ function personDataProfileMarkup(profile, totalProfiles = 0, pdlProfiles = []) {
   `;
 }
 
-function renderReconResults(payload) {
+function osintProfilesMarkup(profiles, rows = []) {
+  const items = Array.isArray(profiles) ? profiles : [];
+  if (!items.length) return '';
+  const screenshotByUrl = new Map();
+  for (const row of (Array.isArray(rows) ? rows : [])) {
+    if (String(row?.source || '').trim().toLowerCase() !== 'osint_industries') continue;
+    const url = String(row?.profile_url || '').trim();
+    const shot = String(row?.screenshot_url || '').trim();
+    if (!url || !shot || screenshotByUrl.has(url.toLowerCase())) continue;
+    screenshotByUrl.set(url.toLowerCase(), shot);
+  }
+  const linkPill = (label, rawUrl, screenshotLabel) => {
+    const url = String(rawUrl || '').trim();
+    if (!url) return '';
+    const screenshotUrl = screenshotByUrl.get(url.toLowerCase()) || '';
+    const previewAttr = screenshotUrl ? ` data-preview-image="${escapeAttr(screenshotUrl)}"` : '';
+    const previewLabelAttr = screenshotUrl ? ` data-preview-label="${escapeAttr(screenshotLabel)}"` : '';
+    return `<a class="recon-pill lead-link" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer"${previewAttr}${previewLabelAttr}>${escapeHtml(label)}</a>`;
+  };
+  const valueItem = (label, value) => {
+    const clean = String(value || '').trim();
+    if (!clean) return '';
+    return `<div class="osint-value"><span class="osint-key">${escapeHtml(label)}</span><strong>${escapeHtml(clean)}</strong></div>`;
+  };
+  const cards = items.map((profile, index) => {
+    const title = String(profile?.title || profile?.name || profile?.username || `Result ${index + 1}`).trim();
+    const profileUrl = String(profile?.profile_url || '').trim();
+    const website = String(profile?.website || '').trim();
+    const profileLink = linkPill('Profile URL', profileUrl, title);
+    const websiteLink = website && website !== profileUrl ? linkPill('Website', website, title) : '';
+    const imageUrl = String(profile?.picture_url || '').trim();
+    return `
+      <article class="osint-profile-card">
+        <div class="osint-profile-head">
+          ${imageUrl ? `<img class="osint-profile-avatar" src="${escapeHtml(imageUrl)}" alt="${escapeAttr(title)}" loading="lazy" referrerpolicy="no-referrer" />` : '<div class="osint-profile-avatar empty">No image</div>'}
+          <div>
+            <h4>${escapeHtml(title)}</h4>
+            <p>${escapeHtml(String(profile?.name || '').trim() || 'Unnamed')}</p>
+          </div>
+        </div>
+        <div class="osint-profile-grid">
+          ${valueItem('first_name', profile?.first_name)}
+          ${valueItem('last_name', profile?.last_name)}
+          ${valueItem('gender', profile?.gender)}
+          ${valueItem('age', profile?.age)}
+          ${valueItem('location', profile?.location)}
+          ${valueItem('username', profile?.username)}
+          ${valueItem('email', profile?.email)}
+          ${valueItem('phone', profile?.phone)}
+          ${valueItem('email_hint', profile?.email_hint)}
+          ${valueItem('phone_hint', profile?.phone_hint)}
+          ${valueItem('bio', profile?.bio)}
+        </div>
+        <div class="recon-pills">
+          ${profileLink}
+          ${websiteLink}
+        </div>
+      </article>
+    `;
+  }).join('');
+  return `
+    <div class="recon-group">
+      <p>OSINT Industries Results (${items.length})</p>
+      <div class="osint-profiles-list">${cards}</div>
+    </div>
+  `;
+}
+
+function numverifyProfilesMarkup(profiles) {
+  const items = Array.isArray(profiles) ? profiles : [];
+  if (!items.length) return '';
+  const valueItem = (label, value) => {
+    const clean = String(value || '').trim();
+    if (!clean) return '';
+    return `<div class="osint-value"><span class="osint-key">${escapeHtml(label)}</span><strong>${escapeHtml(clean)}</strong></div>`;
+  };
+  const cards = items.map((profile, index) => {
+    const title = String(profile?.title || profile?.number || `Phone Result ${index + 1}`).trim();
+    return `
+      <article class="osint-profile-card">
+        <div class="osint-profile-head">
+          <div class="osint-profile-avatar empty">Phone</div>
+          <div>
+            <h4>${escapeHtml(title)}</h4>
+            <p>${profile?.valid ? 'Valid number' : 'Invalid or not recognized'}</p>
+          </div>
+        </div>
+        <div class="osint-profile-grid">
+          ${valueItem('number', profile?.number)}
+          ${valueItem('international_format', profile?.international_format)}
+          ${valueItem('local_format', profile?.local_format)}
+          ${valueItem('e164', profile?.e164)}
+          ${valueItem('country_name', profile?.country_name)}
+          ${valueItem('country_code', profile?.country_code)}
+          ${valueItem('country_prefix', profile?.country_prefix)}
+          ${valueItem('location', profile?.location)}
+          ${valueItem('carrier', profile?.carrier)}
+          ${valueItem('line_type', profile?.line_type)}
+        </div>
+      </article>
+    `;
+  }).join('');
+  return `
+    <div class="recon-group">
+      <p>Numverify Phone Results (${items.length})</p>
+      <div class="osint-profiles-list">${cards}</div>
+    </div>
+  `;
+}
+
+function renderReconResults(payload, targetEl = reconResults) {
+  if (!(targetEl instanceof HTMLElement)) return;
   const results = Array.isArray(payload?.results) ? payload.results : [];
+  const osintProfiles = Array.isArray(payload?.osint_profiles) ? payload.osint_profiles : [];
+  const numverifyProfiles = Array.isArray(payload?.numverify_profiles) ? payload.numverify_profiles : [];
   const personDataProfile = payload?.person_data_profile && typeof payload.person_data_profile === 'object'
     ? payload.person_data_profile
     : {};
@@ -3174,8 +4093,8 @@ function renderReconResults(payload) {
     : results.filter((row) => row.status === 'present' && !String(row.profile_url || '').trim());
   const unknown = results.filter((row) => row.status === 'unknown');
 
-  reconResults.classList.remove('hidden');
-  reconResults.innerHTML = `
+  targetEl.classList.remove('hidden');
+  targetEl.innerHTML = `
     <div class="recon-summary">
       Checked ${results.length} records • ${nonPdlSupportedPresent.length} collection-ready with URL • ${nonPdlLeadPresent.length} unsupported with URL • ${knownPresentNoUrl.length} known without URL • ${unknown.length} unknown
     </div>
@@ -3199,6 +4118,8 @@ function renderReconResults(payload) {
         ${knownPresentNoUrl.length ? knownPresentNoUrl.map((row) => toReconBadge(row, 'warn')).join('') : '<span class="recon-pill">No known-present no-URL results</span>'}
       </div>
     </div>
+    ${osintProfilesMarkup(osintProfiles, results)}
+    ${numverifyProfilesMarkup(numverifyProfiles)}
     ${personDataProfileMarkup(personDataProfile, personDataProfiles.length, pdlProfiles)}
   `;
 }
@@ -3822,22 +4743,191 @@ async function parseErrorResponse(response) {
   return `HTTP ${response.status}`;
 }
 
+function llmAssessmentCandidatePosts(posts) {
+  const rows = Array.isArray(posts) ? posts : [];
+  const output = [];
+  for (const post of rows) {
+    if (!post || typeof post !== 'object') continue;
+    const rowId = Number(post.row_id);
+    if (!Number.isFinite(rowId)) continue;
+    const content = String(post.content || '').trim();
+    if (!content) continue;
+    const metadata = post.metadata && typeof post.metadata === 'object' ? post.metadata : {};
+    const existing = metadata.llm_assessment && typeof metadata.llm_assessment === 'object'
+      ? metadata.llm_assessment
+      : {};
+    if (Object.keys(existing).length) continue;
+    output.push({
+      row_id: rowId,
+      post_id: String(post.post_id || '').trim(),
+      platform: String(post.platform || '').trim(),
+      username: String(post.username || '').trim(),
+      content,
+      metadata,
+    });
+  }
+  return output;
+}
+
+async function runAiThreatAssessment() {
+  if (!(runAiThreatAssessmentBtn instanceof HTMLButtonElement)) return;
+  const candidates = llmAssessmentCandidatePosts(latestPosts);
+  if (!candidates.length) {
+    if (aiThreatAssessmentStatus) aiThreatAssessmentStatus.textContent = 'No eligible posts found. Posts may already be assessed.';
+    return;
+  }
+
+  runAiThreatAssessmentBtn.disabled = true;
+  if (aiThreatAssessmentStatus) aiThreatAssessmentStatus.textContent = 'Estimating OpenAI assessment cost...';
+
+  try {
+    const rawExpected = window.prompt(
+      'Expected output tokens per post (approximate).',
+      '220',
+    );
+    if (rawExpected === null) {
+      if (aiThreatAssessmentStatus) aiThreatAssessmentStatus.textContent = 'AI threat assessment canceled.';
+      return;
+    }
+    const expectedOutputTokens = Math.max(1, Number.parseInt(String(rawExpected).trim() || '220', 10) || 220);
+    const estimateResponse = await fetch('/api/llm/estimate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        posts: candidates,
+        expected_output_tokens_per_post: expectedOutputTokens,
+      }),
+    });
+    if (!estimateResponse.ok) {
+      const message = await parseErrorResponse(estimateResponse);
+      throw new Error(message);
+    }
+    const estimatePayload = await estimateResponse.json();
+    const estimate = estimatePayload?.estimate || {};
+    const candidateCount = Number(estimate?.candidate_posts || 0);
+    const totalCost = Number(estimate?.estimated_total_cost_usd || 0);
+    const inputTokens = Number(estimate?.estimated_input_tokens || 0);
+    const outputTokens = Number(estimate?.estimated_output_tokens || 0);
+    const model = String(estimate?.model || 'gpt-4.1-mini');
+    const confirmationMessage = [
+      `Run AI Threat Assessment on ${candidateCount} post(s)?`,
+      `Model: ${model}`,
+      `Estimated tokens: input ${inputTokens}, output ${outputTokens}`,
+      `Estimated cost: $${totalCost.toFixed(4)} USD`,
+      '',
+      'Proceed?',
+    ].join('\n');
+    const shouldRun = window.confirm(confirmationMessage);
+    if (!shouldRun) {
+      if (aiThreatAssessmentStatus) aiThreatAssessmentStatus.textContent = 'AI threat assessment canceled.';
+      return;
+    }
+
+    if (aiThreatAssessmentStatus) aiThreatAssessmentStatus.textContent = 'Running AI threat assessment...';
+    const runResponse = await fetch('/api/llm/run', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        case_id: String(activeCaseId || '').trim(),
+        posts: candidates,
+      }),
+    });
+    if (!runResponse.ok) {
+      const message = await parseErrorResponse(runResponse);
+      throw new Error(message);
+    }
+    const runPayload = await runResponse.json();
+    const assessed = Number(runPayload?.assessed || 0);
+    const persisted = Number(runPayload?.persisted || 0);
+    if (aiThreatAssessmentStatus) {
+      aiThreatAssessmentStatus.textContent = `AI threat assessment complete. Assessed ${assessed} post(s), persisted ${persisted}.`;
+    }
+    await refreshPosts();
+  } catch (error) {
+    console.error(error);
+    if (aiThreatAssessmentStatus) {
+      aiThreatAssessmentStatus.textContent = `AI threat assessment failed: ${error.message || 'unknown error'}`;
+    }
+  } finally {
+    runAiThreatAssessmentBtn.disabled = false;
+  }
+}
+
 function isValidReconEmail(value) {
   return /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(String(value || '').trim());
 }
 
-function parseReconSelectors(selectorType, rawInput) {
-  const normalizedType = selectorType === 'email' ? 'email' : 'username';
-  const chunks = String(rawInput || '')
-    .split(/\r?\n|,/)
-    .map((item) => String(item || '').trim())
-    .filter(Boolean);
+function isValidReconPhone(value) {
+  const compact = String(value || '').replace(/[^\d+]/g, '');
+  if (!compact.startsWith('+')) return false;
+  if ((compact.match(/\+/g) || []).length > 1) return false;
+  const digits = compact.replace(/\D/g, '');
+  return digits.length >= 7 && digits.length <= 15;
+}
+
+const RECON_SELECTOR_TYPES = ['username', 'email', 'phone', 'name', 'wallet'];
+
+function reconExampleText(selectorType) {
+  const normalizedType = RECON_SELECTOR_TYPES.includes(String(selectorType || '').trim().toLowerCase())
+    ? String(selectorType || '').trim().toLowerCase()
+    : 'username';
+  const exampleByType = {
+    username: 'Example: @johnsmith',
+    email: 'Example: jane@example.com',
+    phone: 'Example: +12025550199',
+    name: 'Example: Jane Doe',
+    wallet: 'Example: 0x742d35Cc6634C0532925a3b844Bc454e4438f44e',
+  };
+  return exampleByType[normalizedType] || exampleByType.username;
+}
+
+function selectorOptionsMarkup(selectedType = 'username') {
+  const normalizedType = RECON_SELECTOR_TYPES.includes(String(selectedType || '').trim().toLowerCase())
+    ? String(selectedType || '').trim().toLowerCase()
+    : 'username';
+  return RECON_SELECTOR_TYPES
+    .map((type) => `<option value="${type}"${type === normalizedType ? ' selected' : ''}>${type.charAt(0).toUpperCase()}${type.slice(1)}</option>`)
+    .join('');
+}
+
+function addReconSelectorRow(container, type = 'username', value = '') {
+  if (!(container instanceof HTMLElement)) return;
+  const row = document.createElement('div');
+  row.className = 'recon-selector-row';
+  row.innerHTML = `
+    <select class="recon-selector-type" aria-label="Selector type">
+      ${selectorOptionsMarkup(type)}
+    </select>
+    <input class="recon-selector-value" type="text" aria-label="Selector value" autocomplete="off" value="${escapeAttr(String(value || '').trim())}" />
+    <button class="target-remove recon-selector-remove" type="button" aria-label="Remove selector">×</button>
+    <div class="recon-selector-example">${escapeHtml(reconExampleText(type))}</div>
+  `;
+  container.appendChild(row);
+}
+
+function ensureAtLeastOneReconSelectorRow(container = reconSelectorsList) {
+  if (!(container instanceof HTMLElement)) return;
+  if (container.querySelector('.recon-selector-row')) return;
+  addReconSelectorRow(container, 'username', '');
+}
+
+function parseReconSelectorsFromRows(container = reconSelectorsList) {
+  const rows = Array.from(container?.querySelectorAll('.recon-selector-row') || []);
   const selectors = [];
   const seen = new Set();
-  for (const chunk of chunks) {
-    const value = normalizedType === 'username' ? chunk.replace(/^@+/, '') : chunk.toLowerCase();
+  for (const row of rows) {
+    const typeEl = row.querySelector('.recon-selector-type');
+    const valueEl = row.querySelector('.recon-selector-value');
+    const rawType = typeEl instanceof HTMLSelectElement ? String(typeEl.value || '').trim().toLowerCase() : 'username';
+    const normalizedType = RECON_SELECTOR_TYPES.includes(rawType) ? rawType : 'username';
+    const rawValue = valueEl instanceof HTMLInputElement ? String(valueEl.value || '') : '';
+    let value = rawValue.trim();
+    if (normalizedType === 'username') value = value.replace(/^@+/, '');
+    if (normalizedType === 'email') value = value.toLowerCase();
+    if (normalizedType === 'phone') value = value.replace(/[\s().-]+/g, '');
     if (!value) continue;
     if (normalizedType === 'email' && !isValidReconEmail(value)) continue;
+    if (normalizedType === 'phone' && !isValidReconPhone(value)) continue;
     const key = `${normalizedType}|${value.toLowerCase()}`;
     if (seen.has(key)) continue;
     seen.add(key);
@@ -3849,12 +4939,9 @@ function parseReconSelectors(selectorType, rawInput) {
 async function runRecon(event) {
   event.preventDefault();
   hideReconPreview();
-  const selectorType = String(reconSelectorType.value || 'username').trim().toLowerCase() === 'email' ? 'email' : 'username';
-  const selectors = parseReconSelectors(selectorType, reconSelectorsInput.value);
+  const selectors = parseReconSelectorsFromRows();
   if (!selectors.length) {
-    reconStatus.textContent = selectorType === 'email'
-      ? 'Enter one or more valid emails (one per line).'
-      : 'Enter one or more usernames (one per line).';
+    reconStatus.textContent = 'Enter at least one valid selector value.';
     return;
   }
 
@@ -3887,6 +4974,7 @@ async function runRecon(event) {
       : {};
     reconPersonDataProfiles = Array.isArray(payload?.person_data_profiles) ? payload.person_data_profiles : [];
     renderReconResults(payload);
+    renderReconResults(payload, footprintReconResults);
     renderLeadsList();
     renderLocationMap(latestPosts);
     if (reconTargets.length > 0) {
@@ -3896,16 +4984,91 @@ async function runRecon(event) {
       useReconTargetsBtn.classList.add('hidden');
       useReconTargetsBtn.disabled = true;
     }
+    if (reconTargets.length > 0) {
+      footprintUseTargetsBtn?.classList.remove('hidden');
+      if (footprintUseTargetsBtn instanceof HTMLButtonElement) footprintUseTargetsBtn.disabled = false;
+    } else {
+      footprintUseTargetsBtn?.classList.add('hidden');
+      if (footprintUseTargetsBtn instanceof HTMLButtonElement) footprintUseTargetsBtn.disabled = true;
+    }
     reconStatus.textContent = `Recon complete: ${payload.present_count || 0} account match(es) found across ${payload.checked || 0} checks.`;
+    if (footprintReconStatus) {
+      footprintReconStatus.textContent = `Recon complete: ${payload.present_count || 0} account match(es) found across ${payload.checked || 0} checks.`;
+    }
   } catch (error) {
     console.error(error);
     useReconTargetsBtn.classList.add('hidden');
     useReconTargetsBtn.disabled = true;
+    footprintUseTargetsBtn?.classList.add('hidden');
+    if (footprintUseTargetsBtn instanceof HTMLButtonElement) footprintUseTargetsBtn.disabled = true;
     reconPersonDataProfiles = [];
     reconPersonDataProfile = {};
     reconStatus.textContent = `Recon failed: ${error.message || 'unknown error'}`;
+    if (footprintReconStatus) footprintReconStatus.textContent = `Recon failed: ${error.message || 'unknown error'}`;
   } finally {
     setReconBusy(false);
+  }
+}
+
+async function runFootprintRecon(event) {
+  event.preventDefault();
+  hideReconPreview();
+  const selectors = parseReconSelectorsFromRows(footprintSelectorsList);
+  if (!selectors.length) {
+    if (footprintReconStatus) footprintReconStatus.textContent = 'Enter at least one valid selector value.';
+    return;
+  }
+
+  setFootprintBusy(true);
+  if (footprintReconStatus) footprintReconStatus.textContent = `Running reconnaissance for ${selectors.length} selector(s)...`;
+  footprintReconResults?.classList.add('hidden');
+  footprintUseTargetsBtn?.classList.add('hidden');
+  if (footprintUseTargetsBtn instanceof HTMLButtonElement) footprintUseTargetsBtn.disabled = true;
+  reconTargets = [];
+  reconProfiles = [];
+  reconPersonDataProfile = {};
+  reconPersonDataProfiles = [];
+
+  try {
+    const response = await fetch('/api/recon', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ selectors }),
+    });
+    if (!response.ok) {
+      const message = await parseErrorResponse(response);
+      throw new Error(message);
+    }
+    const payload = await response.json();
+    reconTargets = Array.isArray(payload.collection_targets) ? payload.collection_targets : [];
+    reconLeads = Array.isArray(payload.leads) ? payload.leads : [];
+    reconProfiles = (Array.isArray(payload.results) ? payload.results : []).filter((row) => String(row?.status || '').trim() === 'present');
+    reconPersonDataProfile = payload?.person_data_profile && typeof payload.person_data_profile === 'object'
+      ? payload.person_data_profile
+      : {};
+    reconPersonDataProfiles = Array.isArray(payload?.person_data_profiles) ? payload.person_data_profiles : [];
+    renderReconResults(payload, footprintReconResults);
+    renderReconResults(payload);
+    renderLeadsList();
+    if (reconTargets.length > 0) {
+      footprintUseTargetsBtn?.classList.remove('hidden');
+      if (footprintUseTargetsBtn instanceof HTMLButtonElement) footprintUseTargetsBtn.disabled = false;
+    } else {
+      footprintUseTargetsBtn?.classList.add('hidden');
+      if (footprintUseTargetsBtn instanceof HTMLButtonElement) footprintUseTargetsBtn.disabled = true;
+    }
+    if (footprintReconStatus) {
+      footprintReconStatus.textContent = `Recon complete: ${payload.present_count || 0} account match(es) found across ${payload.checked || 0} checks.`;
+    }
+  } catch (error) {
+    console.error(error);
+    footprintUseTargetsBtn?.classList.add('hidden');
+    if (footprintUseTargetsBtn instanceof HTMLButtonElement) footprintUseTargetsBtn.disabled = true;
+    reconPersonDataProfiles = [];
+    reconPersonDataProfile = {};
+    if (footprintReconStatus) footprintReconStatus.textContent = `Recon failed: ${error.message || 'unknown error'}`;
+  } finally {
+    setFootprintBusy(false);
   }
 }
 
@@ -4024,6 +5187,120 @@ async function collectAndOpen(event) {
 }
 
 searchInput.addEventListener('input', queueRefresh);
+resultsEl?.addEventListener('click', async (event) => {
+  const target = event.target;
+  if (!(target instanceof HTMLElement)) return;
+
+  const assessmentNode = target.closest('.llm-assessment[data-post-index]');
+  const assessmentPostIndex = assessmentNode instanceof HTMLElement
+    ? Number(assessmentNode.getAttribute('data-post-index'))
+    : NaN;
+  if (target.closest('[data-assessment-toggle]')) {
+    if (!Number.isFinite(assessmentPostIndex) || assessmentPostIndex < 0) return;
+    activeThreatAssessmentEditorPostIndex = activeThreatAssessmentEditorPostIndex === assessmentPostIndex ? null : assessmentPostIndex;
+    renderPosts(latestPosts);
+    return;
+  }
+  if (target.closest('[data-assessment-tag-add]')) {
+    if (!(assessmentNode instanceof HTMLElement) || !Number.isFinite(assessmentPostIndex) || assessmentPostIndex < 0) return;
+    const post = latestRenderedPosts[assessmentPostIndex];
+    if (!post || typeof post !== 'object') return;
+    const tagInput = assessmentNode.querySelector('[data-assessment-tag-input]');
+    const kindInput = assessmentNode.querySelector('[data-assessment-tag-kind]');
+    const raw = tagInput instanceof HTMLInputElement ? String(tagInput.value || '') : '';
+    const kind = kindInput instanceof HTMLSelectElement && String(kindInput.value || '').toLowerCase() === 'secondary'
+      ? 'secondary'
+      : 'primary';
+    const additions = raw
+      .split(',')
+      .map((item) => String(item || '').trim().replace(/\s+/g, ' '))
+      .filter(Boolean);
+    if (!additions.length) return;
+    const next = normalizeEditableLlmAssessment(llmAssessmentFromPost(post));
+    const base = kind === 'secondary' ? next.tagged_secondary : next.tagged_primary;
+    base.push(...additions);
+    const success = await persistThreatAssessmentUpdate(assessmentPostIndex, next);
+    if (success) activeThreatAssessmentEditorPostIndex = assessmentPostIndex;
+    return;
+  }
+  if (target.closest('[data-assessment-remove-tag]')) {
+    if (!(assessmentNode instanceof HTMLElement) || !Number.isFinite(assessmentPostIndex) || assessmentPostIndex < 0) return;
+    const removeBtn = target.closest('[data-assessment-remove-tag]');
+    if (!(removeBtn instanceof HTMLElement)) return;
+    const post = latestRenderedPosts[assessmentPostIndex];
+    if (!post || typeof post !== 'object') return;
+    const tagKind = String(removeBtn.getAttribute('data-assessment-tag-kind') || '').trim().toLowerCase();
+    const tagLabel = String(removeBtn.getAttribute('data-assessment-tag-label') || '').trim().toLowerCase();
+    if (!tagLabel || (tagKind !== 'primary' && tagKind !== 'secondary')) return;
+    const next = normalizeEditableLlmAssessment(llmAssessmentFromPost(post));
+    if (tagKind === 'primary') {
+      next.tagged_primary = next.tagged_primary.filter((item) => String(item || '').trim().toLowerCase() !== tagLabel);
+    } else {
+      next.tagged_secondary = next.tagged_secondary.filter((item) => String(item || '').trim().toLowerCase() !== tagLabel);
+    }
+    const success = await persistThreatAssessmentUpdate(assessmentPostIndex, next);
+    if (success) activeThreatAssessmentEditorPostIndex = assessmentPostIndex;
+    return;
+  }
+  if (target.closest('[data-assessment-theme-save]')) {
+    if (!(assessmentNode instanceof HTMLElement) || !Number.isFinite(assessmentPostIndex) || assessmentPostIndex < 0) return;
+    const post = latestRenderedPosts[assessmentPostIndex];
+    if (!post || typeof post !== 'object') return;
+    const themeInput = assessmentNode.querySelector('[data-assessment-theme-input]');
+    const nextTheme = themeInput instanceof HTMLInputElement ? String(themeInput.value || '').trim() : '';
+    const next = normalizeEditableLlmAssessment(llmAssessmentFromPost(post));
+    next.underlying_theme = nextTheme;
+    const success = await persistThreatAssessmentUpdate(assessmentPostIndex, next);
+    if (success) activeThreatAssessmentEditorPostIndex = assessmentPostIndex;
+    return;
+  }
+  if (target.closest('[data-assessment-theme-remove]')) {
+    if (!Number.isFinite(assessmentPostIndex) || assessmentPostIndex < 0) return;
+    const post = latestRenderedPosts[assessmentPostIndex];
+    if (!post || typeof post !== 'object') return;
+    const next = normalizeEditableLlmAssessment(llmAssessmentFromPost(post));
+    next.underlying_theme = '';
+    const success = await persistThreatAssessmentUpdate(assessmentPostIndex, next);
+    if (success) activeThreatAssessmentEditorPostIndex = assessmentPostIndex;
+    return;
+  }
+
+  const toggle = target.closest('.content-more-toggle');
+  if (toggle instanceof HTMLElement) {
+    const contentContainer = toggle.closest('.content');
+    const truncated = contentContainer?.querySelector('.content-truncated');
+    if (!(truncated instanceof HTMLElement)) return;
+    const expanded = String(truncated.getAttribute('data-expanded') || 'false') === 'true';
+    const head = String(truncated.getAttribute('data-content-head') || '');
+    const rest = String(truncated.getAttribute('data-content-rest') || '');
+    if (expanded) {
+      truncated.innerHTML = `${escapeHtml(head)}<span class="content-ellipsis">...</span>`;
+      truncated.setAttribute('data-expanded', 'false');
+      toggle.textContent = 'Show more+';
+      toggle.setAttribute('aria-expanded', 'false');
+      return;
+    }
+    truncated.innerHTML = `${escapeHtml(head)}${escapeHtml(rest)}`;
+    truncated.setAttribute('data-expanded', 'true');
+    toggle.textContent = 'Show less-';
+    toggle.setAttribute('aria-expanded', 'true');
+    return;
+  }
+
+  const mediaTile = target.closest('.media-grid-tile');
+  if (mediaTile instanceof HTMLElement) {
+    const postIndex = Number(mediaTile.getAttribute('data-post-index'));
+    if (Number.isFinite(postIndex) && postIndex >= 0) openPostModal(postIndex);
+    return;
+  }
+
+  if (target.closest('a, video, iframe, button, input, select, textarea, label')) return;
+  const postNode = target.closest('[data-post-index]');
+  if (!(postNode instanceof HTMLElement)) return;
+  const postIndex = Number(postNode.getAttribute('data-post-index'));
+  if (!Number.isFinite(postIndex) || postIndex < 0) return;
+  openPostModal(postIndex);
+});
 caseSearchInput?.addEventListener('input', renderCases);
 caseStatusFilter?.addEventListener('change', renderCases);
 caseThreatFilter?.addEventListener('change', renderCases);
@@ -4071,10 +5348,16 @@ clearSearchBtn?.addEventListener('click', () => {
   queueRefresh();
   searchInput.focus();
 });
+viewPostsBtn?.addEventListener('click', () => setResultsView('posts'));
+viewMediaBtn?.addEventListener('click', () => setResultsView('media'));
+viewFootprintBtn?.addEventListener('click', () => setResultsView('footprint'));
 sortSelect.addEventListener('change', queueRefresh);
 setupForm.addEventListener('submit', collectAndOpen);
 reconForm.addEventListener('submit', runRecon);
+footprintReconForm?.addEventListener('submit', runFootprintRecon);
+runAiThreatAssessmentBtn?.addEventListener('click', runAiThreatAssessment);
 attachReconPreviewHandlers(reconResults);
+attachReconPreviewHandlers(footprintReconResults);
 attachReconPreviewHandlers(leadsList);
 for (const el of [filterTwitter, filterReddit, filterTiktok, filterBluesky, filterInstagram, filterYoutube, filterPost, filterRepost, filterReply, filterQuote, filterComment, filterSelectors, filterIdeologicalIndicators, filterThreatSignals, filterLLMPrimary, filterLLMSecondary]) {
   if (!el) continue;
@@ -4139,6 +5422,15 @@ selectorMix?.addEventListener('click', handleSignalRowFilterClick);
 threatSignalMix?.addEventListener('click', handleSignalRowFilterClick);
 llmPrimaryMix?.addEventListener('click', handleSignalRowFilterClick);
 llmSecondaryMix?.addEventListener('click', handleSignalRowFilterClick);
+llmThemeMix?.addEventListener('click', (event) => {
+  const target = event.target;
+  if (!(target instanceof HTMLElement)) return;
+  const row = target.closest('[data-post-index]');
+  if (!(row instanceof HTMLElement)) return;
+  const postIndex = Number(row.getAttribute('data-post-index'));
+  if (!Number.isFinite(postIndex) || postIndex < 0) return;
+  scrollToPost(postIndex);
+});
 filterToggleBtn.addEventListener('click', () => {
   const isHidden = filterPanel.classList.toggle('hidden');
   filterToggleBtn.setAttribute('aria-expanded', String(!isHidden));
@@ -4169,6 +5461,14 @@ document.addEventListener('keydown', (event) => {
     closeCaseNotesModal();
     return;
   }
+  if (manualInsertModal && !manualInsertModal.classList.contains('hidden')) {
+    closeManualInsertModal();
+    return;
+  }
+  if (postModal && !postModal.classList.contains('hidden')) {
+    closePostModal();
+    return;
+  }
   if (filterPanel.classList.contains('hidden')) return;
   filterPanel.classList.add('hidden');
   filterToggleBtn.setAttribute('aria-expanded', 'false');
@@ -4187,6 +5487,16 @@ caseNotesModal?.addEventListener('click', (event) => {
   if (!(event.target instanceof HTMLElement)) return;
   if (event.target !== caseNotesModal) return;
   closeCaseNotesModal();
+});
+manualInsertModal?.addEventListener('click', (event) => {
+  if (!(event.target instanceof HTMLElement)) return;
+  if (event.target !== manualInsertModal) return;
+  closeManualInsertModal();
+});
+postModal?.addEventListener('click', (event) => {
+  if (!(event.target instanceof HTMLElement)) return;
+  if (event.target !== postModal) return;
+  closePostModal();
 });
 window.addEventListener('resize', () => {
   if (activeInsightsTab !== 'geo') return;
@@ -4260,6 +5570,11 @@ openConfigBtn?.addEventListener('click', openConfigModal);
 configCloseBtn?.addEventListener('click', closeConfigModal);
 configCancelBtn?.addEventListener('click', closeConfigModal);
 configForm?.addEventListener('submit', saveConfig);
+openManualInsertBtn?.addEventListener('click', openManualInsertModal);
+manualInsertCloseBtn?.addEventListener('click', closeManualInsertModal);
+manualInsertCancelBtn?.addEventListener('click', closeManualInsertModal);
+manualInsertForm?.addEventListener('submit', submitManualInsert);
+postModalCloseBtn?.addEventListener('click', closePostModal);
 caseSaveStatusSelect?.addEventListener('change', () => {
   setWatchlistCadenceVisibility(
     caseSaveStatusSelect,
@@ -4389,7 +5704,9 @@ closeSetupBtn.addEventListener('click', () => setModalOpen(false));
 modeReconBtn.addEventListener('click', () => {
   reconStatus.textContent = '';
   setModalMode('recon');
-  reconSelectorsInput.focus();
+  ensureAtLeastOneReconSelectorRow();
+  const firstInput = reconSelectorsList?.querySelector('.recon-selector-value');
+  if (firstInput instanceof HTMLInputElement) firstInput.focus();
 });
 modeCollectionBtn.addEventListener('click', () => {
   setupStatus.textContent = '';
@@ -4402,13 +5719,54 @@ useReconTargetsBtn.addEventListener('click', () => {
   setupStatus.textContent = 'Loaded active recon profiles into collection targets.';
   setModalMode('collection');
 });
-reconSelectorType?.addEventListener('change', () => {
-  const selectorType = String(reconSelectorType.value || 'username').trim().toLowerCase();
-  if (selectorType === 'email') {
-    reconSelectorsInput.placeholder = 'alice@example.com\nbob@example.com';
-  } else {
-    reconSelectorsInput.placeholder = '@johnsmith\n@janedoe';
+addReconSelectorBtn?.addEventListener('click', () => addReconSelectorRow(reconSelectorsList, 'username', ''));
+addFootprintSelectorBtn?.addEventListener('click', () => addReconSelectorRow(footprintSelectorsList, 'username', ''));
+footprintUseTargetsBtn?.addEventListener('click', () => {
+  if (!reconTargets.length) return;
+  fillTargetsFromRecon(reconTargets);
+  if (footprintReconStatus) footprintReconStatus.textContent = 'Loaded active recon profiles into collection targets.';
+});
+reconSelectorsList?.addEventListener('change', (event) => {
+  const target = event.target;
+  if (!(target instanceof HTMLElement)) return;
+  if (!target.classList.contains('recon-selector-type')) return;
+  const row = target.closest('.recon-selector-row');
+  if (!(row instanceof HTMLElement)) return;
+  const typeValue = target instanceof HTMLSelectElement ? String(target.value || '').trim().toLowerCase() : 'username';
+  const exampleEl = row.querySelector('.recon-selector-example');
+  if (exampleEl instanceof HTMLElement) {
+    exampleEl.textContent = reconExampleText(typeValue);
   }
+});
+footprintSelectorsList?.addEventListener('change', (event) => {
+  const target = event.target;
+  if (!(target instanceof HTMLElement)) return;
+  if (!target.classList.contains('recon-selector-type')) return;
+  const row = target.closest('.recon-selector-row');
+  if (!(row instanceof HTMLElement)) return;
+  const typeValue = target instanceof HTMLSelectElement ? String(target.value || '').trim().toLowerCase() : 'username';
+  const exampleEl = row.querySelector('.recon-selector-example');
+  if (exampleEl instanceof HTMLElement) {
+    exampleEl.textContent = reconExampleText(typeValue);
+  }
+});
+reconSelectorsList?.addEventListener('click', (event) => {
+  const target = event.target;
+  if (!(target instanceof HTMLElement)) return;
+  if (!target.classList.contains('recon-selector-remove')) return;
+  const row = target.closest('.recon-selector-row');
+  if (!(row instanceof HTMLElement)) return;
+  row.remove();
+  ensureAtLeastOneReconSelectorRow();
+});
+footprintSelectorsList?.addEventListener('click', (event) => {
+  const target = event.target;
+  if (!(target instanceof HTMLElement)) return;
+  if (!target.classList.contains('recon-selector-remove')) return;
+  const row = target.closest('.recon-selector-row');
+  if (!(row instanceof HTMLElement)) return;
+  row.remove();
+  ensureAtLeastOneReconSelectorRow(footprintSelectorsList);
 });
 targetsList.addEventListener('click', (event) => {
   const target = event.target;
@@ -4451,6 +5809,24 @@ async function quitPanoptoSession() {
     });
     statusEl.textContent = 'Session ended. Database wiped.';
     resultsEl.innerHTML = '<div class="empty">PANOPTO session ended. Restart server to collect again.</div>';
+    // Attempt to close the PANOPTO tab after a successful shutdown.
+    window.setTimeout(() => {
+      try {
+        window.close();
+      } catch (closeError) {
+        console.error(closeError);
+      }
+      if (!window.closed) {
+        window.location.replace('about:blank');
+        window.setTimeout(() => {
+          try {
+            window.close();
+          } catch (closeRetryError) {
+            console.error(closeRetryError);
+          }
+        }, 60);
+      }
+    }, 80);
   } catch (error) {
     console.error(error);
     statusEl.textContent = 'Failed to end session cleanly.';
@@ -4467,11 +5843,15 @@ async function quitPanoptoSession() {
 }
 initializeDateInputs();
 addTargetRow('twitter', '');
+addReconSelectorRow(reconSelectorsList, 'username', '');
+addReconSelectorRow(footprintSelectorsList, 'username', '');
 renderLeadsList();
 renderCollectionStreams();
+applyResultsViewButtonState();
 setInsightsTab(activeInsightsTab);
 updateStreamActionButtons();
 updateFilterToggleLabel();
+applyResultsViewButtonState();
 renderCollectionContext();
 setModalMode('chooser');
 setModalOpen(false);

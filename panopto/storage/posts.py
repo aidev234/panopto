@@ -347,6 +347,7 @@ def delete_case(case_id: str, *, db_path: str = "osint_data.db", delete_posts: b
 def create_demo_case(db_path: str = "osint_data.db") -> dict[str, Any]:
     now = datetime.now(timezone.utc)
     demo_avatar = "https://images.unsplash.com/photo-1599566150163-29194dcaad36?auto=format&fit=crop&w=256&q=80"
+    demo_alias_avatar = "https://images.unsplash.com/photo-1542204625-de293a8e5b9c?auto=format&fit=crop&w=256&q=80"
     case = create_case(
         case_name="POI SMITH, John",
         status="Under Investigation",
@@ -369,26 +370,63 @@ def create_demo_case(db_path: str = "osint_data.db") -> dict[str, Any]:
             ),
             "personal_details": (
                 "Likely resides in the NYC metro area. Mentions spouse and repeated short-notice travel. "
-                "Uses encrypted email and multiple social aliases."
+                "Uses encrypted email and multiple social aliases. Known demo selectors include "
+                "demo.subject@proton.me, ops.demo@pm.me, +1 202 555 0199, and telegram @demo_subject_ops."
             ),
             "known_profiles": [
                 {
-                    "site": "Twitter/X",
+                    "site": "Twitter/X / @demo_subject",
                     "url": "https://x.com/demo_subject",
                     "image_url": demo_avatar,
                     "screenshot_url": "/recon_shots/twitter-cbd0039562da9a05.png?v=1",
                 },
                 {
-                    "site": "Reddit",
+                    "site": "Reddit / u/demo_subject",
                     "url": "https://www.reddit.com/user/demo_subject",
                     "image_url": demo_avatar,
                     "screenshot_url": "/recon_shots/reddit-1bbd6bf419da4867.png?v=1",
                 },
                 {
-                    "site": "Bluesky",
+                    "site": "Bluesky / @demo_subject",
                     "url": "https://bsky.app/profile/demo_subject.bsky.social",
                     "image_url": demo_avatar,
                     "screenshot_url": "/recon_shots/bluesky-e669742696b86463.png?v=1",
+                },
+                {
+                    "site": "Instagram / @demo_subject",
+                    "url": "https://www.instagram.com/demo_subject/",
+                    "image_url": demo_alias_avatar,
+                    "screenshot_url": "/recon_shots/instagram-d9f5b517be1d2384.png?v=1",
+                },
+                {
+                    "site": "TikTok / @demo_subject",
+                    "url": "https://www.tiktok.com/@demo_subject",
+                    "image_url": demo_alias_avatar,
+                    "screenshot_url": "/recon_shots/tiktok-d9f524822ecc46f5.png?v=1",
+                },
+                {
+                    "site": "YouTube / @demo_subject",
+                    "url": "https://www.youtube.com/@demo_subject",
+                    "image_url": demo_alias_avatar,
+                    "screenshot_url": "/recon_shots/youtube-f37afb94a246ea31.png?v=1",
+                },
+                {
+                    "site": "GitHub / @demo-subject-labs",
+                    "url": "https://github.com/demo-subject-labs",
+                    "image_url": demo_alias_avatar,
+                    "screenshot_url": "/recon_shots/github-58fa2a45fb9f6f78.png?v=1",
+                },
+                {
+                    "site": "LinkedIn / demo-subject",
+                    "url": "https://www.linkedin.com/in/demo-subject",
+                    "image_url": demo_alias_avatar,
+                    "screenshot_url": "/recon_shots/linkedin-d5d654847d55de7c.png?v=1",
+                },
+                {
+                    "site": "Threads / @demo_subject",
+                    "url": "https://www.threads.net/@demo_subject",
+                    "image_url": demo_alias_avatar,
+                    "screenshot_url": "/recon_shots/threads-a4c0302526055f53.png?v=1",
                 },
             ],
         },
@@ -515,3 +553,43 @@ def clear_posts(db_path: str = "osint_data.db", *, clear_cases: bool = False) ->
         if clear_cases:
             conn.execute("DELETE FROM cases")
         conn.commit()
+
+
+def update_post_llm_assessments(
+    *,
+    updates: list[dict[str, Any]],
+    db_path: str = "osint_data.db",
+    case_id: str | None = None,
+) -> int:
+    """Persist llm_assessment metadata updates by row id."""
+
+    init_db(db_path)
+    written = 0
+    with sqlite3.connect(db_path) as conn:
+        conn.row_factory = sqlite3.Row
+        for item in updates:
+            try:
+                row_id = int(item.get("row_id"))
+            except (TypeError, ValueError):
+                continue
+            metadata = item.get("metadata")
+            if not isinstance(metadata, dict):
+                continue
+            params: list[Any] = [json.dumps(metadata, ensure_ascii=True), row_id]
+            where = "id = ?"
+            if case_id:
+                where = "id = ? AND case_id = ?"
+                params.append(case_id)
+            cursor = conn.execute(
+                f"""
+                UPDATE twitter_posts
+                SET raw_metadata = ?
+                WHERE {where}
+                """,
+                tuple(params),
+            )
+            if cursor.rowcount > 0:
+                written += cursor.rowcount
+        conn.commit()
+    touch_case(case_id, db_path=db_path)
+    return written

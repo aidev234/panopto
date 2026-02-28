@@ -8,3 +8,4 @@ osint_data.db
 .venv/
 .pytest_cache/
 .panopto_config.json
+.panopto_secrets.enc

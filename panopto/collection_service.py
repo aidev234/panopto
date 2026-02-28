@@ -11,7 +11,6 @@ from urllib.parse import unquote
 
 from panopto.collectors.bluesky import collect_bluesky_posts, normalize_bluesky_username
 from panopto.collectors.instagram import collect_instagram_posts, normalize_instagram_username
-from panopto.analysis.llm_warning_assessor import apply_warning_assessments
 from panopto.errors import SourceAccessBlockedError, UsernameNotFoundError
 from panopto.collectors.reddit import collect_reddit_posts
 from panopto.collectors.tiktok import collect_tiktok_posts
@@ -308,7 +307,8 @@ def collect_for_targets(
             raise UsernameNotFoundError(platform=str(first["platform"]), username=str(first["username"]))
         raise InvalidRequestError(f"collection failed: {first['message']}")
 
-    enriched_posts = apply_warning_assessments(posts)
+    # LLM threat assessment is intentionally manual to prevent uncontrolled API spend.
+    enriched_posts = posts
     if case_id:
         inserted = save_posts(enriched_posts, db_path=str(db_path), case_id=case_id)
     else:
