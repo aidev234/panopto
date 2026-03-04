@@ -143,6 +143,24 @@ def test_normalize_recon_selectors_supports_multi_selector_types():
     ]
 
 
+def test_normalize_recon_selectors_extracts_username_from_profile_urls():
+    selectors = normalize_recon_selectors(
+        [
+            {"type": "username", "value": "https://x.com/Sama/status/12345"},
+            {"type": "username", "value": "https://www.reddit.com/user/Cautious_Dirt8409/"},
+            {"type": "username", "value": "https://www.youtube.com/@CSPAN/videos"},
+            {"type": "username", "value": "https://bsky.app/profile/aoc.bsky.social"},
+        ]
+    )
+
+    assert selectors == [
+        {"type": "username", "value": "Sama"},
+        {"type": "username", "value": "Cautious_Dirt8409"},
+        {"type": "username", "value": "CSPAN"},
+        {"type": "username", "value": "aoc"},
+    ]
+
+
 def test_run_recon_categorizes_supported_unsupported_and_no_url():
     fake_rows = [
         {"site_name": "X (Twitter)", "status": "Found", "url": "https://x.com"},
@@ -366,12 +384,13 @@ def test_run_recon_includes_osint_profiles_and_spec_results():
                 "osint_industries_use_premium": True,
             },
         ):
-            with patch("panopto.recon._fetch_osint_profiles", return_value=([osint_profile], [osint_spec])):
+            with patch("panopto.recon._fetch_osint_profiles", return_value=([osint_profile], [osint_spec], True)):
                 with patch("panopto.recon._capture_profile_screenshot", return_value="/recon_shots/osint-test.png?v=1"):
                     payload = run_recon([{"type": "username", "value": "janedoe"}])
 
     assert payload["osint_profiles"] == [osint_profile]
     assert payload["osint_spec_results"] == [osint_spec]
+    assert any(item.get("module") == "osint_industries" for item in payload.get("api_modules_queried", []))
     assert any(row.get("source") == "osint_industries" for row in payload.get("results", []))
     assert any(row.get("screenshot_url") == "/recon_shots/osint-test.png?v=1" for row in payload.get("results", []))
     assert {"platform": "twitter", "username": "janedoe"} in payload.get("collection_targets", [])
@@ -411,3 +430,51 @@ def test_run_recon_includes_numverify_phone_results():
         and row.get("status") == "present"
         for row in payload.get("results", [])
     )
+    assert any(item.get("module") == "numverify" for item in payload.get("api_modules_queried", []))
+
+
+def test_run_recon_reports_all_successfully_queried_api_modules():
+    pdl_data = {
+        "id": "pdl-123",
+        "full_name": "John Smith",
+        "profiles": ["https://x.com/johnsmith"],
+    }
+    osint_profile = {
+        "title": "John Smith",
+        "name": "John Smith",
+        "username": "johnsmith",
+        "profile_url": "https://x.com/johnsmith",
+        "source": "osint_industries",
+    }
+    numverify_payload = {
+        "valid": True,
+        "number": "+12025550199",
+        "country_name": "United States of America",
+    }
+
+    with patch("panopto.recon._run_user_scanner_selector", return_value=[]):
+        with patch(
+            "panopto.recon.load_config",
+            return_value={
+                "pdl_api_key": "pdl_test_key",
+                "osint_industries_api_key": "oi_test_key",
+                "osint_industries_use_premium": False,
+                "numverify_api_key": "numverify_test_key",
+            },
+        ):
+            with patch("panopto.recon._fetch_pdl_profile", return_value=pdl_data):
+                with patch("panopto.recon._fetch_osint_profiles", return_value=([osint_profile], [], True)):
+                    with patch("panopto.recon._fetch_numverify_profile", return_value=numverify_payload):
+                        with patch("panopto.recon._capture_profile_screenshot", return_value=""):
+                            payload = run_recon(
+                                [
+                                    {"type": "email", "value": "person@example.com"},
+                                    {"type": "username", "value": "johnsmith"},
+                                    {"type": "phone", "value": "+1 (202) 555-0199"},
+                                ]
+                            )
+
+    modules = {item.get("module") for item in payload.get("api_modules_queried", [])}
+    assert "people_data_labs" in modules
+    assert "osint_industries" in modules
+    assert "numverify" in modules

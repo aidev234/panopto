@@ -45,6 +45,25 @@ def _normalize_openai_api_key(raw: Any) -> str:
     return str(raw or "").strip()
 
 
+def _normalize_custom_keyword_list(raw: Any) -> list[str]:
+    if not isinstance(raw, (list, tuple, set)):
+        return []
+    output: list[str] = []
+    seen: set[str] = set()
+    for item in raw:
+        text = " ".join(str(item or "").strip().split())
+        if not text:
+            continue
+        lowered = text.lower()
+        if lowered in seen:
+            continue
+        seen.add(lowered)
+        output.append(text[:120])
+        if len(output) >= 200:
+            break
+    return output
+
+
 def _normalize_secret_value(key: str, raw: Any) -> str:
     if key == "pdl_api_key":
         return _normalize_pdl_api_key(raw)
@@ -62,6 +81,7 @@ def _default_config() -> dict[str, Any]:
         "pdl_api_key": "",
         "osint_industries_api_key": "",
         "osint_industries_use_premium": False,
+        "custom_keyword_list": [],
         "numverify_api_key": "",
         "openai_api_key": "",
     }
@@ -89,12 +109,14 @@ def _load_non_secret_config() -> dict[str, Any]:
     payload = _read_json(CONFIG_PATH)
     return {
         "osint_industries_use_premium": _normalize_osint_industries_use_premium(payload.get("osint_industries_use_premium", False)),
+        "custom_keyword_list": _normalize_custom_keyword_list(payload.get("custom_keyword_list", [])),
     }
 
 
-def _save_non_secret_config(*, osint_industries_use_premium: bool) -> None:
+def _save_non_secret_config(*, osint_industries_use_premium: bool, custom_keyword_list: list[str]) -> None:
     payload = {
         "osint_industries_use_premium": bool(osint_industries_use_premium),
+        "custom_keyword_list": _normalize_custom_keyword_list(custom_keyword_list),
     }
     _write_private_text(CONFIG_PATH, json.dumps(payload, ensure_ascii=True, indent=2) + "\n")
 
@@ -242,6 +264,7 @@ def load_public_config() -> dict[str, Any]:
     current = load_config()
     return {
         "osint_industries_use_premium": bool(current.get("osint_industries_use_premium")),
+        "custom_keyword_list": _normalize_custom_keyword_list(current.get("custom_keyword_list", [])),
         "pdl_api_key_configured": bool(str(current.get("pdl_api_key") or "").strip()),
         "osint_industries_api_key_configured": bool(str(current.get("osint_industries_api_key") or "").strip()),
         "numverify_api_key_configured": bool(str(current.get("numverify_api_key") or "").strip()),
@@ -255,6 +278,7 @@ def save_config(
     pdl_api_key: str | None = None,
     osint_industries_api_key: str | None = None,
     osint_industries_use_premium: bool | None = None,
+    custom_keyword_list: list[str] | None = None,
     numverify_api_key: str | None = None,
     openai_api_key: str | None = None,
     clear_pdl_api_key: bool | None = None,
@@ -265,10 +289,11 @@ def save_config(
     non_secret = _load_non_secret_config()
     if osint_industries_use_premium is not None:
         non_secret["osint_industries_use_premium"] = _normalize_osint_industries_use_premium(osint_industries_use_premium)
+    if custom_keyword_list is not None:
+        non_secret["custom_keyword_list"] = _normalize_custom_keyword_list(custom_keyword_list)
     _save_non_secret_config(
-        osint_industries_use_premium=_normalize_osint_industries_use_premium(
-            non_secret.get("osint_industries_use_premium", False)
-        )
+        osint_industries_use_premium=_normalize_osint_industries_use_premium(non_secret.get("osint_industries_use_premium", False)),
+        custom_keyword_list=_normalize_custom_keyword_list(non_secret.get("custom_keyword_list", [])),
     )
 
     current_secrets = _merge_secret_values(_load_file_secrets())

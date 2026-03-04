@@ -20,3 +20,13 @@ class SourceAccessBlockedError(RuntimeError):
         self.username = username
         self.reason = reason
         super().__init__(f"{platform} access blocked for username '{username}' ({reason})")
+
+
+class SourceUnavailableError(RuntimeError):
+    """Raised when a collection source cannot be reached due to network or DNS failures."""
+
+    def __init__(self, platform: str, username: str, reason: str = "source_unavailable"):
+        self.platform = platform
+        self.username = username
+        self.reason = reason
+        super().__init__(f"{platform} source unavailable for username '{username}' ({reason})")

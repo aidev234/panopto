@@ -5,7 +5,13 @@ from unittest.mock import patch
 
 import pytest
 
-from panopto.collectors.youtube import collect_youtube_posts, normalize_youtube_username, youtube_videos_url
+from panopto.collectors.youtube import (
+    _extract_count,
+    _parse_relative_timestamp,
+    collect_youtube_posts,
+    normalize_youtube_username,
+    youtube_videos_url,
+)
 
 
 class _FakeResponse:
@@ -128,3 +134,19 @@ def test_collect_youtube_posts_parses_initial_data_and_filters_window():
     assert row["source_url"] == "https://www.youtube.com/watch?v=vid1"
     assert row["metadata"]["embed_url"] == "https://www.youtube.com/embed/vid1"
     assert row["metadata"]["views"] == 12000
+
+
+def test_extract_count_supports_billions_suffix():
+    assert _extract_count("1.2B views") == 1_200_000_000
+
+
+def test_parse_relative_timestamp_supports_common_abbreviations():
+    now = datetime.now(timezone.utc)
+    assert _parse_relative_timestamp("3 hr ago", now_utc=now) is not None
+    assert _parse_relative_timestamp("2 hrs ago", now_utc=now) is not None
+    assert _parse_relative_timestamp("4 mos ago", now_utc=now) is not None
+
+
+def test_collect_youtube_posts_rejects_unsupported_max_pages():
+    with pytest.raises(ValueError, match="max_pages=1"):
+        collect_youtube_posts("AOC", "30 days", max_pages=2)

@@ -10,6 +10,7 @@ const openNewCaseBtn = document.getElementById('openNewCaseBtn');
 const openConfigBtn = document.getElementById('openConfigBtn');
 const generateDemoCaseBtn = document.getElementById('generateDemoCaseBtn');
 const quitSessionCaseBtn = document.getElementById('quitSessionCaseBtn');
+const quitSaveSessionCaseBtn = document.getElementById('quitSaveSessionCaseBtn');
 const configModal = document.getElementById('configModal');
 const configForm = document.getElementById('configForm');
 const configPdlApiKeyInput = document.getElementById('configPdlApiKeyInput');
@@ -21,10 +22,13 @@ const configNumverifyApiKeyInput = document.getElementById('configNumverifyApiKe
 const configNumverifyApiKeyHint = document.getElementById('configNumverifyApiKeyHint');
 const configOpenAiApiKeyInput = document.getElementById('configOpenAiApiKeyInput');
 const configOpenAiApiKeyHint = document.getElementById('configOpenAiApiKeyHint');
+const configCustomKeywordInput = document.getElementById('configCustomKeywordInput');
+const configCustomKeywordPills = document.getElementById('configCustomKeywordPills');
 const configSaveBtn = document.getElementById('configSaveBtn');
 const configCloseBtn = document.getElementById('configCloseBtn');
 const configCancelBtn = document.getElementById('configCancelBtn');
 const configStatus = document.getElementById('configStatus');
+const configSecretStateSummary = document.getElementById('configSecretStateSummary');
 const caseEditModal = document.getElementById('caseEditModal');
 const caseEditForm = document.getElementById('caseEditForm');
 const caseEditStatusSelect = document.getElementById('caseEditStatusSelect');
@@ -68,6 +72,7 @@ const caseNotesCloseBtn = document.getElementById('caseNotesCloseBtn');
 const caseNotesCancelBtn = document.getElementById('caseNotesCancelBtn');
 const dashboardPanel = document.getElementById('dashboardPanel');
 const dashboardContent = document.getElementById('dashboardContent');
+const openCaseNotesTopBtn = document.getElementById('openCaseNotesTopBtn');
 const backToCasesBtn = document.getElementById('backToCasesBtn');
 const saveQuitCaseBtn = document.getElementById('saveQuitCaseBtn');
 const clearSearchBtn = document.getElementById('clearSearchBtn');
@@ -75,10 +80,12 @@ const sortSelect = document.getElementById('sortSelect');
 const viewPostsBtn = document.getElementById('viewPostsBtn');
 const viewMediaBtn = document.getElementById('viewMediaBtn');
 const viewFootprintBtn = document.getElementById('viewFootprintBtn');
+const viewPatternLifeBtn = document.getElementById('viewPatternLifeBtn');
 const filterMenu = document.getElementById('filterMenu');
 const statusEl = document.getElementById('status');
 const resultsEl = document.getElementById('results');
 const footprintView = document.getElementById('footprintView');
+const patternLifeView = document.getElementById('patternLifeView');
 const footprintReconForm = document.getElementById('footprintReconForm');
 const footprintSelectorsList = document.getElementById('footprintSelectorsList');
 const addFootprintSelectorBtn = document.getElementById('addFootprintSelectorBtn');
@@ -104,6 +111,7 @@ const reconBtn = document.getElementById('reconBtn');
 const reconResults = document.getElementById('reconResults');
 const reconStatus = document.getElementById('reconStatus');
 const useReconTargetsBtn = document.getElementById('useReconTargetsBtn');
+const goReconAssessmentBtn = document.getElementById('goReconAssessmentBtn');
 const closeSetupBtn = document.getElementById('closeSetupBtn');
 const targetsList = document.getElementById('targetsList');
 const addTargetBtn = document.getElementById('addTargetBtn');
@@ -113,6 +121,7 @@ const endDateInput = document.getElementById('endDateInput');
 const collectBtn = document.getElementById('collectBtn');
 const newCollectionBtn = document.getElementById('newCollectionBtn');
 const quitBtn = document.getElementById('quitBtn');
+const quitSaveBtn = document.getElementById('quitSaveBtn');
 const filterToggleBtn = document.getElementById('filterToggleBtn');
 const filterPanel = document.getElementById('filterPanel');
 const filterTwitter = document.getElementById('filterTwitter');
@@ -131,6 +140,12 @@ const filterIdeologicalIndicators = document.getElementById('filterIdeologicalIn
 const filterThreatSignals = document.getElementById('filterThreatSignals');
 const filterLLMPrimary = document.getElementById('filterLLMPrimary');
 const filterLLMSecondary = document.getElementById('filterLLMSecondary');
+const runFaceRecognitionBtn = document.getElementById('runFaceRecognitionBtn');
+const faceConfidenceRange = document.getElementById('faceConfidenceRange');
+const faceConfidenceValue = document.getElementById('faceConfidenceValue');
+const faceRecognitionStatus = document.getElementById('faceRecognitionStatus');
+const faceRecognitionFilterList = document.getElementById('faceRecognitionFilterList');
+const faceRecognitionFilterEmpty = document.getElementById('faceRecognitionFilterEmpty');
 const timelineChart = document.getElementById('timelineChart');
 const timelineEmpty = document.getElementById('timelineEmpty');
 const timelineTotal = document.getElementById('timelineTotal');
@@ -140,12 +155,20 @@ const postingRhythmSummary = document.getElementById('postingRhythmSummary');
 const postingHourChart = document.getElementById('postingHourChart');
 const postingSourceMix = document.getElementById('postingSourceMix');
 const postingRhythmEmpty = document.getElementById('postingRhythmEmpty');
+const patternLifeTimezoneInference = document.getElementById('patternLifeTimezoneInference');
+const patternLifeRhythmSummary = document.getElementById('patternLifeRhythmSummary');
+const patternLifeHourChart = document.getElementById('patternLifeHourChart');
+const patternLifeSourceMix = document.getElementById('patternLifeSourceMix');
+const patternLifeRhythmEmpty = document.getElementById('patternLifeRhythmEmpty');
 const keywordChart = document.getElementById('keywordChart');
 const keywordEmpty = document.getElementById('keywordEmpty');
 const typeMix = document.getElementById('typeMix');
 const locationMap = document.getElementById('locationMap');
 const locationMapEmpty = document.getElementById('locationMapEmpty');
 const locationMapTotal = document.getElementById('locationMapTotal');
+const patternLifeMap = document.getElementById('patternLifeMap');
+const patternLifeMapEmpty = document.getElementById('patternLifeMapEmpty');
+const patternLifeLocationMapTotal = document.getElementById('patternLifeLocationMapTotal');
 const entityMix = document.getElementById('entityMix');
 const entityMixEmpty = document.getElementById('entityMixEmpty');
 const threatMix = document.getElementById('threatMix');
@@ -154,6 +177,8 @@ const threatSignalMix = document.getElementById('threatSignalMix');
 const threatSignalMixEmpty = document.getElementById('threatSignalMixEmpty');
 const selectorMix = document.getElementById('selectorMix');
 const selectorMixEmpty = document.getElementById('selectorMixEmpty');
+const customKeywordMix = document.getElementById('customKeywordMix');
+const customKeywordMixEmpty = document.getElementById('customKeywordMixEmpty');
 const llmPrimaryRadar = document.getElementById('llmPrimaryRadar');
 const llmPrimaryMix = document.getElementById('llmPrimaryMix');
 const llmPrimaryMixEmpty = document.getElementById('llmPrimaryMixEmpty');
@@ -173,11 +198,9 @@ const leadsEmpty = document.getElementById('leadsEmpty');
 const insightsTabOps = document.getElementById('insightsTabOps');
 const insightsTabGeo = document.getElementById('insightsTabGeo');
 const insightsTabSignals = document.getElementById('insightsTabSignals');
-const insightsTabNotes = document.getElementById('insightsTabNotes');
 const insightsPanelOps = document.getElementById('insightsPanelOps');
 const insightsPanelGeo = document.getElementById('insightsPanelGeo');
 const insightsPanelSignals = document.getElementById('insightsPanelSignals');
-const insightsPanelNotes = document.getElementById('insightsPanelNotes');
 const collectionStreams = document.getElementById('collectionStreams');
 const collectionStreamsSummary = document.getElementById('collectionStreamsSummary');
 const collectionStreamsEmpty = document.getElementById('collectionStreamsEmpty');
@@ -206,6 +229,7 @@ let controller;
 let caseList = [];
 let activeCaseId = '';
 let activeCase = null;
+let activeCaseExplicitlySaved = false;
 let editingCaseId = '';
 const caseWatchlistCadenceById = new Map();
 let caseSaveSelectedImageUrl = '';
@@ -224,11 +248,18 @@ let reconLeads = [];
 let reconProfiles = [];
 let reconPersonDataProfile = {};
 let reconPersonDataProfiles = [];
+let reconOsintProfiles = [];
+let reconNumverifyProfiles = [];
 let modalMode = 'chooser';
 let activeInsightsTab = 'ops';
 const activeEntityFilters = new Set();
 const activeMixFilters = new Set();
 const activeSignalFilters = new Set();
+const activeCustomKeywordFilters = new Set();
+const activeFaceFilters = new Set();
+let latestFaceClusters = [];
+let latestFaceRecognition = { available: false, reason: 'not_run' };
+let activeFaceMinConfidence = 0.8;
 let activeCollectionJobId = '';
 let collectionPollTimer = null;
 let collectionLoadedAnyData = false;
@@ -269,6 +300,10 @@ let locationMapLayer;
 let postingTimezoneMapInstance;
 let postingTimezoneMapLayer;
 let latestLocationMapPoints = [];
+let patternLifeMapInstance;
+let patternLifeMapLayer;
+let latestPatternLifeMapPoints = [];
+let configCustomKeywordList = [];
 const STOP_WORDS = new Set([
   'about', 'after', 'again', 'also', 'and', 'any', 'are', 'back', 'because', 'been', 'before',
   'being', 'both', 'but', 'can', 'cant', 'could', 'did', 'does', 'dont', 'from', 'get', 'got',
@@ -654,6 +689,7 @@ async function deleteCaseAndContents(caseId) {
     if (activeCaseId === id) {
       activeCaseId = '';
       activeCase = null;
+      activeCaseExplicitlySaved = false;
       activeTargets = [];
       activeStartDate = '';
       activeEndDate = '';
@@ -666,6 +702,35 @@ async function deleteCaseAndContents(caseId) {
     console.error(error);
     showNotification(`Delete failed: ${error.message || 'unknown error'}`, 'error');
   }
+}
+
+async function discardUnsavedActiveCase() {
+  const id = String(activeCaseId || '').trim();
+  if (!id || activeCaseExplicitlySaved) return false;
+  try {
+    const response = await fetch(`/api/cases/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    if (!response.ok) return false;
+    activeCaseId = '';
+    activeCase = null;
+    activeCaseExplicitlySaved = false;
+    activeCaseExplicitlySaved = false;
+    activeTargets = [];
+    activeStartDate = '';
+    activeEndDate = '';
+    renderCollectionContext();
+    return true;
+  } catch (_error) {
+    return false;
+  }
+}
+
+function confirmUnsavedCaseExit(actionLabel = 'exit') {
+  const hasDraft = Boolean(String(activeCaseId || '').trim()) && !activeCaseExplicitlySaved;
+  if (!hasDraft) return true;
+  const label = String(actionLabel || 'exit').trim();
+  return window.confirm(
+    `This case has not been saved. If you ${label}, the draft case will be discarded.\n\nContinue?`,
+  );
 }
 
 function watchlistCadenceForCase(caseId, fallback = '') {
@@ -776,12 +841,18 @@ async function openCase(caseId) {
   clearCollectionPolling();
   activeCaseId = id;
   activeCase = found;
+  activeCaseExplicitlySaved = true;
   activeTargets = [];
   activeStartDate = '';
   activeEndDate = '';
   activeEntityFilters.clear();
   activeMixFilters.clear();
   activeSignalFilters.clear();
+  activeCustomKeywordFilters.clear();
+  activeFaceFilters.clear();
+  latestFaceClusters = [];
+  latestFaceRecognition = { available: false, reason: 'not_run' };
+  renderFaceRecognitionFilters();
   updateFilterToggleLabel();
   renderCollectionContext();
   dashboardBaseStatus = found ? `Active case: ${found.case_name}` : '';
@@ -934,9 +1005,12 @@ function seedReconFromCaseNotes(caseRow) {
     reconLeads = [];
     reconPersonDataProfile = {};
     reconPersonDataProfiles = [];
+    reconOsintProfiles = [];
+    reconNumverifyProfiles = [];
     renderLeadsList();
     renderReconResults({ results: [], checked: 0, present_count: 0 }, reconResults);
     renderReconResults({ results: [], checked: 0, present_count: 0 }, footprintReconResults);
+    renderPatternOfLife(latestPosts);
     if (footprintReconStatus) footprintReconStatus.textContent = 'No seeded digital footprint profiles found in case notes.';
     return;
   }
@@ -979,6 +1053,8 @@ function seedReconFromCaseNotes(caseRow) {
   }));
   reconPersonDataProfile = {};
   reconPersonDataProfiles = [];
+  reconOsintProfiles = [];
+  reconNumverifyProfiles = [];
   renderLeadsList();
 
   const payload = {
@@ -995,6 +1071,7 @@ function seedReconFromCaseNotes(caseRow) {
   };
   renderReconResults(payload, reconResults);
   renderReconResults(payload, footprintReconResults);
+  renderPatternOfLife(latestPosts);
   if (footprintReconStatus) {
     footprintReconStatus.textContent = `Loaded ${results.length} seeded profile hit(s) from case notes.`;
   }
@@ -1437,6 +1514,7 @@ async function submitCaseSave(event) {
       throw new Error(message);
     }
     storeWatchlistCadence(id, nextStatus, nextCadence);
+    activeCaseExplicitlySaved = true;
     clearCollectionPolling();
     await loadCases();
     closeCaseSaveModal();
@@ -1491,6 +1569,7 @@ async function createNewCaseAndLaunch() {
     clearCollectionPolling();
     activeCaseId = String(created?.case_id || '').trim();
     activeCase = created;
+    activeCaseExplicitlySaved = false;
     dashboardBaseStatus = `Active case: ${String(created?.case_name || 'Untitled Case')}`;
     updateStatusLine();
     await loadCases();
@@ -1920,8 +1999,59 @@ function renderPostCard(post, index, options = {}) {
 
 function collectMediaItems(posts) {
   const items = [];
+  const profileTileByUrl = new Map();
+  const mergeFaceDetections = (existing, incoming) => {
+    const seen = new Set((Array.isArray(existing) ? existing : []).map((row) => {
+      const b = row?.bbox || {};
+      return [
+        String(row?.personId || '').toLowerCase(),
+        Number(b.x || 0).toFixed(4),
+        Number(b.y || 0).toFixed(4),
+        Number(b.w || 0).toFixed(4),
+        Number(b.h || 0).toFixed(4),
+        Number(row?.confidence || 0).toFixed(3),
+      ].join('|');
+    }));
+    const out = Array.isArray(existing) ? existing.slice() : [];
+    for (const face of Array.isArray(incoming) ? incoming : []) {
+      const b = face?.bbox || {};
+      const key = [
+        String(face?.personId || '').toLowerCase(),
+        Number(b.x || 0).toFixed(4),
+        Number(b.y || 0).toFixed(4),
+        Number(b.w || 0).toFixed(4),
+        Number(b.h || 0).toFixed(4),
+        Number(face?.confidence || 0).toFixed(3),
+      ].join('|');
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(face);
+    }
+    return out;
+  };
   for (let postIndex = 0; postIndex < posts.length; postIndex += 1) {
     const post = posts[postIndex];
+    const profileUrl = postProfileImageUrl(post);
+    if (isHttpUrl(profileUrl)) {
+      const profileFaces = facesForMedia(post, { url: profileUrl, thumbnail_url: '' }, profileUrl);
+      if (profileTileByUrl.has(profileUrl)) {
+        const existingItem = items[profileTileByUrl.get(profileUrl)];
+        existingItem.faceDetections = mergeFaceDetections(existingItem.faceDetections, profileFaces);
+      } else {
+        const next = {
+          postIndex,
+          mediaIndex: -1,
+          type: 'image',
+          mediaUrl: profileUrl,
+          previewUrl: profileUrl,
+          posterUrl: '',
+          kind: 'profile',
+          faceDetections: profileFaces,
+        };
+        profileTileByUrl.set(profileUrl, items.length);
+        items.push(next);
+      }
+    }
     const media = normalizeMedia(post);
     for (let mediaIndex = 0; mediaIndex < media.length; mediaIndex += 1) {
       const entry = media[mediaIndex];
@@ -1934,32 +2064,188 @@ function collectMediaItems(posts) {
         mediaUrl: String(entry.url || '').trim(),
         previewUrl,
         posterUrl: String(entry.thumbnail_url || '').trim(),
+        kind: 'post',
+        faceDetections: facesForMedia(post, entry, previewUrl),
       });
     }
   }
   return items;
 }
 
+function facesForMedia(post, mediaEntry, previewUrl = '') {
+  const metadata = post?.metadata;
+  const rows = Array.isArray(metadata?.face_recognition) ? metadata.face_recognition : [];
+  const mediaUrl = String(mediaEntry?.url || '').trim();
+  const thumbUrl = String(mediaEntry?.thumbnail_url || '').trim();
+  const preview = String(previewUrl || '').trim();
+  const out = [];
+  for (const row of rows) {
+    if (!row || typeof row !== 'object') continue;
+    const rowMedia = String(row.media_url || '').trim();
+    const rowAnalysis = String(row.analysis_url || '').trim();
+    const matches = rowMedia === mediaUrl || rowAnalysis === mediaUrl || rowAnalysis === thumbUrl || rowMedia === thumbUrl || rowAnalysis === preview || rowMedia === preview;
+    if (!matches) continue;
+    const faces = Array.isArray(row.faces) ? row.faces : [];
+    for (const face of faces) {
+      if (!face || typeof face !== 'object') continue;
+      const bbox = face.bbox && typeof face.bbox === 'object' ? face.bbox : {};
+      const x = Number(bbox.x);
+      const y = Number(bbox.y);
+      const w = Number(bbox.w);
+      const h = Number(bbox.h);
+      if (![x, y, w, h].every((value) => Number.isFinite(value))) continue;
+      out.push({
+        personId: String(face.person_id || '').trim().toLowerCase(),
+        label: String(face.label || '').trim(),
+        color: String(face.color || '').trim() || '#22c55e',
+        confidence: Number(face.confidence),
+        bbox: {
+          x: Math.max(0, Math.min(1, x)),
+          y: Math.max(0, Math.min(1, y)),
+          w: Math.max(0, Math.min(1, w)),
+          h: Math.max(0, Math.min(1, h)),
+        },
+      });
+    }
+  }
+  return out;
+}
+
+function facePassesConfidence(face) {
+  const confidence = Number(face?.confidence);
+  if (!Number.isFinite(confidence)) return activeFaceMinConfidence <= 0;
+  return confidence >= activeFaceMinConfidence;
+}
+
+function formatConfidencePercent(value) {
+  const num = Number(value);
+  if (!Number.isFinite(num) || num <= 0) return '0%';
+  return `${Math.round(Math.max(0, Math.min(1, num)) * 100)}%`;
+}
+
+function renderFaceOverlays(faceDetections) {
+  const activeIds = Array.from(activeFaceFilters);
+  if (!activeIds.length) return '';
+  const rows = Array.isArray(faceDetections) ? faceDetections : [];
+  const matches = rows.filter((item) => activeFaceFilters.has(String(item?.personId || '').toLowerCase()) && facePassesConfidence(item));
+  if (!matches.length) return '';
+  return `
+    <span class="media-face-overlay">
+      ${matches
+        .map((item) => {
+          const box = item.bbox || {};
+          const bx = Number(box.x || 0);
+          const by = Number(box.y || 0);
+          const bw = Number(box.w || 0);
+          const bh = Number(box.h || 0);
+          const baseSide = Math.max(bw, bh);
+          const side = Math.max(0.02, Math.min(1, baseSide * 1.18));
+          const cx = bx + (bw / 2);
+          const cy = by + (bh / 2);
+          let sx = cx - (side / 2);
+          let sy = cy - (side / 2);
+          sx = Math.max(0, Math.min(1 - side, sx));
+          sy = Math.max(0, Math.min(1 - side, sy));
+          const x = sx * 100;
+          const y = sy * 100;
+          const w = side * 100;
+          const h = side * 100;
+          const color = String(item.color || '').trim() || '#22c55e';
+          const label = String(item.label || item.personId || 'Person').trim();
+          const conf = formatConfidencePercent(item.confidence);
+          return `
+            <span class="media-face-box" style="left:${x.toFixed(3)}%;top:${y.toFixed(3)}%;width:${w.toFixed(3)}%;height:${h.toFixed(3)}%;--face-color:${escapeAttr(color)}">
+              <span class="media-face-label">${escapeHtml(label)} · ${escapeHtml(conf)}</span>
+            </span>
+          `;
+        })
+        .join('')}
+    </span>
+  `;
+}
+
+function renderInlineFaceRecognitionControls() {
+  const rows = Array.isArray(latestFaceClusters) ? latestFaceClusters : [];
+  const normalizedRows = rows
+    .map((row) => {
+      const personId = String(row?.person_id || '').trim().toLowerCase();
+      const label = String(row?.label || '').trim() || personId;
+      const count = Number(row?.count || 0);
+      const color = String(row?.color || '').trim() || '#22c55e';
+      const avgConfidence = Number(row?.avg_confidence || 0);
+      return { personId, label, count, color, avgConfidence };
+    })
+    .filter((row) => row.personId && row.count > 0 && row.avgConfidence >= activeFaceMinConfidence);
+  const stats = latestFaceRecognition && typeof latestFaceRecognition === 'object'
+    ? latestFaceRecognition
+    : { available: false, reason: 'unknown' };
+  const reason = faceRecognitionReasonMessage(stats.reason);
+  const imagesAnalyzed = Number(stats.images_analyzed || 0);
+  const facesDetected = Number(stats.faces_detected || 0);
+  const status = String(stats.reason || '').toLowerCase() === 'ok'
+    ? `${reason} Images analyzed: ${imagesAnalyzed}. Faces detected: ${facesDetected}.`
+    : reason;
+  const chips = normalizedRows.length
+    ? normalizedRows
+      .map((row) => {
+        const activeClass = activeFaceFilters.has(row.personId) ? ' is-active' : '';
+        return `<button type="button" class="theme-filter-item face-filter-item${activeClass}" data-face-filter-inline="${escapeAttr(row.personId)}" style="--face-color:${escapeAttr(row.color)}"><span>${escapeHtml(row.label)}</span><em>${row.count} • ${formatConfidencePercent(row.avgConfidence)}</em></button>`;
+      })
+      .join('')
+    : '<span class="theme-filter-empty">No recurring faces detected in current results.</span>';
+  return `
+    <section class="media-face-controls">
+      <div class="media-face-controls-top">
+        <button type="button" class="secondary-btn media-face-run-btn" data-face-run-inline>Run Facial Recognition</button>
+        <p class="theme-filter-empty media-face-status">${escapeHtml(status)}</p>
+      </div>
+      <div class="filter-group media-face-threshold">
+        <label>
+          Min confidence
+          <input type="range" min="0" max="1" step="0.05" value="${escapeAttr(String(activeFaceMinConfidence))}" data-face-confidence-inline />
+          <span data-face-confidence-inline-value>${escapeHtml(formatConfidencePercent(activeFaceMinConfidence))}</span>
+        </label>
+      </div>
+      <div class="theme-filter-list media-face-chip-list">${chips}</div>
+    </section>
+  `;
+}
+
 function renderMediaGrid(posts) {
-  const items = collectMediaItems(posts);
+  const allItems = collectMediaItems(posts)
+    .sort((left, right) => {
+      const l = left?.kind === 'profile' ? 0 : 1;
+      const r = right?.kind === 'profile' ? 0 : 1;
+      if (l !== r) return l - r;
+      return 0;
+    });
+  const items = activeFaceFilters.size
+    ? allItems.filter((item) => item.faceDetections.some((face) => activeFaceFilters.has(String(face?.personId || '').toLowerCase()) && facePassesConfidence(face)))
+    : allItems;
   if (!items.length) {
-    return '<div class="empty">No images or videos matched your current filters.</div>';
+    return `
+      ${renderInlineFaceRecognitionControls()}
+      <div class="empty">No images or videos matched your current filters.</div>
+    `;
   }
   return `
+    ${renderInlineFaceRecognitionControls()}
     <section class="results-media-grid">
       ${items.map((item) => {
     const post = posts[item.postIndex];
     const source = String(post?.platform || 'unknown').trim().toUpperCase();
     const preview = isHttpUrl(item.previewUrl) ? item.previewUrl : item.mediaUrl;
+    const hasMatchedFace = item.faceDetections.some((entry) => activeFaceFilters.has(String(entry?.personId || '').toLowerCase()) && facePassesConfidence(entry));
     const previewMarkup = item.type === 'video'
       ? `<video preload="metadata" muted playsinline ${isHttpUrl(item.posterUrl) ? `poster="${escapeAttr(item.posterUrl)}"` : ''}><source src="${escapeAttr(item.mediaUrl)}" type="video/mp4" /></video>`
       : `<img loading="lazy" src="${escapeAttr(preview)}" alt="Post media preview" />`;
+    const kindBadge = item.kind === 'profile' ? '<span class="media-grid-kind media-grid-kind-profile">PROFILE</span>' : '';
     return `
-        <button type="button" class="media-grid-tile" data-post-index="${item.postIndex}" data-media-index="${item.mediaIndex}">
-          <span class="media-grid-preview">${previewMarkup}</span>
+        <button type="button" class="media-grid-tile${hasMatchedFace ? ' has-face-match' : ''}" data-post-index="${item.postIndex}" data-media-index="${item.mediaIndex}">
+          <span class="media-grid-preview">${previewMarkup}${renderFaceOverlays(item.faceDetections)}</span>
           <span class="media-grid-meta">
             <span class="media-grid-author">${escapeHtml(accountTag(post))}</span>
-            <span class="media-grid-source">${escapeHtml(source)}</span>
+            <span class="media-grid-source">${escapeHtml(source)} ${kindBadge}</span>
           </span>
         </button>
       `;
@@ -2137,9 +2423,12 @@ function _collectRanges(text, terms, clsName, priority) {
 
 function renderContentWithSignals(content, query, post) {
   const text = String(content || '');
+  const loweredText = text.toLowerCase();
   const searchTerms = extractSearchTerms(query);
   const threatTerms = Array.isArray(post?.threat_matches) ? post.threat_matches : [];
   const selectorTerms = Array.isArray(post?.selector_matches) ? post.selector_matches : [];
+  const customKeywordTerms = normalizeCustomKeywordList(configCustomKeywordList)
+    .filter((term) => loweredText.includes(term.toLowerCase()));
   const llmAssessment = llmAssessmentFromPost(post);
   const llmTerms = [
     ...llmAssessmentPrimary(llmAssessment),
@@ -2150,7 +2439,8 @@ function renderContentWithSignals(content, query, post) {
     ..._collectRanges(text, searchTerms, 'keyterm-text', 1),
     ..._collectRanges(text, threatTerms, 'signal-threat', 2),
     ..._collectRanges(text, selectorTerms, 'signal-selector', 3),
-    ..._collectRanges(text, llmTerms, 'signal-llm', 4),
+    ..._collectRanges(text, customKeywordTerms, 'signal-custom-keyword', 4),
+    ..._collectRanges(text, llmTerms, 'signal-llm', 5),
   ];
   if (!ranges.length) return escapeHtml(text);
 
@@ -2359,6 +2649,61 @@ function selectedTags() {
   return { include };
 }
 
+function normalizeCustomKeywordTerm(value) {
+  return String(value || '').replace(/\s+/g, ' ').trim();
+}
+
+function normalizeCustomKeywordList(raw) {
+  const rows = Array.isArray(raw) ? raw : [];
+  const output = [];
+  const seen = new Set();
+  for (const row of rows) {
+    const clean = normalizeCustomKeywordTerm(row);
+    if (!clean) continue;
+    const lowered = clean.toLowerCase();
+    if (seen.has(lowered)) continue;
+    seen.add(lowered);
+    output.push(clean.slice(0, 120));
+    if (output.length >= 200) break;
+  }
+  return output;
+}
+
+function renderConfigCustomKeywordPills() {
+  if (!(configCustomKeywordPills instanceof HTMLElement)) return;
+  if (!configCustomKeywordList.length) {
+    configCustomKeywordPills.innerHTML = '<span class="config-keyword-empty">No custom keywords configured.</span>';
+    return;
+  }
+  configCustomKeywordPills.innerHTML = configCustomKeywordList
+    .map((term) => `
+      <button type="button" class="config-keyword-pill" data-config-keyword-pill="${escapeAttr(term.toLowerCase())}" title="Remove keyword">
+        <span>${escapeHtml(term)}</span><strong aria-hidden="true">&times;</strong>
+      </button>
+    `)
+    .join('');
+}
+
+function addConfigCustomKeywordTerm(rawTerm) {
+  const clean = normalizeCustomKeywordTerm(rawTerm);
+  if (!clean) return;
+  const lowered = clean.toLowerCase();
+  if (configCustomKeywordList.some((item) => item.toLowerCase() === lowered)) return;
+  configCustomKeywordList.push(clean.slice(0, 120));
+  renderConfigCustomKeywordPills();
+}
+
+function removeConfigCustomKeywordTerm(termLower) {
+  const lowered = String(termLower || '').trim().toLowerCase();
+  if (!lowered) return;
+  configCustomKeywordList = configCustomKeywordList.filter((item) => item.toLowerCase() !== lowered);
+  if (activeCustomKeywordFilters.has(lowered)) activeCustomKeywordFilters.delete(lowered);
+  renderConfigCustomKeywordPills();
+  renderCustomKeywordMix(latestPosts);
+  updateFilterToggleLabel();
+  queueRefresh();
+}
+
 function postHasPhoto(post) {
   const media = Array.isArray(post?.metadata?.media) ? post.metadata.media : [];
   if (media.some((item) => String(item?.type || '').toLowerCase() === 'image')) return true;
@@ -2429,6 +2774,13 @@ function _signalValuesForField(post, fieldName) {
   return Array.isArray(post?.[fieldName]) ? post[fieldName] : [];
 }
 
+function postMentionsCustomKeyword(post, keyword) {
+  const needle = String(keyword || '').trim().toLowerCase();
+  if (!needle) return false;
+  const haystack = String(primaryPostText(post) || '').toLowerCase();
+  return haystack.includes(needle);
+}
+
 function applySignalTagFilters(posts) {
   const rows = Array.isArray(posts) ? posts : [];
   if (!activeSignalFilters.size) return rows;
@@ -2443,8 +2795,33 @@ function applySignalTagFilters(posts) {
   });
 }
 
+function applyCustomKeywordFilters(posts) {
+  const rows = Array.isArray(posts) ? posts : [];
+  if (!activeCustomKeywordFilters.size) return rows;
+  const needles = Array.from(activeCustomKeywordFilters.values());
+  return rows.filter((post) => needles.some((keyword) => postMentionsCustomKeyword(post, keyword)));
+}
+
+function applyFaceFilters(posts) {
+  const rows = Array.isArray(posts) ? posts : [];
+  if (!activeFaceFilters.size) return rows;
+  return rows.filter((post) => {
+    const records = Array.isArray(post?.metadata?.face_recognition) ? post.metadata.face_recognition : [];
+    for (const media of records) {
+      if (!media || typeof media !== 'object') continue;
+      const faces = Array.isArray(media.faces) ? media.faces : [];
+      for (const face of faces) {
+        const personId = String(face?.person_id || '').trim().toLowerCase();
+        if (!personId || !activeFaceFilters.has(personId)) continue;
+        if (facePassesConfidence(face)) return true;
+      }
+    }
+    return false;
+  });
+}
+
 function applyDashboardFilters(posts) {
-  return applySignalTagFilters(applyMixFilters(applySignalTypeFilter(posts)));
+  return applyFaceFilters(applyCustomKeywordFilters(applySignalTagFilters(applyMixFilters(applySignalTypeFilter(posts)))));
 }
 
 function dayKey(timestamp) {
@@ -2789,6 +3166,52 @@ function renderPostingRhythm(posts) {
     .join('');
 }
 
+function renderPatternPostingRhythm(posts, providedAnalysis = null) {
+  if (
+    !patternLifeTimezoneInference
+    || !patternLifeRhythmSummary
+    || !patternLifeHourChart
+    || !patternLifeSourceMix
+    || !patternLifeRhythmEmpty
+  ) return providedAnalysis || summarizePostingRhythm(posts);
+  const analysis = providedAnalysis || summarizePostingRhythm(posts);
+  patternLifeTimezoneInference.innerHTML = `
+    <span class="posting-timezone-kicker">Likely timezone</span>
+    <span class="posting-timezone-value">${escapeHtml(analysis.timezoneLabel)}</span>
+  `;
+  patternLifeRhythmSummary.textContent = `${analysis.summary} ${analysis.sampleCount} timestamped post${analysis.sampleCount === 1 ? '' : 's'} analyzed (UTC timestamps shifted for inference only).`;
+
+  if (analysis.insufficient) {
+    patternLifeHourChart.innerHTML = '';
+    patternLifeSourceMix.innerHTML = '';
+    patternLifeRhythmEmpty.classList.remove('hidden');
+    return analysis;
+  }
+
+  patternLifeRhythmEmpty.classList.add('hidden');
+  const maxCount = Math.max(...analysis.localHistogram, 1);
+  patternLifeHourChart.innerHTML = analysis.localHistogram
+    .map((count, hour) => {
+      const heightPct = Math.max(5, Math.round((count / maxCount) * 100));
+      const sleepClass = ((hour - analysis.sleepWindowStart + 24) % 24) < 7 ? ' is-sleep' : '';
+      const workClass = ((hour - analysis.workWindowStart + 24) % 24) < 4 ? ' is-work' : '';
+      return `
+        <div class="posting-hour-cell${sleepClass}${workClass}">
+          <div class="posting-hour-bar-wrap">
+            <div class="posting-hour-bar" style="height:${heightPct}%"></div>
+          </div>
+          <span class="posting-hour-label">${hourLabel(hour).slice(0, 2)}</span>
+          <span class="posting-hour-count">${count}</span>
+        </div>
+      `;
+    })
+    .join('');
+  patternLifeSourceMix.innerHTML = analysis.sources
+    .map(([source, count]) => `<span class="mix-pill"><span>${escapeHtml(source)}</span><strong>${count}</strong></span>`)
+    .join('');
+  return analysis;
+}
+
 function extractKeywords(posts) {
   const counts = new Map();
   const monthWords = new Set([
@@ -2873,6 +3296,86 @@ function renderTypeMix(posts) {
     .join('');
 }
 
+function faceRecognitionReasonMessage(reason) {
+  const normalized = String(reason || '').trim().toLowerCase();
+  if (normalized === 'ok') return 'Completed.';
+  if (normalized === 'no_posts') return 'No posts available for analysis.';
+  if (normalized === 'opencv_not_installed') return 'Face engine unavailable (opencv not installed).';
+  if (normalized === 'no_supported_backend') return 'No supported face-recognition backend is available.';
+  if (normalized === 'analysis_fetch_failed') return 'Unable to fetch/decode media for analysis.';
+  if (normalized === 'not_run') return 'Facial recognition not run yet. Click "Run Facial Recognition".';
+  return normalized ? `Face analysis status: ${normalized}.` : 'Facial recognition status unavailable.';
+}
+
+function updateFaceRecognitionStatus() {
+  if (!(faceRecognitionStatus instanceof HTMLElement)) return;
+  const stats = latestFaceRecognition && typeof latestFaceRecognition === 'object'
+    ? latestFaceRecognition
+    : { available: false, reason: 'unknown' };
+  const reasonText = faceRecognitionReasonMessage(stats.reason);
+  const backend = String(stats.backend || '').trim();
+  const imagesAnalyzed = Number(stats.images_analyzed || 0);
+  const facesDetected = Number(stats.faces_detected || 0);
+  if (String(stats.reason || '').toLowerCase() === 'ok') {
+    const backendSuffix = backend ? ` Backend: ${backend}.` : '';
+    faceRecognitionStatus.textContent = `${reasonText} Images analyzed: ${imagesAnalyzed}. Faces detected: ${facesDetected}.${backendSuffix}`;
+    return;
+  }
+  faceRecognitionStatus.textContent = backend ? `${reasonText} Backend: ${backend}.` : reasonText;
+}
+
+function updateFaceConfidenceDisplays() {
+  if (faceConfidenceRange instanceof HTMLInputElement) {
+    faceConfidenceRange.value = String(activeFaceMinConfidence);
+  }
+  if (faceConfidenceValue instanceof HTMLElement) {
+    faceConfidenceValue.textContent = formatConfidencePercent(activeFaceMinConfidence);
+  }
+}
+
+function renderFaceRecognitionFilters() {
+  if (!(faceRecognitionFilterList instanceof HTMLElement) || !(faceRecognitionFilterEmpty instanceof HTMLElement)) return;
+  updateFaceRecognitionStatus();
+  updateFaceConfidenceDisplays();
+  const rows = Array.isArray(latestFaceClusters) ? latestFaceClusters : [];
+  const normalizedRows = rows
+    .map((row) => {
+      const personId = String(row?.person_id || '').trim().toLowerCase();
+      const label = String(row?.label || '').trim() || personId;
+      const count = Number(row?.count || 0);
+      const color = String(row?.color || '').trim() || '#22c55e';
+      const avgConfidence = Number(row?.avg_confidence || 0);
+      return { personId, label, count, color, avgConfidence };
+    })
+    .filter((row) => row.personId && row.count > 0 && row.avgConfidence >= activeFaceMinConfidence);
+  const knownIds = new Set(normalizedRows.map((row) => row.personId));
+  for (const activeId of Array.from(activeFaceFilters)) {
+    if (!knownIds.has(activeId)) activeFaceFilters.delete(activeId);
+  }
+  if (!normalizedRows.length) {
+    faceRecognitionFilterList.innerHTML = '';
+    const facesDetected = Number((latestFaceRecognition && latestFaceRecognition.faces_detected) || 0);
+    if (facesDetected > 0) {
+      faceRecognitionFilterEmpty.textContent = activeFaceMinConfidence > 0
+        ? 'Faces detected, but no recurring clusters meet the current confidence threshold.'
+        : 'Faces detected, but no recurring person clusters were found.';
+    } else {
+      faceRecognitionFilterEmpty.textContent = 'No recurring faces detected in current results.';
+    }
+    faceRecognitionFilterEmpty.classList.remove('hidden');
+    updateFilterToggleLabel();
+    return;
+  }
+  faceRecognitionFilterEmpty.classList.add('hidden');
+  faceRecognitionFilterList.innerHTML = normalizedRows
+    .map((row) => {
+      const activeClass = activeFaceFilters.has(row.personId) ? ' is-active' : '';
+      return `<button type="button" class="theme-filter-item face-filter-item${activeClass}" data-face-filter="${escapeAttr(row.personId)}" style="--face-color:${escapeAttr(row.color)}"><span>${escapeHtml(row.label)}</span><em>${row.count} • ${formatConfidencePercent(row.avgConfidence)}</em></button>`;
+    })
+    .join('');
+  updateFilterToggleLabel();
+}
+
 function loadLeaflet() {
   if (window.L) return Promise.resolve(window.L);
   if (locationMapLibraryPromise) return locationMapLibraryPromise;
@@ -2937,10 +3440,16 @@ function updateLocationMapViewport(points) {
 }
 
 function refreshMapLayout() {
-  if (!locationMapInstance) return;
   window.requestAnimationFrame(() => {
-    locationMapInstance.invalidateSize();
-    updateLocationMapViewport(latestLocationMapPoints);
+    if (locationMapInstance) {
+      locationMapInstance.invalidateSize();
+      updateLocationMapViewport(latestLocationMapPoints);
+    }
+    if (patternLifeMapInstance) {
+      patternLifeMapInstance.invalidateSize();
+      updatePatternLifeMapViewport(latestPatternLifeMapPoints);
+    }
+    if (postingTimezoneMapInstance) postingTimezoneMapInstance.invalidateSize();
   });
 }
 
@@ -3044,6 +3553,502 @@ function renderLocationMap(posts) {
         ? points.slice(0, 8).map((item) => `${item.name} (${item.count})`).join(' • ')
         : 'Map unavailable';
     });
+}
+
+function _locationPairsByName() {
+  return Object.values(LOCATION_COORDS_BY_TAG)
+    .slice()
+    .sort((a, b) => b.name.length - a.name.length);
+}
+
+function _resolvedLocationsFromText(text, pairs) {
+  const normalized = String(text || '').trim().toLowerCase();
+  if (!normalized) return [];
+  const hits = [];
+  const seen = new Set();
+  for (const location of pairs) {
+    const candidate = String(location.name || '').trim();
+    if (!candidate) continue;
+    const lowered = candidate.toLowerCase();
+    if (!lowered || seen.has(lowered)) continue;
+    const escaped = lowered.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const pattern = new RegExp(`(^|[^a-z0-9])${escaped}([^a-z0-9]|$)`, 'i');
+    if (!pattern.test(normalized)) continue;
+    seen.add(lowered);
+    hits.push(location);
+  }
+  return hits;
+}
+
+function _primaryLocationLabel(locationName, fallbackLabel = 'Unknown') {
+  const clean = String(locationName || '').trim();
+  if (!clean) return fallbackLabel;
+  return clean;
+}
+
+function collectPatternOfLifeLocationPoints(posts) {
+  const locationPairsByName = _locationPairsByName();
+  const pointsByKey = new Map();
+  const kindKey = (kind) => {
+    const normalized = String(kind || '').trim().toLowerCase();
+    if (normalized === 'post' || normalized === 'post_ner' || normalized === 'post_text') return 'post';
+    if (normalized === 'pdl') return 'pdl';
+    if (normalized === 'numverify') return 'numverify';
+    if (normalized === 'osint_industries') return 'osint_industries';
+    return 'other';
+  };
+  const addPoint = (name, lat, lon, reference = null) => {
+    const key = `${name}|${Number(lat).toFixed(4)}|${Number(lon).toFixed(4)}`;
+    const existing = pointsByKey.get(key);
+    if (existing) {
+      existing.count += 1;
+      const sourceKind = kindKey(reference?.kind);
+      existing.sourceCounts.set(sourceKind, (existing.sourceCounts.get(sourceKind) || 0) + 1);
+      if (reference && existing.refKeys.size < 24) {
+        const refKey = `${reference.kind || 'source'}|${reference.label || ''}|${reference.postIndex ?? ''}|${reference.detail || ''}`;
+        if (!existing.refKeys.has(refKey)) {
+          existing.refKeys.add(refKey);
+          existing.references.push(reference);
+        }
+      }
+      return;
+    }
+    const references = [];
+    const refKeys = new Set();
+    const sourceCounts = new Map();
+    const sourceKind = kindKey(reference?.kind);
+    sourceCounts.set(sourceKind, 1);
+    if (reference) {
+      const refKey = `${reference.kind || 'source'}|${reference.label || ''}|${reference.postIndex ?? ''}|${reference.detail || ''}`;
+      refKeys.add(refKey);
+      references.push(reference);
+    }
+    pointsByKey.set(key, { name, lat, lon, count: 1, references, refKeys, sourceCounts });
+  };
+
+  const rows = Array.isArray(posts) ? posts : [];
+  for (let postIndex = 0; postIndex < rows.length; postIndex += 1) {
+    const post = rows[postIndex];
+    const postLabel = `${accountTag(post)} • ${(String(post?.platform || 'unknown').trim() || 'unknown').toUpperCase()}`;
+    const postDetail = primaryPostText(post).slice(0, 180);
+    const postNerRef = { kind: 'post_ner', label: postLabel, detail: postDetail, postIndex };
+    const postTextRef = { kind: 'post_text', label: postLabel, detail: postDetail, postIndex };
+    const entities = Array.isArray(post?.entities) ? post.entities : [];
+    for (const entity of entities) {
+      if (!entity || String(entity.type || '').trim().toLowerCase() !== 'location') continue;
+      const name = String(entity.text || '').trim();
+      const lat = Number(entity.lat);
+      const lon = Number(entity.lon);
+      if (!name || Number.isNaN(lat) || Number.isNaN(lon)) continue;
+      addPoint(name, lat, lon, postNerRef);
+    }
+
+    const tags = Array.isArray(post?.tags) ? post.tags : [];
+    for (const tag of tags) {
+      const keyTag = String(tag || '').trim().toLowerCase();
+      if (!keyTag.startsWith('loc:')) continue;
+      const mapped = LOCATION_COORDS_BY_TAG[keyTag];
+      if (!mapped) continue;
+      addPoint(mapped.name, mapped.lat, mapped.lon, postNerRef);
+    }
+
+    const content = String(post?.content || '');
+    for (const location of _resolvedLocationsFromText(content, locationPairsByName)) {
+      addPoint(location.name, location.lat, location.lon, postTextRef);
+    }
+  }
+
+  const addFromTextSource = (rawText, label, detail, kind) => {
+    const matches = _resolvedLocationsFromText(rawText, locationPairsByName);
+    for (const location of matches) {
+      addPoint(location.name, location.lat, location.lon, {
+        kind,
+        label,
+        detail: String(detail || '').trim(),
+      });
+    }
+  };
+
+  const pdlProfiles = [];
+  if (reconPersonDataProfile && typeof reconPersonDataProfile === 'object' && Object.keys(reconPersonDataProfile).length) {
+    pdlProfiles.push(reconPersonDataProfile);
+  }
+  for (const profile of (Array.isArray(reconPersonDataProfiles) ? reconPersonDataProfiles : [])) {
+    if (!profile || typeof profile !== 'object') continue;
+    pdlProfiles.push(profile);
+  }
+  for (const profile of pdlProfiles) {
+    const locName = _primaryLocationLabel(profile?.location_name, '');
+    if (!locName) continue;
+    const label = `PDL: ${String(profile?.full_name || profile?.query_value || 'profile').trim() || 'profile'}`;
+    const detail = `primary location: ${locName}`;
+    const lat = Number(profile?.location_latitude);
+    const lon = Number(profile?.location_longitude);
+    if (!Number.isNaN(lat) && !Number.isNaN(lon)) {
+      addPoint(locName, lat, lon, { kind: 'pdl', label, detail });
+    } else {
+      addFromTextSource(locName, label, detail, 'pdl');
+    }
+  }
+
+  const osintProfiles = Array.isArray(reconOsintProfiles) ? reconOsintProfiles : [];
+  for (const profile of osintProfiles) {
+    const title = String(profile?.title || profile?.name || profile?.username || 'profile').trim();
+    const location = String(profile?.location || '').trim();
+    const bio = String(profile?.bio || '').trim();
+    if (location) {
+      addFromTextSource(location, `OSINT Industries: ${title}`, `location: ${location}`, 'osint_industries');
+    }
+    if (bio) {
+      addFromTextSource(bio, `OSINT Industries: ${title}`, `bio: ${bio.slice(0, 180)}`, 'osint_industries');
+    }
+  }
+
+  const numverifyProfiles = Array.isArray(reconNumverifyProfiles) ? reconNumverifyProfiles : [];
+  for (const profile of numverifyProfiles) {
+    const number = String(profile?.number || profile?.international_format || 'number').trim();
+    const location = String(profile?.location || '').trim();
+    const country = String(profile?.country_name || '').trim();
+    if (location) {
+      addFromTextSource(location, `Numverify: ${number}`, `location: ${location}`, 'numverify');
+    }
+    if (country) {
+      addFromTextSource(country, `Numverify: ${number}`, `country: ${country}`, 'numverify');
+    }
+  }
+
+  const points = Array.from(pointsByKey.values())
+    .map((row) => ({
+      ...row,
+      references: row.references.slice(0, 10),
+      sourceCounts: Object.fromEntries(row.sourceCounts.entries()),
+    }))
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+  for (const point of points) {
+    delete point.refKeys;
+    const sourceRows = Object.entries(point.sourceCounts || {}).sort((a, b) => Number(b[1]) - Number(a[1]));
+    point.dominantKind = String(sourceRows[0]?.[0] || 'other');
+  }
+  return points;
+}
+
+function patternLifeMarkerStyle(point, maxCount) {
+  const sizeRatio = maxCount > 0 ? Number(point?.count || 0) / maxCount : 0;
+  const radius = 4 + Math.max(0.1, sizeRatio) * 8;
+  const kind = String(point?.dominantKind || 'other').toLowerCase();
+  if (kind === 'post') {
+    return { radius, color: '#86efac', fillColor: '#16a34a', fillOpacity: 0.86 };
+  }
+  if (kind === 'pdl') {
+    return { radius, color: '#bfdbfe', fillColor: '#3b82f6', fillOpacity: 0.84 };
+  }
+  if (kind === 'osint_industries') {
+    return { radius, color: '#e9d5ff', fillColor: '#a855f7', fillOpacity: 0.84 };
+  }
+  if (kind === 'numverify') {
+    return { radius, color: '#fef3c7', fillColor: '#f59e0b', fillOpacity: 0.85 };
+  }
+  return { radius, color: '#d1d5db', fillColor: '#6b7280', fillOpacity: 0.8 };
+}
+
+function patternLifePopupPlacement(mapInstance, point) {
+  if (!mapInstance || !point) return 'top';
+  const markerPoint = mapInstance.latLngToContainerPoint([point.lat, point.lon]);
+  const size = mapInstance.getSize();
+  const sideThreshold = Math.max(140, Math.round(size.x * 0.24));
+  const topThreshold = Math.max(120, Math.round(size.y * 0.22));
+  if (markerPoint.y <= topThreshold) return 'bottom';
+  if (markerPoint.x <= sideThreshold) return 'right';
+  if (markerPoint.x >= (size.x - sideThreshold)) return 'left';
+  return 'top';
+}
+
+function patternLifePopupOffset(placement) {
+  const normalized = String(placement || '').toLowerCase();
+  if (normalized === 'left') return [-22, -8];
+  if (normalized === 'right') return [22, -8];
+  if (normalized === 'bottom') return [0, 18];
+  return [0, -10];
+}
+
+function highlightPatternLifeLocation(text, locationName) {
+  const source = String(text || '');
+  const needle = String(locationName || '').trim();
+  if (!source || !needle) return escapeHtml(source);
+  const escapedNeedle = needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const pattern = new RegExp(escapedNeedle, 'ig');
+  let lastIndex = 0;
+  let match = pattern.exec(source);
+  let output = '';
+  let found = false;
+  while (match) {
+    const start = Number(match.index);
+    const value = String(match[0] || '');
+    output += escapeHtml(source.slice(lastIndex, start));
+    output += `<strong class="pattern-life-hit">${escapeHtml(value)}</strong>`;
+    lastIndex = start + value.length;
+    found = true;
+    match = pattern.exec(source);
+  }
+  output += escapeHtml(source.slice(lastIndex));
+  return found ? output : escapeHtml(source);
+}
+
+function patternLifePostPreviewMarkup(post, ref, locationName) {
+  const postIndex = Number(ref?.postIndex);
+  if (!Number.isFinite(postIndex) || postIndex < 0 || !post || typeof post !== 'object') return '';
+  const profileImage = postProfileImageUrl(post) || USER_PLACEHOLDER_AVATAR_URL;
+  const account = accountTag(post);
+  const platform = String(post?.platform || 'unknown').trim().toUpperCase();
+  const postType = String(post?.post_type || 'post').trim().toUpperCase();
+  const recency = formatRecency(post?.timestamp);
+  const content = primaryPostText(post).slice(0, 220);
+  const isNerLinked = String(ref?.kind || '').toLowerCase() === 'post_ner';
+  const contentMarkup = isNerLinked
+    ? highlightPatternLifeLocation(content, locationName)
+    : escapeHtml(content);
+  const media = normalizeMedia(post);
+  const firstMedia = Array.isArray(media) ? media[0] : null;
+  const mediaType = String(firstMedia?.type || '').trim().toLowerCase();
+  const mediaPreviewUrl = mediaType === 'video'
+    ? String(firstMedia?.thumbnail_url || '').trim()
+    : String(firstMedia?.url || '').trim();
+  const mediaMarkup = mediaPreviewUrl && isHttpUrl(mediaPreviewUrl)
+    ? `<div class="pattern-life-post-media"><img src="${escapeAttr(mediaPreviewUrl)}" alt="Post media preview" loading="lazy" /></div>`
+    : '';
+  const matchBadge = isNerLinked ? '<span class="pattern-life-match-badge">NER location match</span>' : '';
+
+  return `
+    <button type="button" class="pattern-life-post-card" data-pattern-life-post-index="${postIndex}" title="Open linked post">
+      <div class="pattern-life-post-head">
+        <div class="pattern-life-post-account">
+          <img class="pattern-life-post-avatar" src="${escapeAttr(profileImage)}" alt="${escapeAttr(account)} profile image" loading="lazy" />
+          <span class="pattern-life-post-handle">${escapeHtml(account)}</span>
+        </div>
+        <span class="pattern-life-post-recency">${escapeHtml(recency)}</span>
+      </div>
+      <div class="pattern-life-post-tags">
+        <span class="source-tag">${escapeHtml(platform)}</span>
+        <span class="type-tag">${escapeHtml(postType)}</span>
+        ${matchBadge}
+      </div>
+      <p class="pattern-life-post-content">${contentMarkup}</p>
+      ${mediaMarkup}
+    </button>
+  `;
+}
+
+function ensurePatternLifeMapInstance() {
+  if (!patternLifeMap) return Promise.resolve(null);
+  return loadLeaflet().then((L) => {
+    if (!L) return null;
+    if (!patternLifeMapInstance) {
+      patternLifeMap.innerHTML = '';
+      patternLifeMapInstance = L.map(patternLifeMap, {
+        zoomControl: false,
+        attributionControl: false,
+        worldCopyJump: true,
+      }).setView([20, 0], 2);
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        subdomains: 'abcd',
+        maxZoom: 6,
+      }).addTo(patternLifeMapInstance);
+      patternLifeMapLayer = L.layerGroup().addTo(patternLifeMapInstance);
+    }
+    return L;
+  });
+}
+
+function updatePatternLifeMapViewport(points) {
+  if (!patternLifeMapInstance) return;
+  const rows = Array.isArray(points) ? points : [];
+  if (!rows.length) {
+    patternLifeMapInstance.setView([20, 0], 2);
+    return;
+  }
+  const bounds = rows.slice(0, 80).map((point) => [point.lat, point.lon]);
+  if (bounds.length === 1) {
+    patternLifeMapInstance.setView(bounds[0], 4);
+  } else {
+    patternLifeMapInstance.fitBounds(bounds, { padding: [20, 20], maxZoom: 4 });
+  }
+}
+
+function renderPatternLifeMap(posts, analysis = null) {
+  if (!patternLifeMap || !patternLifeMapEmpty || !patternLifeLocationMapTotal) return;
+  const rows = Array.isArray(posts) ? posts : [];
+  const rhythm = analysis || summarizePostingRhythm(posts);
+  const points = collectPatternOfLifeLocationPoints(posts);
+  latestPatternLifeMapPoints = points;
+  const totalMentions = points.reduce((sum, point) => sum + point.count, 0);
+  patternLifeLocationMapTotal.textContent = `${totalMentions} point${totalMentions === 1 ? '' : 's'}`;
+  patternLifeMapEmpty.classList.toggle('hidden', points.length > 0);
+
+  ensurePatternLifeMapInstance()
+    .then((L) => {
+      if (!L || !patternLifeMapLayer || !patternLifeMapInstance) return;
+      patternLifeMapLayer.clearLayers();
+
+      if (!rhythm?.insufficient) {
+        const minOffset = -12;
+        const maxOffset = 14;
+        const clampedOffset = Math.max(minOffset, Math.min(maxOffset, Number(rhythm?.offset || 0)));
+        const centerLongitude = Math.max(-180, Math.min(180, clampedOffset * 15));
+        const west = centerLongitude - 15;
+        const east = centerLongitude + 15;
+        const addCorridor = (westBound, eastBound) => {
+          L.rectangle([[-85, westBound], [85, eastBound]], {
+            color: 'rgba(59, 130, 246, 0.82)',
+            weight: 1,
+            fillColor: 'rgba(59, 130, 246, 0.17)',
+            fillOpacity: 0.5,
+            interactive: false,
+          }).addTo(patternLifeMapLayer);
+        };
+        if (west < -180) {
+          addCorridor(west + 360, 180);
+          addCorridor(-180, east);
+        } else if (east > 180) {
+          addCorridor(west, 180);
+          addCorridor(-180, east - 360);
+        } else {
+          addCorridor(west, east);
+        }
+      }
+
+      if (!points.length) {
+        updatePatternLifeMapViewport(points);
+        return;
+      }
+
+      const maxCount = Math.max(...points.map((point) => point.count), 1);
+      for (const point of points.slice(0, 80)) {
+        const markerStyle = patternLifeMarkerStyle(point, maxCount);
+        const sourceBreakdown = Object.entries(point.sourceCounts || {})
+          .sort((a, b) => Number(b[1]) - Number(a[1]))
+          .slice(0, 4)
+          .map(([kind, count]) => `${kind.replace(/_/g, ' ')}: ${count}`)
+          .join(' • ');
+        const hasNerLinkedPosts = point.references.some((ref) => String(ref?.kind || '').toLowerCase() === 'post_ner');
+        const hoverRows = point.references
+          .slice(0, 3)
+          .map((ref) => {
+            const label = String(ref?.label || '').trim() || 'source';
+            const detail = String(ref?.detail || '').trim();
+            return `<div><strong>${escapeHtml(label)}</strong>${detail ? `<div>${escapeHtml(detail)}</div>` : ''}</div>`;
+          })
+          .join('');
+        const popupRows = point.references
+          .slice(0, 8)
+          .map((ref) => {
+            const label = String(ref?.label || '').trim() || 'source';
+            const detail = String(ref?.detail || '').trim();
+            const postIndex = Number(ref?.postIndex);
+            if (Number.isFinite(postIndex) && postIndex >= 0) {
+              return patternLifePostPreviewMarkup(rows[postIndex], ref, point.name);
+            }
+            return `<div class="pattern-life-popup-row"><span>${escapeHtml(label)}</span><small>${escapeHtml(detail || 'location signal')}</small></div>`;
+          })
+          .join('');
+        const marker = L.circleMarker([point.lat, point.lon], {
+          radius: markerStyle.radius,
+          color: markerStyle.color,
+          weight: 1.2,
+          fillColor: markerStyle.fillColor,
+          fillOpacity: markerStyle.fillOpacity,
+        });
+        if (!hasNerLinkedPosts) {
+          marker.bindTooltip(
+            `<div class="pattern-life-tooltip"><strong>${escapeHtml(point.name)}</strong><div>${point.count} signal${point.count === 1 ? '' : 's'}</div>${sourceBreakdown ? `<div>${escapeHtml(sourceBreakdown)}</div>` : ''}${hoverRows}</div>`,
+            { sticky: true, direction: 'top', opacity: 0.96 },
+          );
+        }
+        marker
+          .bindPopup(
+            `<div class="pattern-life-popup"><h4>${escapeHtml(point.name)}</h4><p>${point.count} signal${point.count === 1 ? '' : 's'} mapped</p><div class="pattern-life-popup-list">${popupRows}</div></div>`,
+            { maxWidth: 320, autoPan: false },
+          );
+        let isMarkerHovered = false;
+        let isPopupHovered = false;
+        let popupCloseTimer = null;
+        let popupEl = null;
+        let popupEnterHandler = null;
+        let popupLeaveHandler = null;
+        let popupPlacement = 'top';
+        const applyPopupPlacement = () => {
+          const nextPlacement = patternLifePopupPlacement(patternLifeMapInstance, point);
+          popupPlacement = nextPlacement;
+          const popup = marker.getPopup();
+          if (!popup) return;
+          popup.options.offset = L.point(...patternLifePopupOffset(nextPlacement));
+          popup.options.maxWidth = (nextPlacement === 'left' || nextPlacement === 'right') ? 380 : 320;
+        };
+        const clearPopupCloseTimer = () => {
+          if (popupCloseTimer) {
+            window.clearTimeout(popupCloseTimer);
+            popupCloseTimer = null;
+          }
+        };
+        const schedulePopupClose = () => {
+          clearPopupCloseTimer();
+          popupCloseTimer = window.setTimeout(() => {
+            if (!isMarkerHovered && !isPopupHovered) marker.closePopup();
+          }, 120);
+        };
+        marker.on('mouseover', () => {
+          isMarkerHovered = true;
+          clearPopupCloseTimer();
+          applyPopupPlacement();
+          marker.openPopup();
+        });
+        marker.on('mouseout', () => {
+          isMarkerHovered = false;
+          schedulePopupClose();
+        });
+        marker.on('popupopen', (event) => {
+          const root = event?.popup?.getElement?.();
+          if (!(root instanceof HTMLElement)) return;
+          popupEl = root;
+          root.classList.remove('pattern-life-popup-top', 'pattern-life-popup-right', 'pattern-life-popup-bottom', 'pattern-life-popup-left');
+          root.classList.add(`pattern-life-popup-${popupPlacement}`);
+          popupEnterHandler = () => {
+            isPopupHovered = true;
+            clearPopupCloseTimer();
+          };
+          popupLeaveHandler = () => {
+            isPopupHovered = false;
+            schedulePopupClose();
+          };
+          popupEl.addEventListener('mouseenter', popupEnterHandler);
+          popupEl.addEventListener('mouseleave', popupLeaveHandler);
+        });
+        marker.on('popupclose', () => {
+          isPopupHovered = false;
+          clearPopupCloseTimer();
+          if (popupEl && popupEnterHandler) popupEl.removeEventListener('mouseenter', popupEnterHandler);
+          if (popupEl && popupLeaveHandler) popupEl.removeEventListener('mouseleave', popupLeaveHandler);
+          popupEl = null;
+          popupEnterHandler = null;
+          popupLeaveHandler = null;
+        });
+        marker.addTo(patternLifeMapLayer);
+      }
+      updatePatternLifeMapViewport(points);
+      if (activeResultsView === 'pattern') {
+        window.requestAnimationFrame(() => patternLifeMapInstance?.invalidateSize());
+      }
+    })
+    .catch(() => {
+      patternLifeMap.textContent = points.length
+        ? points.slice(0, 8).map((item) => `${item.name} (${item.count})`).join(' • ')
+        : 'Map unavailable';
+    });
+}
+
+function renderPatternOfLife(posts) {
+  const analysis = summarizePostingRhythm(posts);
+  renderPatternPostingRhythm(posts, analysis);
+  renderPatternLifeMap(posts, analysis);
 }
 
 function renderEntityMix(posts) {
@@ -3165,6 +4170,42 @@ function renderSelectorMix(posts) {
   }
   selectorMixEmpty.classList.add('hidden');
   selectorMix.innerHTML = markup;
+}
+
+function renderCustomKeywordMix(posts) {
+  if (!customKeywordMix || !customKeywordMixEmpty) return;
+  const keywords = normalizeCustomKeywordList(configCustomKeywordList);
+  if (!keywords.length) {
+    customKeywordMix.innerHTML = '';
+    customKeywordMixEmpty.textContent = 'No custom keywords configured. Add keywords in Configuration.';
+    customKeywordMixEmpty.classList.remove('hidden');
+    return;
+  }
+  const rows = Array.isArray(posts) ? posts : [];
+  const counts = keywords
+    .map((term) => {
+      let count = 0;
+      for (const post of rows) {
+        if (postMentionsCustomKeyword(post, term)) count += 1;
+      }
+      return { term, count, termLower: term.toLowerCase() };
+    })
+    .filter((row) => row.count > 0)
+    .sort((a, b) => b.count - a.count || a.term.localeCompare(b.term))
+    .slice(0, 20);
+  if (!counts.length) {
+    customKeywordMix.innerHTML = '';
+    customKeywordMixEmpty.textContent = 'No configured custom keyword mentions in current results.';
+    customKeywordMixEmpty.classList.remove('hidden');
+    return;
+  }
+  customKeywordMixEmpty.classList.add('hidden');
+  customKeywordMix.innerHTML = counts
+    .map((row) => {
+      const activeClass = activeCustomKeywordFilters.has(row.termLower) ? ' is-active' : '';
+      return `<button type="button" class="signal-row signal-custom-keyword-row${activeClass}" data-custom-keyword="${escapeAttr(row.termLower)}"><span>${escapeHtml(row.term)}</span><strong>${row.count}</strong></button>`;
+    })
+    .join('');
 }
 
 function renderThreatSignalMix(posts) {
@@ -3319,6 +4360,7 @@ function renderVisuals(posts) {
   renderLocationMap(posts);
   renderEntityMix(posts);
   renderSelectorMix(posts);
+  renderCustomKeywordMix(posts);
   renderThreatMix(posts);
   renderThreatSignalMix(posts);
   renderLLMCoverage(posts);
@@ -3327,9 +4369,11 @@ function renderVisuals(posts) {
   renderLLMThemeMix(posts);
   updateAiThreatAssessmentControls(posts);
   renderTypeMix(posts);
+  renderPatternOfLife(latestPosts);
 }
 
-async function refreshPosts() {
+async function refreshPosts(options = {}) {
+  const forceFaceRefresh = options && options.forceFaceRefresh === true;
   if (controller) controller.abort();
   controller = new AbortController();
 
@@ -3341,6 +4385,9 @@ async function refreshPosts() {
   if (activeStartDate) params.set('start_date', activeStartDate);
   if (activeEndDate) params.set('end_date', activeEndDate);
   if (tags.include.length) params.set('include_tags', tags.include.join(','));
+  const includeFaceAnalysis = forceFaceRefresh || activeFaceFilters.size > 0;
+  if (includeFaceAnalysis) params.set('include_faces', '1');
+  if (forceFaceRefresh) params.set('face_refresh', '1');
 
   dashboardBaseStatus = '';
   updateStatusLine();
@@ -3349,6 +4396,11 @@ async function refreshPosts() {
     const response = await fetch(`/api/posts?${params.toString()}`, { signal: controller.signal });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json();
+    latestFaceClusters = Array.isArray(data?.face_clusters) ? data.face_clusters : [];
+    latestFaceRecognition = data?.face_recognition && typeof data.face_recognition === 'object'
+      ? data.face_recognition
+      : { available: false, reason: 'unknown' };
+    renderFaceRecognitionFilters();
     const filteredPosts = applyDashboardFilters(data.posts || []);
     renderPosts(filteredPosts);
     dashboardBaseStatus = '';
@@ -3356,6 +4408,9 @@ async function refreshPosts() {
   } catch (error) {
     if (error.name === 'AbortError') return;
     console.error(error);
+    latestFaceClusters = [];
+    latestFaceRecognition = { available: false, reason: 'request_failed' };
+    renderFaceRecognitionFilters();
     dashboardBaseStatus = 'Failed to load posts.';
     updateStatusLine();
     resultsEl.innerHTML = '<div class="empty">Could not load data from /api/posts.</div>';
@@ -3371,28 +4426,41 @@ function applyResultsViewButtonState() {
   const postView = activeResultsView === 'posts';
   const mediaView = activeResultsView === 'media';
   const footprintMode = activeResultsView === 'footprint';
+  const patternLifeMode = activeResultsView === 'pattern';
   viewPostsBtn?.classList.toggle('is-active', postView);
   viewMediaBtn?.classList.toggle('is-active', mediaView);
   viewFootprintBtn?.classList.toggle('is-active', footprintMode);
+  viewPatternLifeBtn?.classList.toggle('is-active', patternLifeMode);
   viewPostsBtn?.setAttribute('aria-pressed', String(postView));
   viewMediaBtn?.setAttribute('aria-pressed', String(mediaView));
   viewFootprintBtn?.setAttribute('aria-pressed', String(footprintMode));
-  resultsEl?.classList.toggle('hidden', footprintMode);
+  viewPatternLifeBtn?.setAttribute('aria-pressed', String(patternLifeMode));
+  const hideStandardLayout = footprintMode || patternLifeMode;
+  resultsEl?.classList.toggle('hidden', hideStandardLayout);
+  dashboardContent?.classList.toggle('media-grid-mode', mediaView);
   const insightsEl = dashboardContent?.querySelector('.insights');
-  if (insightsEl instanceof HTMLElement) insightsEl.classList.toggle('hidden', footprintMode);
+  if (insightsEl instanceof HTMLElement) insightsEl.classList.toggle('hidden', hideStandardLayout || mediaView);
   footprintView?.classList.toggle('hidden', !footprintMode);
-  if (filterMenu instanceof HTMLElement) filterMenu.classList.toggle('hidden', footprintMode);
+  patternLifeView?.classList.toggle('hidden', !patternLifeMode);
+  if (filterMenu instanceof HTMLElement) filterMenu.classList.toggle('hidden', hideStandardLayout);
 }
 
 function setResultsView(mode) {
   const normalized = String(mode || '').trim().toLowerCase();
-  const next = normalized === 'media' ? 'media' : (normalized === 'footprint' ? 'footprint' : 'posts');
+  const next = normalized === 'media'
+    ? 'media'
+    : (normalized === 'footprint' ? 'footprint' : (normalized === 'pattern' ? 'pattern' : 'posts'));
   if (activeResultsView === next) return;
   activeResultsView = next;
   if (activeResultsView === 'footprint') {
     ensureAtLeastOneReconSelectorRow(footprintSelectorsList);
   }
   applyResultsViewButtonState();
+  if (activeResultsView === 'pattern') {
+    renderPatternOfLife(latestPosts);
+    refreshMapLayout();
+    window.setTimeout(refreshMapLayout, 80);
+  }
   renderPosts(latestPosts);
 }
 
@@ -3465,6 +4533,7 @@ function openConfigModal() {
   configModal?.classList.remove('hidden');
   configStatus.textContent = '';
   syncModalActiveState();
+  loadConfig();
   configPdlApiKeyInput?.focus();
 }
 
@@ -3474,31 +4543,77 @@ function closeConfigModal() {
 }
 
 async function loadConfig() {
-  const setConfiguredHint = (el, configured, mode) => {
-    if (!(el instanceof HTMLElement)) return;
-    const status = configured ? 'Configured' : 'Not configured';
+  const setConfiguredHint = (inputEl, hintEl, configured, mode) => {
+    if (!(inputEl instanceof HTMLInputElement) || !(hintEl instanceof HTMLElement)) return;
+    const field = inputEl.closest('.config-secret-field');
     const storage = mode ? ` (${mode})` : '';
-    el.textContent = `${status}${storage}`;
+    const emptyPlaceholder = String(inputEl.getAttribute('data-empty-placeholder') || inputEl.placeholder || '').trim();
+    const configuredPlaceholder = String(inputEl.getAttribute('data-configured-placeholder') || 'Stored key detected. Enter new key to replace.').trim();
+    inputEl.value = '';
+    if (configured) {
+      inputEl.dataset.secretState = 'configured';
+      inputEl.placeholder = configuredPlaceholder;
+      if (field instanceof HTMLElement) {
+        field.dataset.secretState = 'configured';
+      }
+      hintEl.dataset.secretState = 'configured';
+      hintEl.textContent = `Stored key detected${storage}. Leave blank to keep the current key.`;
+      return;
+    }
+    inputEl.dataset.secretState = 'empty';
+    inputEl.placeholder = emptyPlaceholder;
+    if (field instanceof HTMLElement) {
+      field.dataset.secretState = 'empty';
+    }
+    hintEl.dataset.secretState = 'empty';
+    hintEl.textContent = `No stored key found${storage}. Paste a key and click Save.`;
+  };
+  const summarizeSecretState = (count, total, mode) => {
+    if (!(configSecretStateSummary instanceof HTMLElement)) return;
+    configSecretStateSummary.dataset.secretState = count > 0 ? 'configured' : 'empty';
+    if (!count) {
+      configSecretStateSummary.textContent = 'No API keys are loaded from previous sessions. All key fields are currently empty.';
+      return;
+    }
+    const plural = count === 1 ? 'key is' : 'keys are';
+    const source = mode ? ` via ${mode}` : '';
+    configSecretStateSummary.textContent = `${count} of ${total} API ${plural} already loaded${source}. Leave fields blank to keep existing keys.`;
   };
   try {
     const response = await fetch('/api/config');
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const payload = await response.json();
     const storageMode = String(payload?.secret_storage_mode || '').trim();
-    if (configPdlApiKeyInput) configPdlApiKeyInput.value = '';
-    if (configOsintIndustriesApiKeyInput) configOsintIndustriesApiKeyInput.value = '';
     if (configOsintIndustriesPremiumInput instanceof HTMLInputElement) {
       configOsintIndustriesPremiumInput.checked = Boolean(payload?.osint_industries_use_premium);
     }
-    if (configNumverifyApiKeyInput) configNumverifyApiKeyInput.value = '';
-    if (configOpenAiApiKeyInput) configOpenAiApiKeyInput.value = '';
-    setConfiguredHint(configPdlApiKeyHint, Boolean(payload?.pdl_api_key_configured), storageMode);
-    setConfiguredHint(configOsintIndustriesApiKeyHint, Boolean(payload?.osint_industries_api_key_configured), storageMode);
-    setConfiguredHint(configNumverifyApiKeyHint, Boolean(payload?.numverify_api_key_configured), storageMode);
-    setConfiguredHint(configOpenAiApiKeyHint, Boolean(payload?.openai_api_key_configured), storageMode);
+    if (configCustomKeywordInput instanceof HTMLInputElement) configCustomKeywordInput.value = '';
+    configCustomKeywordList = normalizeCustomKeywordList(payload?.custom_keyword_list);
+    const validKeywords = new Set(configCustomKeywordList.map((item) => item.toLowerCase()));
+    for (const keyword of Array.from(activeCustomKeywordFilters)) {
+      if (!validKeywords.has(keyword)) activeCustomKeywordFilters.delete(keyword);
+    }
+    renderConfigCustomKeywordPills();
+    renderCustomKeywordMix(latestPosts);
+    updateFilterToggleLabel();
+    const secretFlags = [
+      Boolean(payload?.pdl_api_key_configured),
+      Boolean(payload?.osint_industries_api_key_configured),
+      Boolean(payload?.numverify_api_key_configured),
+      Boolean(payload?.openai_api_key_configured),
+    ];
+    summarizeSecretState(secretFlags.filter(Boolean).length, secretFlags.length, storageMode);
+    setConfiguredHint(configPdlApiKeyInput, configPdlApiKeyHint, secretFlags[0], storageMode);
+    setConfiguredHint(configOsintIndustriesApiKeyInput, configOsintIndustriesApiKeyHint, secretFlags[1], storageMode);
+    setConfiguredHint(configNumverifyApiKeyInput, configNumverifyApiKeyHint, secretFlags[2], storageMode);
+    setConfiguredHint(configOpenAiApiKeyInput, configOpenAiApiKeyHint, secretFlags[3], storageMode);
   } catch (error) {
     console.error(error);
     if (configStatus) configStatus.textContent = 'Failed to load configuration.';
+    if (configSecretStateSummary instanceof HTMLElement) {
+      configSecretStateSummary.dataset.secretState = 'error';
+      configSecretStateSummary.textContent = 'Unable to determine saved API key status right now.';
+    }
   }
 }
 
@@ -3514,8 +4629,13 @@ async function saveConfig(event) {
   if (configSaveBtn instanceof HTMLButtonElement) configSaveBtn.disabled = true;
   if (configStatus) configStatus.textContent = 'Saving configuration...';
   try {
+    if (configCustomKeywordInput instanceof HTMLInputElement) {
+      addConfigCustomKeywordTerm(configCustomKeywordInput.value);
+      configCustomKeywordInput.value = '';
+    }
     const body = {
       osint_industries_use_premium: Boolean(configOsintIndustriesPremiumInput.checked),
+      custom_keyword_list: normalizeCustomKeywordList(configCustomKeywordList),
     };
     const pdlKey = String(configPdlApiKeyInput.value || '').trim();
     const osintKey = String(configOsintIndustriesApiKeyInput.value || '').trim();
@@ -3663,6 +4783,9 @@ function setReconBusy(isBusy) {
     }
   }
   useReconTargetsBtn.disabled = isBusy || !reconTargets.length;
+  if (goReconAssessmentBtn instanceof HTMLButtonElement) {
+    goReconAssessmentBtn.disabled = isBusy;
+  }
 }
 
 function setFootprintBusy(isBusy) {
@@ -4267,6 +5390,26 @@ function showNotificationOnce(key, message, type = 'info') {
   showNotification(message, type);
 }
 
+function notifyReconApiModules(payload) {
+  const queried = Array.isArray(payload?.api_modules_queried) ? payload.api_modules_queried : [];
+  const notified = new Set();
+  for (const item of queried) {
+    const moduleKey = String(item?.module || '').trim().toLowerCase();
+    if (!moduleKey || notified.has(moduleKey)) continue;
+    notified.add(moduleKey);
+    const label = String(item?.label || moduleKey.replace(/_/g, ' ')).trim();
+    showNotification(`${label} queried successfully.`, 'success');
+  }
+  if (notified.size) return;
+
+  const hasPdl = Array.isArray(payload?.person_data_profiles) && payload.person_data_profiles.length > 0;
+  const hasOsint = Array.isArray(payload?.osint_profiles) && payload.osint_profiles.length > 0;
+  const hasNumverify = Array.isArray(payload?.numverify_profiles) && payload.numverify_profiles.length > 0;
+  if (hasPdl) showNotification('People Data Labs queried successfully.', 'success');
+  if (hasOsint) showNotification('OSINT Industries queried successfully.', 'success');
+  if (hasNumverify) showNotification('Numverify queried successfully.', 'success');
+}
+
 function updateStatusLine() {
   const base = String(dashboardBaseStatus || '').trim();
   const progress = String(collectionProgressStatus || '').trim();
@@ -4315,6 +5458,8 @@ function updateFilterToggleLabel() {
   activeCount += activeEntityFilters.size;
   activeCount += activeMixFilters.size;
   activeCount += activeSignalFilters.size;
+  activeCount += activeCustomKeywordFilters.size;
+  activeCount += activeFaceFilters.size;
   filterToggleBtn.textContent = activeCount > 0 ? `Filters (${activeCount})` : 'Filters';
 }
 
@@ -4322,15 +5467,11 @@ function setInsightsTab(tabName) {
   const next = String(tabName || '').trim().toLowerCase();
   if (!next) return;
   const previousTab = activeInsightsTab;
-  if (next === 'notes') {
-    openCaseNotesModal();
-  }
   activeInsightsTab = next;
   const tabs = [
     { name: 'ops', btn: insightsTabOps, panel: insightsPanelOps },
     { name: 'geo', btn: insightsTabGeo, panel: insightsPanelGeo },
     { name: 'signals', btn: insightsTabSignals, panel: insightsPanelSignals },
-    { name: 'notes', btn: insightsTabNotes, panel: insightsPanelNotes },
   ];
   for (const item of tabs) {
     const active = item.name === next;
@@ -4601,6 +5742,10 @@ function clearCollectionPolling() {
 function applyCollectionPayload(data) {
   const incomingPosts = Array.isArray(data?.posts) ? data.posts : [];
   const allPosts = collectionAppendMode ? mergePostsForAppend(latestPosts, incomingPosts) : incomingPosts;
+  latestFaceClusters = [];
+  activeFaceFilters.clear();
+  latestFaceRecognition = { available: false, reason: 'not_run' };
+  renderFaceRecognitionFilters();
   const filteredPosts = applyDashboardFilters(allPosts);
   renderPosts(filteredPosts);
   applyCollectionPerTarget(data?.per_target);
@@ -4950,10 +6095,14 @@ async function runRecon(event) {
   reconResults.classList.add('hidden');
   useReconTargetsBtn.classList.add('hidden');
   useReconTargetsBtn.disabled = true;
+  goReconAssessmentBtn?.classList.add('hidden');
+  if (goReconAssessmentBtn instanceof HTMLButtonElement) goReconAssessmentBtn.disabled = true;
   reconTargets = [];
   reconProfiles = [];
   reconPersonDataProfile = {};
   reconPersonDataProfiles = [];
+  reconOsintProfiles = [];
+  reconNumverifyProfiles = [];
 
   try {
     const response = await fetch('/api/recon', {
@@ -4973,10 +6122,14 @@ async function runRecon(event) {
       ? payload.person_data_profile
       : {};
     reconPersonDataProfiles = Array.isArray(payload?.person_data_profiles) ? payload.person_data_profiles : [];
+    reconOsintProfiles = Array.isArray(payload?.osint_profiles) ? payload.osint_profiles : [];
+    reconNumverifyProfiles = Array.isArray(payload?.numverify_profiles) ? payload.numverify_profiles : [];
+    notifyReconApiModules(payload);
     renderReconResults(payload);
     renderReconResults(payload, footprintReconResults);
     renderLeadsList();
     renderLocationMap(latestPosts);
+    renderPatternOfLife(latestPosts);
     if (reconTargets.length > 0) {
       useReconTargetsBtn.classList.remove('hidden');
       useReconTargetsBtn.disabled = false;
@@ -4991,6 +6144,8 @@ async function runRecon(event) {
       footprintUseTargetsBtn?.classList.add('hidden');
       if (footprintUseTargetsBtn instanceof HTMLButtonElement) footprintUseTargetsBtn.disabled = true;
     }
+    goReconAssessmentBtn?.classList.remove('hidden');
+    if (goReconAssessmentBtn instanceof HTMLButtonElement) goReconAssessmentBtn.disabled = false;
     reconStatus.textContent = `Recon complete: ${payload.present_count || 0} account match(es) found across ${payload.checked || 0} checks.`;
     if (footprintReconStatus) {
       footprintReconStatus.textContent = `Recon complete: ${payload.present_count || 0} account match(es) found across ${payload.checked || 0} checks.`;
@@ -4999,15 +6154,34 @@ async function runRecon(event) {
     console.error(error);
     useReconTargetsBtn.classList.add('hidden');
     useReconTargetsBtn.disabled = true;
+    goReconAssessmentBtn?.classList.add('hidden');
+    if (goReconAssessmentBtn instanceof HTMLButtonElement) goReconAssessmentBtn.disabled = true;
     footprintUseTargetsBtn?.classList.add('hidden');
     if (footprintUseTargetsBtn instanceof HTMLButtonElement) footprintUseTargetsBtn.disabled = true;
     reconPersonDataProfiles = [];
     reconPersonDataProfile = {};
+    reconOsintProfiles = [];
+    reconNumverifyProfiles = [];
     reconStatus.textContent = `Recon failed: ${error.message || 'unknown error'}`;
     if (footprintReconStatus) footprintReconStatus.textContent = `Recon failed: ${error.message || 'unknown error'}`;
   } finally {
     setReconBusy(false);
   }
+}
+
+function openAssessmentFromRecon() {
+  if (!activeCaseId) {
+    showNotification('Open a case first.', 'warn');
+    return;
+  }
+  setModalOpen(false);
+  showDashboard();
+  setResultsView('posts');
+  setInsightsTab('signals');
+  if (!Array.isArray(latestPosts) || !latestPosts.length) {
+    queueRefresh();
+  }
+  showNotification('Opened assessment view without running collection.', 'info');
 }
 
 async function runFootprintRecon(event) {
@@ -5028,6 +6202,8 @@ async function runFootprintRecon(event) {
   reconProfiles = [];
   reconPersonDataProfile = {};
   reconPersonDataProfiles = [];
+  reconOsintProfiles = [];
+  reconNumverifyProfiles = [];
 
   try {
     const response = await fetch('/api/recon', {
@@ -5047,9 +6223,13 @@ async function runFootprintRecon(event) {
       ? payload.person_data_profile
       : {};
     reconPersonDataProfiles = Array.isArray(payload?.person_data_profiles) ? payload.person_data_profiles : [];
+    reconOsintProfiles = Array.isArray(payload?.osint_profiles) ? payload.osint_profiles : [];
+    reconNumverifyProfiles = Array.isArray(payload?.numverify_profiles) ? payload.numverify_profiles : [];
+    notifyReconApiModules(payload);
     renderReconResults(payload, footprintReconResults);
     renderReconResults(payload);
     renderLeadsList();
+    renderPatternOfLife(latestPosts);
     if (reconTargets.length > 0) {
       footprintUseTargetsBtn?.classList.remove('hidden');
       if (footprintUseTargetsBtn instanceof HTMLButtonElement) footprintUseTargetsBtn.disabled = false;
@@ -5066,6 +6246,8 @@ async function runFootprintRecon(event) {
     if (footprintUseTargetsBtn instanceof HTMLButtonElement) footprintUseTargetsBtn.disabled = true;
     reconPersonDataProfiles = [];
     reconPersonDataProfile = {};
+    reconOsintProfiles = [];
+    reconNumverifyProfiles = [];
     if (footprintReconStatus) footprintReconStatus.textContent = `Recon failed: ${error.message || 'unknown error'}`;
   } finally {
     setFootprintBusy(false);
@@ -5191,6 +6373,34 @@ resultsEl?.addEventListener('click', async (event) => {
   const target = event.target;
   if (!(target instanceof HTMLElement)) return;
 
+  const runInlineFaceBtn = target.closest('[data-face-run-inline]');
+  if (runInlineFaceBtn instanceof HTMLElement) {
+    const original = runInlineFaceBtn.textContent || 'Run Facial Recognition';
+    runInlineFaceBtn.setAttribute('aria-busy', 'true');
+    runInlineFaceBtn.textContent = 'Running...';
+    try {
+      await refreshPosts({ forceFaceRefresh: true });
+    } finally {
+      runInlineFaceBtn.removeAttribute('aria-busy');
+      runInlineFaceBtn.textContent = original;
+    }
+    return;
+  }
+
+  const inlineFaceFilter = target.closest('[data-face-filter-inline]');
+  if (inlineFaceFilter instanceof HTMLElement) {
+    const personId = String(inlineFaceFilter.getAttribute('data-face-filter-inline') || '').trim().toLowerCase();
+    if (!personId) return;
+    if (activeFaceFilters.has(personId)) {
+      activeFaceFilters.delete(personId);
+    } else {
+      activeFaceFilters.add(personId);
+    }
+    renderFaceRecognitionFilters();
+    renderPosts(latestPosts);
+    return;
+  }
+
   const assessmentNode = target.closest('.llm-assessment[data-post-index]');
   const assessmentPostIndex = assessmentNode instanceof HTMLElement
     ? Number(assessmentNode.getAttribute('data-post-index'))
@@ -5294,12 +6504,31 @@ resultsEl?.addEventListener('click', async (event) => {
     return;
   }
 
+  const patternLifePostBtn = target.closest('[data-pattern-life-post-index]');
+  if (patternLifePostBtn instanceof HTMLElement) {
+    const postIndex = Number(patternLifePostBtn.getAttribute('data-pattern-life-post-index'));
+    if (Number.isFinite(postIndex) && postIndex >= 0) {
+      scrollToPost(postIndex);
+      openPostModal(postIndex);
+    }
+    return;
+  }
+
   if (target.closest('a, video, iframe, button, input, select, textarea, label')) return;
   const postNode = target.closest('[data-post-index]');
   if (!(postNode instanceof HTMLElement)) return;
   const postIndex = Number(postNode.getAttribute('data-post-index'));
   if (!Number.isFinite(postIndex) || postIndex < 0) return;
   openPostModal(postIndex);
+});
+resultsEl?.addEventListener('input', (event) => {
+  const target = event.target;
+  if (!(target instanceof HTMLInputElement)) return;
+  if (!target.hasAttribute('data-face-confidence-inline')) return;
+  const next = Number(target.value);
+  activeFaceMinConfidence = Number.isFinite(next) ? Math.max(0, Math.min(1, next)) : 0;
+  renderFaceRecognitionFilters();
+  renderPosts(latestPosts);
 });
 caseSearchInput?.addEventListener('input', renderCases);
 caseStatusFilter?.addEventListener('change', renderCases);
@@ -5351,6 +6580,7 @@ clearSearchBtn?.addEventListener('click', () => {
 viewPostsBtn?.addEventListener('click', () => setResultsView('posts'));
 viewMediaBtn?.addEventListener('click', () => setResultsView('media'));
 viewFootprintBtn?.addEventListener('click', () => setResultsView('footprint'));
+viewPatternLifeBtn?.addEventListener('click', () => setResultsView('pattern'));
 sortSelect.addEventListener('change', queueRefresh);
 setupForm.addEventListener('submit', collectAndOpen);
 reconForm.addEventListener('submit', runRecon);
@@ -5366,6 +6596,40 @@ for (const el of [filterTwitter, filterReddit, filterTiktok, filterBluesky, filt
     queueRefresh();
   });
 }
+faceRecognitionFilterList?.addEventListener('click', (event) => {
+  const target = event.target;
+  if (!(target instanceof HTMLElement)) return;
+  const button = target.closest('[data-face-filter]');
+  if (!(button instanceof HTMLElement)) return;
+  const personId = String(button.getAttribute('data-face-filter') || '').trim().toLowerCase();
+  if (!personId) return;
+  if (activeFaceFilters.has(personId)) {
+    activeFaceFilters.delete(personId);
+  } else {
+    activeFaceFilters.add(personId);
+  }
+  renderFaceRecognitionFilters();
+  updateFilterToggleLabel();
+  queueRefresh();
+});
+runFaceRecognitionBtn?.addEventListener('click', async () => {
+  if (!(runFaceRecognitionBtn instanceof HTMLButtonElement)) return;
+  const original = runFaceRecognitionBtn.textContent || 'Run Facial Recognition';
+  runFaceRecognitionBtn.disabled = true;
+  runFaceRecognitionBtn.textContent = 'Running...';
+  try {
+    await refreshPosts({ forceFaceRefresh: true });
+  } finally {
+    runFaceRecognitionBtn.disabled = false;
+    runFaceRecognitionBtn.textContent = original;
+  }
+});
+faceConfidenceRange?.addEventListener('input', () => {
+  const next = Number(faceConfidenceRange.value);
+  activeFaceMinConfidence = Number.isFinite(next) ? Math.max(0, Math.min(1, next)) : 0;
+  renderFaceRecognitionFilters();
+  renderPosts(latestPosts);
+});
 entityMix?.addEventListener('click', (event) => {
   const target = event.target;
   if (!(target instanceof HTMLElement)) return;
@@ -5420,6 +6684,22 @@ function handleSignalRowFilterClick(event) {
 threatMix?.addEventListener('click', handleSignalRowFilterClick);
 selectorMix?.addEventListener('click', handleSignalRowFilterClick);
 threatSignalMix?.addEventListener('click', handleSignalRowFilterClick);
+customKeywordMix?.addEventListener('click', (event) => {
+  const target = event.target;
+  if (!(target instanceof HTMLElement)) return;
+  const row = target.closest('[data-custom-keyword]');
+  if (!(row instanceof HTMLElement)) return;
+  const keyword = String(row.getAttribute('data-custom-keyword') || '').trim().toLowerCase();
+  if (!keyword) return;
+  if (activeCustomKeywordFilters.has(keyword)) {
+    activeCustomKeywordFilters.delete(keyword);
+  } else {
+    activeCustomKeywordFilters.add(keyword);
+  }
+  renderCustomKeywordMix(latestPosts);
+  updateFilterToggleLabel();
+  queueRefresh();
+});
 llmPrimaryMix?.addEventListener('click', handleSignalRowFilterClick);
 llmSecondaryMix?.addEventListener('click', handleSignalRowFilterClick);
 llmThemeMix?.addEventListener('click', (event) => {
@@ -5505,7 +6785,9 @@ window.addEventListener('resize', () => {
 insightsTabOps?.addEventListener('click', () => setInsightsTab('ops'));
 insightsTabGeo?.addEventListener('click', () => setInsightsTab('geo'));
 insightsTabSignals?.addEventListener('click', () => setInsightsTab('signals'));
-insightsTabNotes?.addEventListener('click', () => setInsightsTab('notes'));
+openCaseNotesTopBtn?.addEventListener('click', () => {
+  openCaseNotesModal();
+});
 refreshStreamsBtn?.addEventListener('click', () => {
   if (!activeCollectionJobId) return;
   showNotification('Refreshing collection status…', 'info');
@@ -5557,7 +6839,12 @@ newCollectionBtn.addEventListener('click', () => {
   }
   setModalOpen(true);
 });
-backToCasesBtn?.addEventListener('click', () => {
+backToCasesBtn?.addEventListener('click', async () => {
+  if (!confirmUnsavedCaseExit('leave this case')) return;
+  const discarded = await discardUnsavedActiveCase();
+  if (discarded) {
+    showNotification('Unsaved case discarded.', 'info');
+  }
   clearCollectionPolling();
   loadCases();
   showCaseWorkspace();
@@ -5570,6 +6857,19 @@ openConfigBtn?.addEventListener('click', openConfigModal);
 configCloseBtn?.addEventListener('click', closeConfigModal);
 configCancelBtn?.addEventListener('click', closeConfigModal);
 configForm?.addEventListener('submit', saveConfig);
+configCustomKeywordInput?.addEventListener('keydown', (event) => {
+  if (event.key !== 'Enter') return;
+  event.preventDefault();
+  addConfigCustomKeywordTerm(configCustomKeywordInput.value);
+  configCustomKeywordInput.value = '';
+});
+configCustomKeywordPills?.addEventListener('click', (event) => {
+  const target = event.target;
+  if (!(target instanceof HTMLElement)) return;
+  const button = target.closest('[data-config-keyword-pill]');
+  if (!(button instanceof HTMLElement)) return;
+  removeConfigCustomKeywordTerm(button.getAttribute('data-config-keyword-pill'));
+});
 openManualInsertBtn?.addEventListener('click', openManualInsertModal);
 manualInsertCloseBtn?.addEventListener('click', closeManualInsertModal);
 manualInsertCancelBtn?.addEventListener('click', closeManualInsertModal);
@@ -5719,6 +7019,7 @@ useReconTargetsBtn.addEventListener('click', () => {
   setupStatus.textContent = 'Loaded active recon profiles into collection targets.';
   setModalMode('collection');
 });
+goReconAssessmentBtn?.addEventListener('click', openAssessmentFromRecon);
 addReconSelectorBtn?.addEventListener('click', () => addReconSelectorRow(reconSelectorsList, 'username', ''));
 addFootprintSelectorBtn?.addEventListener('click', () => addReconSelectorRow(footprintSelectorsList, 'username', ''));
 footprintUseTargetsBtn?.addEventListener('click', () => {
@@ -5777,24 +7078,43 @@ targetsList.addEventListener('click', (event) => {
   if (!targetsList.querySelector('.target-row')) addTargetRow('twitter', '');
 });
 quitBtn.addEventListener('click', async () => {
-  await quitPanoptoSession();
+  await quitPanoptoSession({ clearData: true });
 });
 quitSessionCaseBtn?.addEventListener('click', async () => {
-  await quitPanoptoSession();
+  await quitPanoptoSession({ clearData: true });
+});
+quitSaveBtn?.addEventListener('click', async () => {
+  await quitPanoptoSession({ clearData: false });
+});
+quitSaveSessionCaseBtn?.addEventListener('click', async () => {
+  await quitPanoptoSession({ clearData: false });
 });
 
-async function quitPanoptoSession() {
-  const ok = window.confirm('Quit PANOPTO and wipe collected session data?');
+async function quitPanoptoSession(options = {}) {
+  const clearData = options?.clearData !== false;
+  const ok = clearData
+    ? window.confirm('Quit PANOPTO and wipe collected session data?')
+    : window.confirm('Quit PANOPTO and keep collected results for next demo session?');
   if (!ok) return;
+  if (!confirmUnsavedCaseExit('quit PANOPTO')) return;
   if (quitBtn) {
     quitBtn.disabled = true;
     quitBtn.textContent = 'Quitting...';
+  }
+  if (quitSaveBtn) {
+    quitSaveBtn.disabled = true;
+    quitSaveBtn.textContent = 'Quitting...';
   }
   if (quitSessionCaseBtn) {
     quitSessionCaseBtn.disabled = true;
     quitSessionCaseBtn.textContent = 'Quitting...';
   }
+  if (quitSaveSessionCaseBtn) {
+    quitSaveSessionCaseBtn.disabled = true;
+    quitSaveSessionCaseBtn.textContent = 'Quitting...';
+  }
   try {
+    await discardUnsavedActiveCase();
     clearCollectionPolling();
     resetCollectionSourceState();
     activeTargets = [];
@@ -5804,11 +7124,15 @@ async function quitPanoptoSession() {
     await fetch('/api/session/end', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ shutdown: true }),
+      body: JSON.stringify({ shutdown: true, clear_data: clearData }),
       keepalive: true,
     });
-    statusEl.textContent = 'Session ended. Database wiped.';
-    resultsEl.innerHTML = '<div class="empty">PANOPTO session ended. Restart server to collect again.</div>';
+    statusEl.textContent = clearData
+      ? 'Session ended. Database wiped.'
+      : 'Session ended. Results were preserved for later demos.';
+    resultsEl.innerHTML = clearData
+      ? '<div class="empty">PANOPTO session ended. Restart server to collect again.</div>'
+      : '<div class="empty">PANOPTO session ended. Restart server to continue with saved results.</div>';
     // Attempt to close the PANOPTO tab after a successful shutdown.
     window.setTimeout(() => {
       try {
@@ -5835,9 +7159,17 @@ async function quitPanoptoSession() {
       quitBtn.disabled = false;
       quitBtn.textContent = 'Quit Session';
     }
+    if (quitSaveBtn) {
+      quitSaveBtn.disabled = false;
+      quitSaveBtn.textContent = 'Quit & Save Results';
+    }
     if (quitSessionCaseBtn) {
       quitSessionCaseBtn.disabled = false;
       quitSessionCaseBtn.textContent = 'Quit Session';
+    }
+    if (quitSaveSessionCaseBtn) {
+      quitSaveSessionCaseBtn.disabled = false;
+      quitSaveSessionCaseBtn.textContent = 'Quit & Save Results';
     }
   }
 }
@@ -5851,6 +7183,7 @@ applyResultsViewButtonState();
 setInsightsTab(activeInsightsTab);
 updateStreamActionButtons();
 updateFilterToggleLabel();
+renderFaceRecognitionFilters();
 applyResultsViewButtonState();
 renderCollectionContext();
 setModalMode('chooser');

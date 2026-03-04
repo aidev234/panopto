@@ -11,7 +11,7 @@ from urllib.parse import unquote
 
 from panopto.collectors.bluesky import collect_bluesky_posts, normalize_bluesky_username
 from panopto.collectors.instagram import collect_instagram_posts, normalize_instagram_username
-from panopto.errors import SourceAccessBlockedError, UsernameNotFoundError
+from panopto.errors import SourceAccessBlockedError, SourceUnavailableError, UsernameNotFoundError
 from panopto.collectors.reddit import collect_reddit_posts
 from panopto.collectors.tiktok import collect_tiktok_posts
 from panopto.collectors.twitter import collect_twitter_posts
@@ -280,6 +280,23 @@ def collect_for_targets(
                         "platform": target["platform"],
                         "username": target["username"],
                         "code": "blocked_by_protection",
+                        "message": str(exc),
+                    }
+                )
+            except SourceUnavailableError as exc:
+                per_target.append(
+                    {
+                        "platform": target["platform"],
+                        "username": target["username"],
+                        "status": "unavailable",
+                        "collected": 0,
+                    }
+                )
+                failures.append(
+                    {
+                        "platform": target["platform"],
+                        "username": target["username"],
+                        "code": "source_unavailable",
                         "message": str(exc),
                     }
                 )

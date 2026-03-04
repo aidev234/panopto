@@ -71,14 +71,14 @@ def _extract_count(text: str | None) -> int | None:
     if not text:
         return None
     normalized = str(text).strip().lower()
-    compact_match = re.search(r"([\d,.]+)\s*([km])\b", normalized)
+    compact_match = re.search(r"([\d,.]+)\s*([kmb])\b", normalized)
     if compact_match:
         numeric_text = compact_match.group(1).replace(",", "").strip()
         if not re.search(r"\d", numeric_text):
             return None
         value = float(numeric_text)
         suffix = compact_match.group(2)
-        multiplier = 1_000 if suffix == "k" else 1_000_000
+        multiplier = {"k": 1_000, "m": 1_000_000, "b": 1_000_000_000}[suffix]
         return int(value * multiplier)
 
     match = re.search(r"([\d,.]+)", normalized)
@@ -107,6 +107,11 @@ def _text_from_runs(raw: Any) -> str:
 def _parse_relative_timestamp(text: str, now_utc: datetime) -> datetime | None:
     value = text.strip().lower()
     value = value.replace("streamed", "").replace("premiered", "").strip()
+    value = re.sub(r"\bhrs?\b", "hour", value)
+    value = re.sub(r"\bhr\b", "hour", value)
+    value = re.sub(r"\bmins?\b", "minute", value)
+    value = re.sub(r"\bmos?\b", "month", value)
+    value = re.sub(r"\byrs?\b", "year", value)
 
     relative = re.search(
         r"(\d+)\s+(minute|hour|day|week|month|year)s?\s+ago",
@@ -216,6 +221,8 @@ def collect_youtube_posts(
 ) -> list[dict[str, Any]]:
     """Collect YouTube channel videos from the /videos tab."""
     _ = request_delay_seconds
+    if max_pages != 1:
+        raise ValueError("YouTube collector currently supports max_pages=1 only")
     normalized_username = normalize_youtube_username(username)
     if not normalized_username:
         raise ValueError("username must be a non-empty string")

@@ -35,6 +35,7 @@ from panopto.post_query import normalize_tag, query_posts
 from panopto.collection_jobs import get_collection_job_status, start_collection_job
 from panopto.config import load_public_config, save_config
 from panopto.recon import normalize_recon_selectors, run_recon
+from panopto.face_analysis import FaceRecognitionEngine
 from panopto.storage.posts import (
     clear_posts,
     create_case,
@@ -49,6 +50,7 @@ from panopto.storage.posts import (
 DEFAULT_DB_PATH = ROOT_DIR / "osint_data.db"
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 _ALLOWED_DB_ROOTS = [ROOT_DIR.resolve(), Path("/tmp").resolve()]
+_FACE_RECOGNITION_ENGINE = FaceRecognitionEngine()
 
 
 def _resolve_api_db_path(raw_value: str | Path | None) -> Path:
@@ -157,12 +159,19 @@ def _image_source_to_data_uri(source: str) -> str:
         return value
     if value.startswith("/"):
         clean_path = value.split("?", 1)[0]
-        local = STATIC_DIR / clean_path.lstrip("/")
+        base = STATIC_DIR.resolve()
+        local = (STATIC_DIR / clean_path.lstrip("/")).resolve()
+        try:
+            local.relative_to(base)
+        except ValueError:
+            return ""
         if not local.exists() or not local.is_file():
             return ""
-        raw = local.read_bytes()
         mime, _ = mimetypes.guess_type(str(local))
-        mime_type = mime or "application/octet-stream"
+        if not mime or not mime.lower().startswith("image/"):
+            return ""
+        raw = local.read_bytes()
+        mime_type = mime
         encoded = base64.b64encode(raw).decode("ascii")
         return f"data:{mime_type};base64,{encoded}"
     if value.lower().startswith("http://") or value.lower().startswith("https://"):
@@ -558,6 +567,9 @@ class PostExplorerHandler(SimpleHTTPRequestHandler):
 
     def do_GET(self):
         parsed = urlparse(self.path)
+        if parsed.path.startswith("/api/"):
+            if not self._enforce_loopback_only(reason="API access"):
+                return
         if parsed.path.startswith("/api/cases/") and parsed.path.endswith("/notes.pdf"):
             case_id = parsed.path.split("/api/cases/", 1)[1].rsplit("/notes.pdf", 1)[0].strip().strip("/")
             if not case_id:
@@ -620,6 +632,10 @@ class PostExplorerHandler(SimpleHTTPRequestHandler):
             exclude_tags_raw = params.get("exclude_tags", [""])[0]
             include_tags = {normalize_tag(tag) for tag in include_tags_raw.split(",") if tag.strip()}
             exclude_tags = {normalize_tag(tag) for tag in exclude_tags_raw.split(",") if tag.strip()}
+            include_faces = str(params.get("include_faces", ["1"])[0]).strip().lower() in {"1", "true", "yes", "on"}
+            face_refresh = str(params.get("face_refresh", [""])[0]).strip().lower() in {"1", "true", "yes", "on"}
+            if face_refresh:
+                include_faces = True
             try:
                 db_path = _resolve_api_db_path(params.get("db_path", [str(DEFAULT_DB_PATH)])[0])
             except InvalidRequestError as exc:
@@ -636,6 +652,20 @@ class PostExplorerHandler(SimpleHTTPRequestHandler):
                 include_tags=include_tags,
                 exclude_tags=exclude_tags,
             )
+            if isinstance(payload, dict):
+                post_rows = payload.get("posts")
+                if isinstance(post_rows, list):
+                    if include_faces:
+                        face_payload = _FACE_RECOGNITION_ENGINE.annotate_posts(post_rows, force_refresh=face_refresh)
+                        payload["posts"] = face_payload.get("posts", post_rows)
+                        payload["face_clusters"] = face_payload.get("face_clusters", [])
+                        payload["face_recognition"] = face_payload.get("face_recognition", {"available": False, "reason": "unknown"})
+                    else:
+                        payload["face_clusters"] = []
+                        payload["face_recognition"] = {
+                            "available": bool(getattr(_FACE_RECOGNITION_ENGINE, "is_available", False)),
+                            "reason": "not_run",
+                        }
 
             body = json.dumps(payload).encode("utf-8")
             self.send_response(200)
@@ -652,14 +682,17 @@ class PostExplorerHandler(SimpleHTTPRequestHandler):
 
     def do_POST(self):
         parsed = urlparse(self.path)
+        if parsed.path.startswith("/api/"):
+            if not self._enforce_loopback_only(reason="API access"):
+                return
 
         if parsed.path == "/api/session/end":
-            if not self._enforce_loopback_only(reason="session shutdown"):
-                return
             body = self._read_json_body(default={})
             should_shutdown = bool(body.get("shutdown", True))
-            clear_posts(str(DEFAULT_DB_PATH), clear_cases=True)
-            response = {"status": "ok", "cleared": True, "shutdown": should_shutdown}
+            should_clear_data = bool(body.get("clear_data", True))
+            if should_clear_data:
+                clear_posts(str(DEFAULT_DB_PATH), clear_cases=True)
+            response = {"status": "ok", "cleared": should_clear_data, "shutdown": should_shutdown}
             self._send_json(response)
             if should_shutdown:
                 threading.Thread(target=self.server.shutdown, daemon=True).start()
@@ -697,6 +730,7 @@ class PostExplorerHandler(SimpleHTTPRequestHandler):
                 pdl_api_key=body.get("pdl_api_key"),
                 osint_industries_api_key=body.get("osint_industries_api_key"),
                 osint_industries_use_premium=body.get("osint_industries_use_premium"),
+                custom_keyword_list=body.get("custom_keyword_list"),
                 numverify_api_key=body.get("numverify_api_key"),
                 openai_api_key=body.get("openai_api_key"),
                 clear_pdl_api_key=body.get("clear_pdl_api_key"),

@@ -11,7 +11,7 @@ import re
 import sys
 import time
 from typing import Any
-from urllib.parse import quote, urlparse
+from urllib.parse import quote, unquote, urlparse
 
 import requests
 
@@ -598,10 +598,45 @@ def _normalize_selector_type(raw: Any) -> str:
     return ""
 
 
+def _normalize_recon_username(raw: Any) -> str:
+    value = str(raw or "").strip()
+    if not value:
+        return ""
+
+    match = re.match(r"^https?://(?:www\.)?(?:x|twitter)\.com/([^/?#]+)", value, flags=re.IGNORECASE)
+    if match:
+        value = unquote(match.group(1))
+    else:
+        match = re.match(r"^https?://(?:www\.)?reddit\.com/(?:user|u)/([^/?#]+)", value, flags=re.IGNORECASE)
+        if match:
+            value = unquote(match.group(1))
+        else:
+            match = re.match(r"^https?://(?:www\.)?tiktok\.com/@([^/?#]+)", value, flags=re.IGNORECASE)
+            if match:
+                value = unquote(match.group(1))
+            else:
+                match = re.match(r"^https?://(?:www\.)?bsky\.app/profile/([^/?#]+)", value, flags=re.IGNORECASE)
+                if match:
+                    value = normalize_bluesky_username(unquote(match.group(1)))
+                else:
+                    match = re.match(r"^https?://(?:www\.)?instagram\.com/([^/?#]+)", value, flags=re.IGNORECASE)
+                    if match:
+                        value = unquote(match.group(1))
+                    else:
+                        match = re.match(r"^https?://(?:www\.)?youtube\.com/@([^/?#]+)", value, flags=re.IGNORECASE)
+                        if match:
+                            value = normalize_youtube_username(unquote(match.group(1)))
+
+    value = str(value).strip().split("/", 1)[0]
+    value = re.sub(r"^u/", "", value, flags=re.IGNORECASE)
+    value = re.sub(r"^@+", "", value).strip()
+    return value
+
+
 def _normalize_selector_value(selector_type: str, raw: Any) -> str:
     value = str(raw or "").strip()
     if selector_type == "username":
-        return _clean_username(value)
+        return _normalize_recon_username(value)
     if selector_type == "email":
         return value.lower()
     if selector_type == "phone":
@@ -1057,6 +1092,7 @@ def _run_pdl_enrichment(*, selectors: list[dict[str, str]], rows: list[dict[str,
             "pdl_leads": [],
             "pdl_collection_targets": [],
             "pdl_rows": [],
+            "query_success_count": 0,
         }
 
     profile_queries = [
@@ -1094,6 +1130,7 @@ def _run_pdl_enrichment(*, selectors: list[dict[str, str]], rows: list[dict[str,
     seen_leads: set[str] = set()
     seen_targets: set[tuple[str, str]] = set()
     seen_rows: set[str] = set()
+    query_success_count = 0
 
     for query_type, query_value in query_pairs:
         data = _fetch_pdl_profile(
@@ -1103,6 +1140,7 @@ def _run_pdl_enrichment(*, selectors: list[dict[str, str]], rows: list[dict[str,
         )
         if not data:
             continue
+        query_success_count += 1
 
         fingerprint = str(data.get("id") or data.get("full_name") or data.get("name") or query_value).strip().lower()
         if fingerprint and fingerprint in seen_profile_fingerprints:
@@ -1157,6 +1195,7 @@ def _run_pdl_enrichment(*, selectors: list[dict[str, str]], rows: list[dict[str,
         "pdl_leads": pdl_leads,
         "pdl_collection_targets": pdl_collection_targets,
         "pdl_rows": pdl_rows,
+        "query_success_count": query_success_count,
     }
 
 
@@ -1304,56 +1343,84 @@ def _normalize_osint_profile(
     return normalized
 
 
-def _fetch_osint_profiles(*, selector_type: str, selector_value: str, api_key: str, premium: bool, timeout: int = 20) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+def _fetch_osint_profiles(
+    *, selector_type: str, selector_value: str, api_key: str, premium: bool, timeout: int = 20
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], bool]:
     method = _osint_selector_method(selector_type)
     if not method:
-        return ([], [])
-
-    payload = {
-        "type": method,
-        "method": method,
-        "query": selector_value,
-        "value": selector_value,
-        "selector": method,
-        "selector_type": method,
-    }
-    if premium:
-        payload["premium"] = True
+        return ([], [], False)
 
     headers = {
         "Accept": "application/json",
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {api_key}",
-        "X-Api-Key": api_key,
         "api-key": api_key,
+        "X-Api-Key": api_key,
         "User-Agent": "panopto-osint-industries/1.0",
     }
-    endpoint_paths = ["/v2/request/premium", "/v2/request"] if premium else ["/v2/request"]
 
     response_payload: Any = None
-    for path in endpoint_paths:
-        try:
-            response = requests.post(
-                f"{_OSINT_INDUSTRIES_BASE_URL}{path}",
-                json=payload,
-                headers=headers,
-                timeout=timeout,
-            )
-        except requests.RequestException:
-            continue
-        if response.status_code in {404, 405}:
-            continue
+    successful_query = False
+    # Primary path: documented non-premium GET endpoint.
+    try:
+        response = requests.get(
+            f"{_OSINT_INDUSTRIES_BASE_URL}/v2/request",
+            params={"type": method, "query": selector_value, "timeout": timeout},
+            headers=headers,
+            timeout=timeout + 2,
+        )
+    except requests.RequestException:
+        response = None
+    if response is not None and response.status_code < 400:
+        successful_query = True
         try:
             response_payload = response.json()
         except ValueError:
-            continue
-        if isinstance(response_payload, dict):
-            if str(response_payload.get("error") or "").strip():
+            response_payload = None
+
+    # Backward-compatible fallback for deployments still using POST.
+    if response_payload is None:
+        payload = {
+            "type": method,
+            "method": method,
+            "query": selector_value,
+            "value": selector_value,
+            "selector": method,
+            "selector_type": method,
+        }
+        if premium:
+            payload["premium"] = True
+        endpoint_paths = ["/v2/request/premium", "/v2/request"] if premium else ["/v2/request"]
+        for path in endpoint_paths:
+            try:
+                response = requests.post(
+                    f"{_OSINT_INDUSTRIES_BASE_URL}{path}",
+                    json=payload,
+                    headers=headers,
+                    timeout=timeout,
+                )
+            except requests.RequestException:
                 continue
-        break
+            if response.status_code in {404, 405}:
+                continue
+            if response.status_code < 400:
+                successful_query = True
+            try:
+                response_payload = response.json()
+            except ValueError:
+                continue
+            if isinstance(response_payload, dict):
+                if str(response_payload.get("error") or "").strip():
+                    continue
+            break
 
     if response_payload is None:
-        return ([], [])
+        return ([], [], successful_query)
+
+    if isinstance(response_payload, dict):
+        if str(response_payload.get("error") or "").strip():
+            return ([], [], successful_query)
+        ok_flag = response_payload.get("ok")
+        if ok_flag is False:
+            return ([], [], successful_query)
 
     profiles: list[dict[str, Any]] = []
     spec_rows: list[dict[str, Any]] = []
@@ -1411,6 +1478,8 @@ def _fetch_osint_profiles(*, selector_type: str, selector_value: str, api_key: s
             if key in seen:
                 continue
             seen.add(key)
+            normalized["spec_format"] = spec_item
+            normalized["parsed_values"] = parsed_values
             profiles.append(normalized)
             spec_rows.append(
                 {
@@ -1424,7 +1493,7 @@ def _fetch_osint_profiles(*, selector_type: str, selector_value: str, api_key: s
                     "parsed_values": parsed_values,
                 }
             )
-    return (profiles, spec_rows)
+    return (profiles, spec_rows, successful_query)
 
 
 def _normalize_numverify_phone(value: str) -> str:
@@ -1528,55 +1597,104 @@ def run_recon(selectors: list[dict[str, str]]) -> dict[str, Any]:
         raise ValueError("at least one valid selector is required")
 
     rows: list[dict[str, Any]] = []
+    row_presence_index: dict[tuple[str, str, str], int] = {}
+
+    def _append_row_from_scan_item(
+        *,
+        selector_type: str,
+        selector_value: str,
+        item: dict[str, Any],
+        source: str = "scanner",
+    ) -> None:
+        status = _selector_presence_from_status(str(item.get("status") or ""))
+        raw_site_name = str(item.get("site_name") or item.get("site") or "").strip()
+        site_key = _site_key(raw_site_name)
+        if not site_key:
+            site_key = _site_key_from_profile_url(str(item.get("url") or item.get("profile_url") or ""))
+        site_label = re.sub(r"\s+", " ", raw_site_name).strip() or site_key or "unknown"
+        if not site_key:
+            site_key = "unknown"
+        platform = _site_to_collection_platform(site_key)
+        supported_for_collection = bool(platform and selector_type == "username")
+        source_url = str(item.get("url") or item.get("profile_url") or "").strip()
+        profile_url = ""
+        if selector_type == "username":
+            guessed = _build_profile_url_for_username(site_key, selector_value)
+            if guessed:
+                profile_url = guessed
+            elif _looks_like_direct_profile_url(source_url, selector_value):
+                profile_url = source_url
+
+        has_direct_profile_url = bool(profile_url)
+        category = ""
+        if status == "present":
+            if has_direct_profile_url and supported_for_collection:
+                category = "supported_with_url"
+            elif has_direct_profile_url:
+                category = "unsupported_with_url"
+            else:
+                category = "known_without_url"
+
+        row = {
+            "selector_type": selector_type,
+            "selector": selector_value,
+            "site": site_label,
+            "site_key": site_key,
+            "platform": platform,
+            "supported_for_collection": supported_for_collection,
+            "status": status,
+            "reason": str(item.get("reason") or "").strip(),
+            "profile_url": profile_url,
+            "site_url": source_url,
+            "has_direct_profile_url": has_direct_profile_url,
+            "category": category,
+            "source": source,
+        }
+
+        dedupe_key = (selector_type, selector_value.strip().lower(), site_key)
+        existing_index = row_presence_index.get(dedupe_key)
+        if existing_index is None:
+            row_presence_index[dedupe_key] = len(rows)
+            rows.append(row)
+            return
+
+        existing = rows[existing_index]
+
+        def _rank(candidate: dict[str, Any]) -> tuple[int, int, int]:
+            candidate_status = str(candidate.get("status") or "").strip().lower()
+            status_rank = 2 if candidate_status == "present" else (1 if candidate_status == "unknown" else 0)
+            direct_rank = 1 if bool(candidate.get("has_direct_profile_url")) else 0
+            supported_rank = 1 if bool(candidate.get("supported_for_collection")) else 0
+            return (status_rank, direct_rank, supported_rank)
+
+        if _rank(row) > _rank(existing):
+            rows[existing_index] = row
+
     for selector in normalized_selectors:
         selector_type = selector["type"]
         selector_value = selector["value"]
         scan_rows = _run_user_scanner_selector(selector_type=selector_type, selector_value=selector_value)
         for item in scan_rows:
-            status = _selector_presence_from_status(str(item.get("status") or ""))
-            raw_site_name = str(item.get("site_name") or item.get("site") or "").strip()
-            site_key = _site_key(raw_site_name)
-            site_label = re.sub(r"\s+", " ", raw_site_name).strip() or site_key or "unknown"
-            platform = _site_to_collection_platform(site_key)
-            supported_for_collection = bool(platform and selector_type == "username")
-            source_url = str(item.get("url") or item.get("profile_url") or "").strip()
-            profile_url = ""
-            if selector_type == "username":
-                guessed = _build_profile_url_for_username(site_key, selector_value)
-                if guessed:
-                    profile_url = guessed
-                elif _looks_like_direct_profile_url(source_url, selector_value):
-                    profile_url = source_url
-
-            has_direct_profile_url = bool(profile_url)
-            category = ""
-            if status == "present":
-                if has_direct_profile_url and supported_for_collection:
-                    category = "supported_with_url"
-                elif has_direct_profile_url:
-                    category = "unsupported_with_url"
-                else:
-                    category = "known_without_url"
-
-            rows.append(
-                {
-                    "selector_type": selector_type,
-                    "selector": selector_value,
-                    "site": site_label,
-                    "site_key": site_key,
-                    "platform": platform,
-                    "supported_for_collection": supported_for_collection,
-                    "status": status,
-                    "reason": str(item.get("reason") or "").strip(),
-                    "profile_url": profile_url,
-                    "site_url": source_url,
-                    "has_direct_profile_url": has_direct_profile_url,
-                    "category": category,
-                    "source": "scanner",
-                }
+            if not isinstance(item, dict):
+                continue
+            _append_row_from_scan_item(
+                selector_type=selector_type,
+                selector_value=selector_value,
+                item=item,
+                source="scanner",
             )
 
     pdl_payload = _run_pdl_enrichment(selectors=normalized_selectors, rows=rows)
+    api_modules_queried: list[dict[str, Any]] = []
+    pdl_query_success_count = int(pdl_payload.get("query_success_count") or 0)
+    if pdl_query_success_count > 0:
+        api_modules_queried.append(
+            {
+                "module": "people_data_labs",
+                "label": "People Data Labs",
+                "query_success_count": pdl_query_success_count,
+            }
+        )
     pdl_rows = pdl_payload.get("pdl_rows") if isinstance(pdl_payload.get("pdl_rows"), list) else []
     if pdl_rows:
         existing_row_keys: dict[str, int] = {}
@@ -1624,17 +1742,20 @@ def run_recon(selectors: list[dict[str, str]]) -> dict[str, Any]:
     osint_use_premium = _osint_industries_use_premium()
     if osint_api_key:
         seen_osint: set[str] = set()
+        osint_query_success_count = 0
         for selector in normalized_selectors:
             selector_type = str(selector.get("type") or "").strip()
             selector_value = str(selector.get("value") or "").strip()
             if not selector_type or not selector_value:
                 continue
-            profiles, spec_rows = _fetch_osint_profiles(
+            profiles, spec_rows, query_succeeded = _fetch_osint_profiles(
                 selector_type=selector_type,
                 selector_value=selector_value,
                 api_key=osint_api_key,
                 premium=osint_use_premium,
             )
+            if query_succeeded:
+                osint_query_success_count += 1
             for item in profiles:
                 profile_url = str(item.get("profile_url") or "").strip()
                 website = str(item.get("website") or "").strip()
@@ -1679,10 +1800,19 @@ def run_recon(selectors: list[dict[str, str]]) -> dict[str, Any]:
                 osint_profiles.append(item)
             for spec_row in spec_rows:
                 osint_spec_results.append(spec_row)
+        if osint_query_success_count > 0:
+            api_modules_queried.append(
+                {
+                    "module": "osint_industries",
+                    "label": "OSINT Industries",
+                    "query_success_count": osint_query_success_count,
+                }
+            )
 
     numverify_key = _numverify_api_key()
     if numverify_key:
         seen_numverify_numbers: set[str] = set()
+        numverify_query_success_count = 0
         for selector in normalized_selectors:
             selector_type = str(selector.get("type") or "").strip().lower()
             if selector_type != "phone":
@@ -1693,6 +1823,7 @@ def run_recon(selectors: list[dict[str, str]]) -> dict[str, Any]:
             payload = _fetch_numverify_profile(phone=selector_value, api_key=numverify_key)
             if not payload:
                 continue
+            numverify_query_success_count += 1
             shaped = _shape_numverify_profile(payload, query_value=selector_value)
             dedupe_key = str(shaped.get("number") or selector_value).strip().lower()
             if not dedupe_key or dedupe_key in seen_numverify_numbers:
@@ -1717,6 +1848,14 @@ def run_recon(selectors: list[dict[str, str]]) -> dict[str, Any]:
                     "category": "known_without_url" if status == "present" else "",
                     "source": "numverify",
                     "numverify_profile": shaped,
+                }
+            )
+        if numverify_query_success_count > 0:
+            api_modules_queried.append(
+                {
+                    "module": "numverify",
+                    "label": "Numverify",
+                    "query_success_count": numverify_query_success_count,
                 }
             )
 
@@ -1856,6 +1995,7 @@ def run_recon(selectors: list[dict[str, str]]) -> dict[str, Any]:
         "numverify_profiles": numverify_profiles,
         "person_data_profile": person_data_profiles[0] if person_data_profiles else {},
         "person_data_profiles": person_data_profiles,
+        "api_modules_queried": api_modules_queried,
         "collection_ready_profiles": supported_with_url,
         "unsupported_profiles_with_url": unsupported_with_url,
         "known_present_without_url": known_without_url,

@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 import requests
 
-from panopto.errors import UsernameNotFoundError
+from panopto.errors import SourceUnavailableError, UsernameNotFoundError
 import panopto.collectors.twitter as twitter_collection
 
 
@@ -45,6 +45,60 @@ class TestTwitterCollection(unittest.TestCase):
             )
         self.assertEqual(len(pages), 1)
         self.assertIn("tweet-text", pages[0])
+
+    def test_iter_pages_raises_source_unavailable_when_all_requests_fail(self):
+        session = SimpleNamespace()
+
+        def _always_fail(*_args, **_kwargs):
+            raise requests.ConnectionError("dns fail")
+
+        session.get = _always_fail
+
+        with patch("panopto.collectors.twitter._source_hosts", return_value=["twitterwebviewer.com"]):
+            with self.assertRaises(SourceUnavailableError):
+                list(
+                    twitter_collection._iter_pages(
+                        username="sama",
+                        session=session,
+                        max_pages=1,
+                        delay_seconds=0.0,
+                        timeout=2,
+                        render_proxy_template=None,
+                    )
+                )
+
+    def test_iter_pages_retries_transient_request_failure(self):
+        html = "<article data-tweet-id='1'><div class='tweet-text'>ok</div></article>"
+        session = SimpleNamespace()
+        call_count = {"count": 0}
+
+        def _flaky_get(*_args, **_kwargs):
+            call_count["count"] += 1
+            if call_count["count"] == 1:
+                raise requests.ConnectionError("transient")
+            return SimpleNamespace(status_code=200, text=html)
+
+        session.get = _flaky_get
+
+        with (
+            patch("panopto.collectors.twitter._source_hosts", return_value=["twitterwebviewer.com"]),
+            patch("panopto.collectors.twitter._candidate_page_urls", return_value=["https://twitterwebviewer.com/u/sama"]),
+        ):
+            pages = list(
+                twitter_collection._iter_pages(
+                    username="sama",
+                    session=session,
+                    max_pages=1,
+                    delay_seconds=0.0,
+                    timeout=2,
+                    render_proxy_template=None,
+                    request_retries=1,
+                    max_workers=1,
+                )
+            )
+
+        self.assertEqual(len(pages), 1)
+        self.assertGreaterEqual(call_count["count"], 2)
 
     def test_extract_posts_from_html_parses_content_timestamp_and_stats(self):
         html = """
@@ -175,6 +229,26 @@ class TestTwitterCollection(unittest.TestCase):
 
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0]["content"], "Browser fallback post")
+
+    def test_collect_tolerates_single_empty_request_page(self):
+        now = datetime.now(timezone.utc).isoformat()
+        html = f"""
+        <article data-tweet-id="x1">
+            <div class="tweet-text">Recovered post</div>
+            <time datetime="{now}"></time>
+        </article>
+        """
+
+        with patch("panopto.collectors.twitter._iter_pages", return_value=["<html></html>", html]):
+            results = twitter_collection.collect_twitter_posts(
+                "sama",
+                "7 days",
+                browser_fallback=False,
+                request_delay_seconds=0,
+            )
+
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]["content"], "Recovered post")
 
     def test_browser_enrich_existing_merges_additional_paginated_posts(self):
         request_html = """

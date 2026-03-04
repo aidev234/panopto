@@ -5,7 +5,7 @@ import sqlite3
 from io import BytesIO
 from unittest.mock import patch
 
-from frontend.server import PostExplorerHandler, query_posts
+from frontend.server import PostExplorerHandler, _image_source_to_data_uri, query_posts
 from panopto.errors import UsernameNotFoundError
 from panopto.post_query import parse_day
 
@@ -825,6 +825,62 @@ def test_session_end_requires_loopback_client():
     assert payload["error"]["code"] == "forbidden"
 
 
+def test_session_end_can_shutdown_without_clearing_data():
+    handler = PostExplorerHandler.__new__(PostExplorerHandler)
+    body = json.dumps({"shutdown": False, "clear_data": False}).encode("utf-8")
+    handler.path = "/api/session/end"
+    handler.headers = {"Content-Length": str(len(body))}
+    handler.rfile = BytesIO(body)
+    handler.wfile = BytesIO()
+    handler.client_address = ("127.0.0.1", 44444)
+
+    responses = []
+    handler.send_response = lambda code: responses.append(code)
+    handler.send_header = lambda *args, **kwargs: None
+    handler.end_headers = lambda *args, **kwargs: None
+
+    with patch("frontend.server.clear_posts") as clear_mock:
+        handler.do_POST()
+
+    clear_mock.assert_not_called()
+    assert responses and responses[0] == 200
+    payload = json.loads(handler.wfile.getvalue().decode("utf-8"))
+    assert payload["status"] == "ok"
+    assert payload["cleared"] is False
+    assert payload["shutdown"] is False
+
+
+def test_recon_endpoint_requires_loopback_client():
+    handler = PostExplorerHandler.__new__(PostExplorerHandler)
+    body = json.dumps({"selectors": [{"type": "username", "value": "sama"}]}).encode("utf-8")
+    handler.path = "/api/recon"
+    handler.headers = {"Content-Length": str(len(body))}
+    handler.rfile = BytesIO(body)
+    handler.wfile = BytesIO()
+    handler.client_address = ("10.0.0.99", 54321)
+
+    responses = []
+    handler.send_response = lambda code: responses.append(code)
+    handler.send_header = lambda *args, **kwargs: None
+    handler.end_headers = lambda *args, **kwargs: None
+
+    handler.do_POST()
+
+    assert responses and responses[0] == 403
+    payload = json.loads(handler.wfile.getvalue().decode("utf-8"))
+    assert payload["error"]["code"] == "forbidden"
+
+
+def test_image_source_to_data_uri_rejects_traversal_and_non_image_files():
+    assert _image_source_to_data_uri("/../../panopto.py") == ""
+    assert _image_source_to_data_uri("/app.js") == ""
+
+
+def test_image_source_to_data_uri_allows_static_images():
+    uri = _image_source_to_data_uri("/favicon.svg")
+    assert uri.startswith("data:image/")
+
+
 def test_posts_endpoint_rejects_db_path_outside_allowed_roots():
     handler = PostExplorerHandler.__new__(PostExplorerHandler)
     handler.path = "/api/posts?db_path=/etc/passwd"
@@ -842,6 +898,93 @@ def test_posts_endpoint_rejects_db_path_outside_allowed_roots():
     assert responses and responses[0] == 400
     payload = json.loads(handler.wfile.getvalue().decode("utf-8"))
     assert payload["error"]["code"] == "invalid_request"
+
+
+def test_posts_endpoint_includes_face_recognition_fields():
+    handler = PostExplorerHandler.__new__(PostExplorerHandler)
+    handler.path = "/api/posts"
+    handler.headers = {}
+    handler.rfile = BytesIO()
+    handler.wfile = BytesIO()
+
+    responses = []
+    handler.send_response = lambda code: responses.append(code)
+    handler.send_header = lambda *args, **kwargs: None
+    handler.end_headers = lambda *args, **kwargs: None
+
+    base_payload = {
+        "count": 1,
+        "posts": [
+            {
+                "username": "alice",
+                "content": "sample",
+                "timestamp": "2026-02-12T18:15:54+00:00",
+                "metadata": {},
+            }
+        ],
+    }
+    face_payload = {
+        "posts": [
+            {
+                "username": "alice",
+                "content": "sample",
+                "timestamp": "2026-02-12T18:15:54+00:00",
+                "metadata": {
+                    "face_recognition": [
+                        {
+                            "media_url": "https://cdn.example.com/pic.jpg",
+                            "analysis_url": "https://cdn.example.com/pic.jpg",
+                            "faces": [
+                                {
+                                    "person_id": "person_1",
+                                    "label": "Person 1",
+                                    "color": "#22c55e",
+                                    "bbox": {"x": 0.1, "y": 0.2, "w": 0.3, "h": 0.4},
+                                }
+                            ],
+                        }
+                    ]
+                },
+                "face_person_ids": ["person_1"],
+            }
+        ],
+        "face_clusters": [{"person_id": "person_1", "label": "Person 1", "count": 1, "color": "#22c55e"}],
+        "face_recognition": {"available": True, "reason": "ok", "images_analyzed": 1, "faces_detected": 1},
+    }
+    with patch("frontend.server.query_posts", return_value=base_payload), patch(
+        "frontend.server._FACE_RECOGNITION_ENGINE.annotate_posts", return_value=face_payload
+    ) as face_mock:
+        handler.do_GET()
+
+    assert responses and responses[0] == 200
+    payload = json.loads(handler.wfile.getvalue().decode("utf-8"))
+    assert payload["face_clusters"][0]["person_id"] == "person_1"
+    assert payload["face_recognition"]["available"] is True
+    assert payload["posts"][0]["face_person_ids"] == ["person_1"]
+    assert payload["posts"][0]["metadata"]["face_recognition"][0]["faces"][0]["label"] == "Person 1"
+    face_mock.assert_called_once()
+
+
+def test_posts_endpoint_face_refresh_forces_reanalysis():
+    handler = PostExplorerHandler.__new__(PostExplorerHandler)
+    handler.path = "/api/posts?face_refresh=1"
+    handler.headers = {}
+    handler.rfile = BytesIO()
+    handler.wfile = BytesIO()
+
+    responses = []
+    handler.send_response = lambda code: responses.append(code)
+    handler.send_header = lambda *args, **kwargs: None
+    handler.end_headers = lambda *args, **kwargs: None
+
+    with patch("frontend.server.query_posts", return_value={"count": 0, "posts": []}), patch(
+        "frontend.server._FACE_RECOGNITION_ENGINE.annotate_posts",
+        return_value={"posts": [], "face_clusters": [], "face_recognition": {"available": True, "reason": "ok"}},
+    ) as face_mock:
+        handler.do_GET()
+
+    assert responses and responses[0] == 200
+    face_mock.assert_called_once_with([], force_refresh=True)
 
 
 def test_query_posts_filters_by_case_id(tmp_path):
