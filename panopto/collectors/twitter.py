@@ -6,6 +6,7 @@ filters results to a configurable collection window.
 
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import re
 import time
 from dataclasses import dataclass
@@ -19,7 +20,7 @@ from urllib.parse import quote, urljoin
 import requests
 from bs4 import BeautifulSoup
 
-from panopto.errors import UsernameNotFoundError
+from panopto.errors import SourceUnavailableError, UsernameNotFoundError
 
 
 DEFAULT_HEADERS = {
@@ -586,33 +587,115 @@ def _iter_pages(
     delay_seconds: float,
     timeout: int,
     render_proxy_template: str | None = None,
+    request_retries: int = 1,
+    max_workers: int = 6,
 ) -> Iterable[str]:
+    had_any_successful_response = False
+    request_failures = 0
+    attempted_urls: set[str] = set()
+    low_signal_pages = 0
+
     for page in range(1, max_pages + 1):
         responses: list[str] = []
+        candidate_urls: list[str] = []
+        seen_urls: set[str] = set()
         for host in _source_hosts():
             for target_url in _candidate_page_urls(username=username, page=page, host=host):
-                request_url = target_url
-                params = None
-                if render_proxy_template:
-                    request_url = render_proxy_template.format(url=quote(target_url, safe=""))
-                try:
-                    response = session.get(request_url, params=params, timeout=timeout)
-                except requests.RequestException:
+                attempted_urls.add(target_url)
+                if target_url in seen_urls:
                     continue
+                seen_urls.add(target_url)
+                candidate_urls.append(target_url)
 
-                if response.status_code != 200:
-                    continue
+        def _fetch_candidate(target_url: str) -> tuple[bool, bool, str]:
+            request_url = target_url
+            if render_proxy_template:
+                request_url = render_proxy_template.format(url=quote(target_url, safe=""))
 
-                html = response.text.strip()
+            base_get = getattr(session, "get", None)
+            if not callable(base_get):
+                return False, True, ""
+
+            base_headers = getattr(session, "headers", None)
+            base_proxies = getattr(session, "proxies", None)
+            base_cookies = getattr(session, "cookies", None)
+
+            # For non-requests Session objects (e.g. tests), use the provided getter directly.
+            if base_headers is None and base_proxies is None and base_cookies is None:
+                for attempt in range(request_retries + 1):
+                    try:
+                        response = base_get(request_url, timeout=timeout)
+                    except requests.RequestException:
+                        if attempt < request_retries:
+                            continue
+                        return False, True, ""
+
+                    if response.status_code != 200:
+                        return True, False, ""
+
+                    html = response.text.strip()
+                    if html:
+                        return True, False, html
+                    return True, False, ""
+                return False, True, ""
+
+            worker_session = requests.Session()
+            if base_headers is not None:
+                worker_session.headers.update(dict(base_headers))
+            if base_proxies is not None:
+                worker_session.proxies.update(dict(base_proxies))
+            if base_cookies is not None:
+                worker_session.cookies.update(base_cookies)
+            try:
+                for attempt in range(request_retries + 1):
+                    try:
+                        response = worker_session.get(request_url, timeout=timeout)
+                    except requests.RequestException:
+                        if attempt < request_retries:
+                            continue
+                        return False, True, ""
+
+                    if response.status_code != 200:
+                        return True, False, ""
+
+                    html = response.text.strip()
+                    if html:
+                        return True, False, html
+                    return True, False, ""
+            finally:
+                worker_session.close()
+
+            return False, True, ""
+
+        worker_count = max(1, min(max_workers, len(candidate_urls)))
+        with ThreadPoolExecutor(max_workers=worker_count) as executor:
+            futures = [executor.submit(_fetch_candidate, target_url) for target_url in candidate_urls]
+            for future in as_completed(futures):
+                got_response, failed_request, html = future.result()
+                if got_response:
+                    had_any_successful_response = True
+                if failed_request:
+                    request_failures += 1
                 if html:
                     responses.append(html)
 
         if not responses:
+            if page == 1 and request_failures > 0 and not had_any_successful_response and attempted_urls:
+                raise SourceUnavailableError(
+                    platform="twitter",
+                    username=username,
+                    reason=f"all_source_requests_failed ({len(attempted_urls)} urls)",
+                )
             break
 
-        best_html = max(responses, key=lambda body: _page_signal_score(body, username))
-        if _page_signal_score(best_html, username) <= 0 and page > 1:
-            break
+        scored_responses = [(body, _page_signal_score(body, username)) for body in responses]
+        best_html, best_score = max(scored_responses, key=lambda item: item[1])
+        if best_score <= 0:
+            low_signal_pages += 1
+            if page > 1 and low_signal_pages >= 2:
+                break
+            continue
+        low_signal_pages = 0
 
         yield best_html
 
@@ -906,6 +989,7 @@ def collect_twitter_posts(
             session.proxies.update(proxies)
 
         effective_render_proxy = render_proxy_template or getenv("TWITTER_RENDER_PROXY_TEMPLATE")
+        empty_request_pages = 0
 
         for html in _iter_pages(
             username=normalized_username,
@@ -921,7 +1005,11 @@ def collect_twitter_posts(
             if not page_posts and _page_indicates_missing_user(html):
                 user_missing_signal = True
             if not page_posts:
-                break
+                empty_request_pages += 1
+                if empty_request_pages >= 2:
+                    break
+                continue
+            empty_request_pages = 0
             collected.extend(page_posts)
 
         if not collected:

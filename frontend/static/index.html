@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>PANOPTO</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=20260218b" />
-    <link rel="stylesheet" href="/styles.css?v=20260227c" />
+    <link rel="stylesheet" href="/styles.css?v=20260304e" />
   </head>
   <body>
     <div id="notifications" class="toast-stack" aria-live="polite" aria-atomic="false"></div>
@@ -25,6 +25,7 @@
                 <button id="openNewCaseBtn" class="primary-btn" type="button">Open New Case</button>
               </div>
               <div class="action-cluster action-cluster-danger">
+                <button id="quitSaveSessionCaseBtn" class="secondary-btn" type="button">Quit &amp; Save Results</button>
                 <button id="quitSessionCaseBtn" class="secondary-btn danger-btn" type="button">Quit Session</button>
               </div>
             </div>
@@ -180,29 +181,36 @@
             <button id="configCloseBtn" class="secondary-btn" type="button">Close</button>
           </div>
           <form id="configForm" class="setup-form">
-            <label class="field">
+            <p id="configSecretStateSummary" class="config-secret-summary status"></p>
+            <label class="field config-secret-field">
               <span>People Data Labs API Key</span>
-              <input id="configPdlApiKeyInput" type="password" placeholder="pdl_xxxxxxxxx" autocomplete="off" />
+              <input id="configPdlApiKeyInput" type="password" placeholder="pdl_xxxxxxxxx" data-empty-placeholder="pdl_xxxxxxxxx" data-configured-placeholder="Stored key detected. Enter new key to replace." autocomplete="off" />
               <small id="configPdlApiKeyHint" class="status"></small>
             </label>
-            <label class="field">
+            <label class="field config-secret-field">
               <span>OSINT Industries API Key</span>
-              <input id="configOsintIndustriesApiKeyInput" type="password" placeholder="oi_xxxxxxxxx" autocomplete="off" />
+              <input id="configOsintIndustriesApiKeyInput" type="password" placeholder="oi_xxxxxxxxx" data-empty-placeholder="oi_xxxxxxxxx" data-configured-placeholder="Stored key detected. Enter new key to replace." autocomplete="off" />
               <small id="configOsintIndustriesApiKeyHint" class="status"></small>
             </label>
             <label class="field">
               <span>OSINT Industries Premium Endpoint</span>
               <input id="configOsintIndustriesPremiumInput" type="checkbox" />
             </label>
-            <label class="field">
+            <label class="field config-secret-field">
               <span>Numverify API Key</span>
-              <input id="configNumverifyApiKeyInput" type="password" placeholder="numverify/apilayer key" autocomplete="off" />
+              <input id="configNumverifyApiKeyInput" type="password" placeholder="numverify/apilayer key" data-empty-placeholder="numverify/apilayer key" data-configured-placeholder="Stored key detected. Enter new key to replace." autocomplete="off" />
               <small id="configNumverifyApiKeyHint" class="status"></small>
             </label>
-            <label class="field">
+            <label class="field config-secret-field">
               <span>OpenAI API Key</span>
-              <input id="configOpenAiApiKeyInput" type="password" placeholder="sk-..." autocomplete="off" />
+              <input id="configOpenAiApiKeyInput" type="password" placeholder="sk-..." data-empty-placeholder="sk-..." data-configured-placeholder="Stored key detected. Enter new key to replace." autocomplete="off" />
               <small id="configOpenAiApiKeyHint" class="status"></small>
+            </label>
+            <label class="field">
+              <span>Custom Keyword List</span>
+              <input id="configCustomKeywordInput" type="text" placeholder="Type keyword/phrase and press Enter" autocomplete="off" />
+              <div id="configCustomKeywordPills" class="config-keyword-pills"></div>
+              <small class="status">Press Enter to add each keyword or phrase.</small>
             </label>
             <div class="setup-actions-row">
               <button id="configSaveBtn" type="submit">Save</button>
@@ -344,6 +352,7 @@
             <div class="setup-actions-row">
               <button id="reconBtn" type="submit">Run Recon</button>
               <button id="useReconTargetsBtn" class="secondary-btn hidden" type="button" disabled>Use Active Profiles for Collection</button>
+              <button id="goReconAssessmentBtn" class="secondary-btn hidden" type="button" disabled>Go to Assessment</button>
             </div>
             <div id="reconResults" class="recon-results hidden"></div>
             <p id="reconStatus" class="status"></p>
@@ -389,6 +398,7 @@
                 <button id="saveQuitCaseBtn" class="secondary-btn" type="button">Save &amp; Quit Case</button>
               </div>
               <div class="action-cluster action-cluster-danger">
+                <button id="quitSaveBtn" class="secondary-btn" type="button">Quit &amp; Save Results</button>
                 <button id="quitBtn" class="secondary-btn danger-btn" type="button">Quit Session</button>
               </div>
             </div>
@@ -439,6 +449,18 @@
                 </span>
                 <span>Digital Footprint</span>
               </button>
+              <button id="viewPatternLifeBtn" class="secondary-btn view-toggle-btn" type="button" aria-pressed="false">
+                <span class="view-toggle-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" role="img" focusable="false"><path d="M3.5 12h4"></path><path d="M8.5 12h4"></path><path d="M13.5 12h7"></path><circle cx="8.5" cy="12" r="1.8"></circle><circle cx="13.5" cy="12" r="1.8"></circle></svg>
+                </span>
+                <span>Pattern of Life</span>
+              </button>
+              <button id="openCaseNotesTopBtn" class="secondary-btn view-toggle-btn" type="button">
+                <span class="view-toggle-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" role="img" focusable="false"><path d="M6 4h12v16H6z"></path><path d="M9 8h6"></path><path d="M9 12h6"></path><path d="M9 16h4"></path></svg>
+                </span>
+                <span>Case Notes</span>
+              </button>
             </div>
             <div id="filterMenu" class="filter-menu">
               <button id="filterToggleBtn" class="secondary-btn" type="button" aria-expanded="false" aria-controls="filterPanel">
@@ -475,6 +497,22 @@
                     <label><input id="filterLLMPrimary" type="checkbox" /> LLM Primary</label>
                     <label><input id="filterLLMSecondary" type="checkbox" /> LLM Secondary</label>
                   </div>
+                </div>
+                <div class="filter-section">
+                  <p class="filter-label">Facial Recognition</p>
+                  <div class="filter-group">
+                    <button id="runFaceRecognitionBtn" class="secondary-btn" type="button">Run Facial Recognition</button>
+                  </div>
+                  <div class="filter-group">
+                    <label>
+                      Min confidence
+                      <input id="faceConfidenceRange" type="range" min="0" max="1" step="0.05" value="0.8" />
+                      <span id="faceConfidenceValue">80%</span>
+                    </label>
+                  </div>
+                  <p id="faceRecognitionStatus" class="theme-filter-empty">Facial recognition not run yet. Click "Run Facial Recognition".</p>
+                  <div id="faceRecognitionFilterList" class="theme-filter-list"></div>
+                  <p id="faceRecognitionFilterEmpty" class="theme-filter-empty">No recurring faces detected in current results.</p>
                 </div>
               </div>
             </div>
@@ -515,17 +553,6 @@
                 </svg>
               </span>
               <span>Threat Assessment</span>
-            </button>
-            <button id="insightsTabNotes" class="insights-tab" type="button" role="tab" aria-selected="false" aria-controls="insightsPanelNotes">
-              <span class="insights-tab-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" role="img" focusable="false" aria-hidden="true">
-                  <path d="M6 4h12v16H6z"></path>
-                  <path d="M9 8h6"></path>
-                  <path d="M9 12h6"></path>
-                  <path d="M9 16h4"></path>
-                </svg>
-              </span>
-              <span>Case Notes</span>
             </button>
           </div>
 
@@ -609,6 +636,13 @@
               </div>
               <div id="selectorMix" class="signal-list"></div>
               <p id="selectorMixEmpty" class="viz-empty hidden">No selectors detected in current results.</p>
+            </article>
+            <article class="viz-card">
+              <div class="viz-head">
+                <h3>Custom Keyword Parse</h3>
+              </div>
+              <div id="customKeywordMix" class="signal-list"></div>
+              <p id="customKeywordMixEmpty" class="viz-empty hidden">No configured custom keyword mentions in current results.</p>
             </article>
 
           </section>
@@ -700,15 +734,6 @@
               <p id="threatSignalMixEmpty" class="viz-empty hidden">No threat keywords detected in current results.</p>
             </article>
           </section>
-          <section id="insightsPanelNotes" class="insights-panel hidden">
-            <article class="viz-card">
-              <div class="viz-head">
-                <h3>Case Notes</h3>
-                <span class="viz-total">POI Report</span>
-              </div>
-              <p class="viz-empty">Open Case Notes to edit the POI report and recon profile records.</p>
-            </article>
-          </section>
         </aside>
         <section id="footprintView" class="footprint-view hidden">
           <article class="viz-card footprint-card">
@@ -731,6 +756,23 @@
             </form>
             <div id="footprintReconResults" class="recon-results hidden"></div>
             <p id="footprintReconStatus" class="status"></p>
+          </article>
+        </section>
+        <section id="patternLifeView" class="footprint-view hidden">
+          <article class="viz-card footprint-card">
+            <div class="viz-head">
+              <h3>Pattern of Life</h3>
+              <span id="patternLifeLocationMapTotal" class="viz-total">0 points</span>
+            </div>
+            <p id="patternLifeRhythmSummary" class="posting-rhythm-summary">
+              Merged view of location signals (NER + profile enrichment) and posting-rhythm timezone estimate.
+            </p>
+            <div id="patternLifeTimezoneInference" class="viz-total">Insufficient data</div>
+            <div id="patternLifeMap" class="location-map" role="img" aria-label="Pattern of life location map"></div>
+            <p id="patternLifeMapEmpty" class="viz-empty hidden">No mapped pattern-of-life locations available yet.</p>
+            <div id="patternLifeHourChart" class="posting-hour-chart" role="img" aria-label="Hourly post frequency by inferred local hour"></div>
+            <div id="patternLifeSourceMix" class="type-mix"></div>
+            <p id="patternLifeRhythmEmpty" class="viz-empty hidden">Not enough timestamped posts to infer rhythm yet.</p>
           </article>
         </section>
       </section>
@@ -782,6 +824,6 @@
       </div>
     </section>
 
-    <script src="/app.js?v=20260228b"></script>
+    <script src="/app.js?v=20260304e"></script>
   </body>
 </html>

@@ -15,12 +15,23 @@ def test_index_uses_local_assets_only():
     assert "id=\"insightsTabOps\"" in html
     assert "id=\"insightsTabGeo\"" in html
     assert "id=\"insightsTabSignals\"" in html
-    assert "id=\"insightsTabNotes\"" in html
+    assert "id=\"openCaseNotesTopBtn\"" in html
     assert "id=\"clearSearchBtn\"" in html
     assert "id=\"collectionContext\"" in html
     assert "id=\"contextTargets\"" in html
     assert "id=\"contextRange\"" in html
     assert "id=\"postingTimezoneMap\"" in html
+    assert "id=\"viewPatternLifeBtn\"" in html
+    assert "id=\"patternLifeView\"" in html
+    assert "id=\"patternLifeMap\"" in html
+    assert "id=\"faceRecognitionFilterList\"" in html
+    assert "id=\"faceRecognitionFilterEmpty\"" in html
+    assert "id=\"runFaceRecognitionBtn\"" in html
+    assert "id=\"faceRecognitionStatus\"" in html
+    assert "id=\"faceConfidenceRange\"" in html
+    assert "id=\"faceConfidenceValue\"" in html
+    assert "id=\"quitSaveBtn\"" in html
+    assert "id=\"quitSaveSessionCaseBtn\"" in html
 
 
 def test_collection_target_platform_options_include_instagram():
@@ -31,6 +42,12 @@ def test_collection_target_platform_options_include_instagram():
     assert "function startBackgroundCollection(" in app_js
     assert "function setInsightsTab(" in app_js
     assert "function applyMixFilters(" in app_js
+    assert "function applyFaceFilters(" in app_js
+    assert "function renderFaceRecognitionFilters(" in app_js
+    assert "function updateFaceRecognitionStatus(" in app_js
+    assert "function updateFaceConfidenceDisplays(" in app_js
     assert "data-mix-filter" in app_js
+    assert "data-face-filter" in app_js
+    assert "data-face-confidence-inline" in app_js
     assert "data-assessment-toggle" in app_js
     assert "persistThreatAssessmentUpdate" in app_js

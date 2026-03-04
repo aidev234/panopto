@@ -64,7 +64,8 @@ def _date_stages(start_date: str, end_date: str) -> list[tuple[str, str, str]]:
     quick_stage = (quick_start.isoformat(), end_day.isoformat(), "quick_window")
     if quick_start <= start_day:
         return [quick_stage]
-    backfill_stage = (start_day.isoformat(), end_day.isoformat(), "backfill")
+    backfill_end = quick_start - timedelta(days=1)
+    backfill_stage = (start_day.isoformat(), backfill_end.isoformat(), "backfill")
     return [quick_stage, backfill_stage]
 
 
