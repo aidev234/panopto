@@ -33,7 +33,7 @@ from panopto.analysis.llm_warning_assessor import apply_warning_assessments, est
 from panopto.errors import UsernameNotFoundError
 from panopto.post_query import normalize_tag, query_posts
 from panopto.collection_jobs import get_collection_job_status, start_collection_job
-from panopto.config import load_public_config, save_config
+from panopto.config import load_config, load_public_config, save_config
 from panopto.recon import normalize_recon_selectors, run_recon
 from panopto.face_analysis import FaceRecognitionEngine
 from panopto.storage.posts import (
@@ -46,11 +46,18 @@ from panopto.storage.posts import (
     update_case,
     update_post_llm_assessments,
 )
+from panopto.storage.known_entities import (
+    archive_case_to_known_entities,
+    clear_known_entities,
+    match_known_entities,
+    restore_archived_case,
+)
 
 DEFAULT_DB_PATH = ROOT_DIR / "osint_data.db"
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 _ALLOWED_DB_ROOTS = [ROOT_DIR.resolve(), Path("/tmp").resolve()]
 _FACE_RECOGNITION_ENGINE = FaceRecognitionEngine()
+_APIFY_REQUIRED_PLATFORMS = {"twitter", "tiktok", "instagram"}
 
 
 def _resolve_api_db_path(raw_value: str | Path | None) -> Path:
@@ -72,6 +79,15 @@ def _resolve_api_db_path(raw_value: str | Path | None) -> Path:
         if resolved == allowed_root or allowed_root in resolved.parents:
             return resolved
     raise InvalidRequestError("db_path must remain inside the project directory or /tmp")
+
+
+def _missing_apify_platforms(targets: list[dict[str, str]]) -> list[str]:
+    requested = {
+        str(item.get("platform") or "").strip().lower()
+        for item in (targets or [])
+        if isinstance(item, dict)
+    }
+    return sorted(requested.intersection(_APIFY_REQUIRED_PLATFORMS))
 
 
 def _pdf_escape(text: str) -> str:
@@ -562,6 +578,15 @@ class PostExplorerHandler(SimpleHTTPRequestHandler):
             # Client closed the connection (e.g. frontend aborted stale request).
             return
 
+    def _stream_json_line(self, payload: dict) -> bool:
+        try:
+            encoded = f"{json.dumps(payload, ensure_ascii=True)}\n".encode("utf-8")
+            self.wfile.write(encoded)
+            self.wfile.flush()
+            return True
+        except (BrokenPipeError, ConnectionResetError, socket.error):
+            return False
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(STATIC_DIR), **kwargs)
 
@@ -690,9 +715,26 @@ class PostExplorerHandler(SimpleHTTPRequestHandler):
             body = self._read_json_body(default={})
             should_shutdown = bool(body.get("shutdown", True))
             should_clear_data = bool(body.get("clear_data", True))
+            should_clear_config = bool(body.get("clear_config", should_clear_data))
             if should_clear_data:
                 clear_posts(str(DEFAULT_DB_PATH), clear_cases=True)
-            response = {"status": "ok", "cleared": should_clear_data, "shutdown": should_shutdown}
+                clear_known_entities(str(DEFAULT_DB_PATH))
+            if should_clear_config:
+                save_config(
+                    custom_keyword_list=[],
+                    default_data_retention_period="3 months",
+                    clear_pdl_api_key=True,
+                    clear_osint_industries_api_key=True,
+                    clear_numverify_api_key=True,
+                    clear_openai_api_key=True,
+                    clear_apify_api_token=True,
+                )
+            response = {
+                "status": "ok",
+                "cleared": should_clear_data,
+                "config_cleared": should_clear_config,
+                "shutdown": should_shutdown,
+            }
             self._send_json(response)
             if should_shutdown:
                 threading.Thread(target=self.server.shutdown, daemon=True).start()
@@ -705,6 +747,7 @@ class PostExplorerHandler(SimpleHTTPRequestHandler):
             case_name = str(body.get("case_name", "")).strip() or "Untitled Case"
             status = str(body.get("status", "Open")).strip()
             threat_level = str(body.get("threat_level", "Low Threat")).strip()
+            data_retention_period = str(body.get("data_retention_period", "3 months")).strip()
             known_location = str(body.get("known_location", "")).strip()
             poi_image_url = str(body.get("poi_image_url", "")).strip()
             metadata_tags = body.get("metadata_tags", [])
@@ -713,6 +756,7 @@ class PostExplorerHandler(SimpleHTTPRequestHandler):
                 case_name=case_name,
                 status=status,
                 threat_level=threat_level,
+                data_retention_period=data_retention_period,
                 known_location=known_location,
                 poi_image_url=poi_image_url,
                 case_notes=case_notes if isinstance(case_notes, dict) else {},
@@ -729,17 +773,81 @@ class PostExplorerHandler(SimpleHTTPRequestHandler):
             payload = save_config(
                 pdl_api_key=body.get("pdl_api_key"),
                 osint_industries_api_key=body.get("osint_industries_api_key"),
-                osint_industries_use_premium=body.get("osint_industries_use_premium"),
                 custom_keyword_list=body.get("custom_keyword_list"),
+                default_data_retention_period=body.get("default_data_retention_period"),
                 numverify_api_key=body.get("numverify_api_key"),
                 openai_api_key=body.get("openai_api_key"),
+                apify_api_token=body.get("apify_api_token"),
                 clear_pdl_api_key=body.get("clear_pdl_api_key"),
                 clear_osint_industries_api_key=body.get("clear_osint_industries_api_key"),
                 clear_numverify_api_key=body.get("clear_numverify_api_key"),
                 clear_openai_api_key=body.get("clear_openai_api_key"),
+                clear_apify_api_token=body.get("clear_apify_api_token"),
             )
             _ = payload
             self._send_json(load_public_config())
+            return
+
+        if parsed.path == "/api/known-entities/archive-case":
+            body = self._read_json_body()
+            if body is None:
+                return
+            case_id = str(body.get("case_id", "")).strip()
+            if not case_id:
+                self._send_json(
+                    {"error": {"code": "invalid_request", "message": "case_id is required"}},
+                    status=400,
+                )
+                return
+            cases = list_cases(db_path=str(DEFAULT_DB_PATH))
+            case_row = next((row for row in cases if str(row.get("case_id") or "").strip() == case_id), None)
+            if case_row is None:
+                self._send_json(
+                    {"error": {"code": "not_found", "message": "case not found"}},
+                    status=404,
+                )
+                return
+            posts_payload = query_posts(query="", sort_order="newest", db_path=DEFAULT_DB_PATH, case_id=case_id)
+            posts = posts_payload.get("posts") if isinstance(posts_payload, dict) else []
+            payload = archive_case_to_known_entities(
+                case_row=case_row,
+                posts=posts if isinstance(posts, list) else [],
+                db_path=str(DEFAULT_DB_PATH),
+            )
+            self._send_json(payload, status=201)
+            return
+
+        if parsed.path == "/api/known-entities/match":
+            body = self._read_json_body(default={})
+            selectors = body.get("selectors", [])
+            payload = {
+                "matches": match_known_entities(
+                    selectors if isinstance(selectors, list) else [],
+                    db_path=str(DEFAULT_DB_PATH),
+                )
+            }
+            self._send_json(payload)
+            return
+
+        if parsed.path == "/api/known-entities/restore":
+            body = self._read_json_body()
+            if body is None:
+                return
+            archive_id = str(body.get("archive_id", "")).strip()
+            if not archive_id:
+                self._send_json(
+                    {"error": {"code": "invalid_request", "message": "archive_id is required"}},
+                    status=400,
+                )
+                return
+            payload = restore_archived_case(archive_id, db_path=str(DEFAULT_DB_PATH))
+            if payload is None:
+                self._send_json(
+                    {"error": {"code": "not_found", "message": "archive not found"}},
+                    status=404,
+                )
+                return
+            self._send_json(payload, status=201)
             return
 
         if parsed.path == "/api/posts/manual":
@@ -1001,6 +1109,7 @@ class PostExplorerHandler(SimpleHTTPRequestHandler):
                     case_name=body.get("case_name"),
                     status=body.get("status"),
                     threat_level=body.get("threat_level"),
+                    data_retention_period=body.get("data_retention_period"),
                     known_location=body.get("known_location"),
                     poi_image_url=body.get("poi_image_url"),
                     case_notes=body.get("case_notes"),
@@ -1082,6 +1191,99 @@ class PostExplorerHandler(SimpleHTTPRequestHandler):
             self._send_json(payload)
             return
 
+        if parsed.path == "/api/recon/stream":
+            body = self._read_json_body()
+            if body is None:
+                return
+            selectors = normalize_recon_selectors(body.get("selectors", []))
+            if not selectors:
+                raw_username = str(body.get("username", "")).strip()
+                raw_email = str(body.get("email", "")).strip()
+                raw_selector = str(body.get("selector", "")).strip()
+                raw_selector_type = str(body.get("selector_type", "")).strip().lower()
+                if raw_username:
+                    selectors = normalize_recon_selectors([{"type": "username", "value": raw_username}])
+                elif raw_email:
+                    selectors = normalize_recon_selectors([{"type": "email", "value": raw_email}])
+                elif raw_selector:
+                    selectors = normalize_recon_selectors([{"type": raw_selector_type or "username", "value": raw_selector}])
+
+            if not selectors:
+                self._send_json(
+                    {
+                        "error": {
+                            "code": "invalid_request",
+                            "message": "at least one selector is required",
+                        }
+                    },
+                    status=400,
+                )
+                return
+
+            self.send_response(200)
+            self.send_header("Content-Type", "application/x-ndjson; charset=utf-8")
+            self.send_header("X-Accel-Buffering", "no")
+            self.end_headers()
+            if not self._stream_json_line({"event": "start", "selectors_total": len(selectors)}):
+                return
+
+            for index, selector in enumerate(selectors, start=1):
+                selector_type = str(selector.get("type") or "").strip().lower()
+                selector_value = str(selector.get("value") or "").strip()
+                if not self._stream_json_line(
+                    {
+                        "event": "progress",
+                        "stage": "selector_started",
+                        "selector_index": index,
+                        "selectors_total": len(selectors),
+                        "selector_type": selector_type,
+                        "selector_value": selector_value,
+                    }
+                ):
+                    return
+                try:
+                    payload = run_recon([selector])
+                except (ValueError, RuntimeError) as exc:
+                    self._stream_json_line(
+                        {
+                            "event": "error",
+                            "code": "invalid_request",
+                            "message": str(exc),
+                            "selector_index": index,
+                            "selectors_total": len(selectors),
+                            "selector_type": selector_type,
+                            "selector_value": selector_value,
+                        }
+                    )
+                    return
+                except Exception as exc:
+                    self._stream_json_line(
+                        {
+                            "event": "error",
+                            "code": "internal_error",
+                            "message": str(exc),
+                            "selector_index": index,
+                            "selectors_total": len(selectors),
+                            "selector_type": selector_type,
+                            "selector_value": selector_value,
+                        }
+                    )
+                    return
+                if not self._stream_json_line(
+                    {
+                        "event": "chunk",
+                        "selector_index": index,
+                        "selectors_total": len(selectors),
+                        "selector_type": selector_type,
+                        "selector_value": selector_value,
+                        "payload": payload,
+                    }
+                ):
+                    return
+
+            self._stream_json_line({"event": "done", "selectors_processed": len(selectors)})
+            return
+
         if parsed.path == "/api/collect/start":
             body = self._read_json_body()
             if body is None:
@@ -1096,6 +1298,21 @@ class PostExplorerHandler(SimpleHTTPRequestHandler):
                 self._send_json({"error": {"code": "invalid_request", "message": str(exc)}}, status=400)
                 return
             targets = parse_targets(body)
+            apify_configured = bool(str(load_config().get("apify_api_token") or "").strip())
+            missing_apify_for = _missing_apify_platforms(targets)
+            if missing_apify_for and not apify_configured:
+                human = ", ".join(missing_apify_for)
+                self._send_json(
+                    {
+                        "error": {
+                            "code": "apify_token_required",
+                            "message": f"Apify API token is required for: {human}. Open Config and set Apify API Token before collecting.",
+                            "platforms": missing_apify_for,
+                        }
+                    },
+                    status=400,
+                )
+                return
             try:
                 response = start_collection_job(
                     targets=targets,

@@ -10,18 +10,24 @@ const openNewCaseBtn = document.getElementById('openNewCaseBtn');
 const openConfigBtn = document.getElementById('openConfigBtn');
 const generateDemoCaseBtn = document.getElementById('generateDemoCaseBtn');
 const quitSessionCaseBtn = document.getElementById('quitSessionCaseBtn');
-const quitSaveSessionCaseBtn = document.getElementById('quitSaveSessionCaseBtn');
+const quitOptionsModal = document.getElementById('quitOptionsModal');
+const quitOptionsQuitBtn = document.getElementById('quitOptionsQuitBtn');
+const quitOptionsWipeBtn = document.getElementById('quitOptionsWipeBtn');
+const quitOptionsSaveBtn = document.getElementById('quitOptionsSaveBtn');
+const quitOptionsCancelBtn = document.getElementById('quitOptionsCancelBtn');
 const configModal = document.getElementById('configModal');
 const configForm = document.getElementById('configForm');
 const configPdlApiKeyInput = document.getElementById('configPdlApiKeyInput');
 const configPdlApiKeyHint = document.getElementById('configPdlApiKeyHint');
 const configOsintIndustriesApiKeyInput = document.getElementById('configOsintIndustriesApiKeyInput');
 const configOsintIndustriesApiKeyHint = document.getElementById('configOsintIndustriesApiKeyHint');
-const configOsintIndustriesPremiumInput = document.getElementById('configOsintIndustriesPremiumInput');
 const configNumverifyApiKeyInput = document.getElementById('configNumverifyApiKeyInput');
 const configNumverifyApiKeyHint = document.getElementById('configNumverifyApiKeyHint');
 const configOpenAiApiKeyInput = document.getElementById('configOpenAiApiKeyInput');
 const configOpenAiApiKeyHint = document.getElementById('configOpenAiApiKeyHint');
+const configApifyApiTokenInput = document.getElementById('configApifyApiTokenInput');
+const configApifyApiTokenHint = document.getElementById('configApifyApiTokenHint');
+const configDefaultRetentionSelect = document.getElementById('configDefaultRetentionSelect');
 const configCustomKeywordInput = document.getElementById('configCustomKeywordInput');
 const configCustomKeywordPills = document.getElementById('configCustomKeywordPills');
 const configSaveBtn = document.getElementById('configSaveBtn');
@@ -31,10 +37,12 @@ const configStatus = document.getElementById('configStatus');
 const configSecretStateSummary = document.getElementById('configSecretStateSummary');
 const caseEditModal = document.getElementById('caseEditModal');
 const caseEditForm = document.getElementById('caseEditForm');
+const caseEditTitleInput = document.getElementById('caseEditTitleInput');
 const caseEditStatusSelect = document.getElementById('caseEditStatusSelect');
 const caseEditCadenceField = document.getElementById('caseEditCadenceField');
 const caseEditCadenceSelect = document.getElementById('caseEditCadenceSelect');
 const caseEditThreatSelect = document.getElementById('caseEditThreatSelect');
+const caseEditRetentionSelect = document.getElementById('caseEditRetentionSelect');
 const caseEditLocationSelect = document.getElementById('caseEditLocationSelect');
 const caseEditCancelBtn = document.getElementById('caseEditCancelBtn');
 const caseEditCloseBtn = document.getElementById('caseEditCloseBtn');
@@ -46,6 +54,7 @@ const caseSaveStatusSelect = document.getElementById('caseSaveStatusSelect');
 const caseSaveCadenceField = document.getElementById('caseSaveCadenceField');
 const caseSaveCadenceSelect = document.getElementById('caseSaveCadenceSelect');
 const caseSaveThreatSelect = document.getElementById('caseSaveThreatSelect');
+const caseSaveRetentionSelect = document.getElementById('caseSaveRetentionSelect');
 const caseSaveLocationInput = document.getElementById('caseSaveLocationInput');
 const caseSaveImageOptions = document.getElementById('caseSaveImageOptions');
 const caseSaveSubmitBtn = document.getElementById('caseSaveSubmitBtn');
@@ -81,11 +90,13 @@ const viewPostsBtn = document.getElementById('viewPostsBtn');
 const viewMediaBtn = document.getElementById('viewMediaBtn');
 const viewFootprintBtn = document.getElementById('viewFootprintBtn');
 const viewPatternLifeBtn = document.getElementById('viewPatternLifeBtn');
+const viewTimelineBtn = document.getElementById('viewTimelineBtn');
 const filterMenu = document.getElementById('filterMenu');
 const statusEl = document.getElementById('status');
 const resultsEl = document.getElementById('results');
 const footprintView = document.getElementById('footprintView');
 const patternLifeView = document.getElementById('patternLifeView');
+const timelineView = document.getElementById('timelineView');
 const footprintReconForm = document.getElementById('footprintReconForm');
 const footprintSelectorsList = document.getElementById('footprintSelectorsList');
 const addFootprintSelectorBtn = document.getElementById('addFootprintSelectorBtn');
@@ -93,6 +104,13 @@ const footprintReconBtn = document.getElementById('footprintReconBtn');
 const footprintUseTargetsBtn = document.getElementById('footprintUseTargetsBtn');
 const footprintReconResults = document.getElementById('footprintReconResults');
 const footprintReconStatus = document.getElementById('footprintReconStatus');
+const footprintKnownSelectors = document.getElementById('footprintKnownSelectors');
+const footprintKnownSelectorsTotal = document.getElementById('footprintKnownSelectorsTotal');
+const footprintKnownSelectorsGroups = document.getElementById('footprintKnownSelectorsGroups');
+const footprintPivotProgress = document.getElementById('footprintPivotProgress');
+const footprintPivotProgressLabel = document.getElementById('footprintPivotProgressLabel');
+const footprintReconProgress = document.getElementById('footprintReconProgress');
+const footprintReconProgressLabel = document.getElementById('footprintReconProgressLabel');
 const collectionContext = document.getElementById('collectionContext');
 const contextTargets = document.getElementById('contextTargets');
 const contextRange = document.getElementById('contextRange');
@@ -110,6 +128,8 @@ const addReconSelectorBtn = document.getElementById('addReconSelectorBtn');
 const reconBtn = document.getElementById('reconBtn');
 const reconResults = document.getElementById('reconResults');
 const reconStatus = document.getElementById('reconStatus');
+const reconProgress = document.getElementById('reconProgress');
+const reconProgressLabel = document.getElementById('reconProgressLabel');
 const useReconTargetsBtn = document.getElementById('useReconTargetsBtn');
 const goReconAssessmentBtn = document.getElementById('goReconAssessmentBtn');
 const closeSetupBtn = document.getElementById('closeSetupBtn');
@@ -121,7 +141,6 @@ const endDateInput = document.getElementById('endDateInput');
 const collectBtn = document.getElementById('collectBtn');
 const newCollectionBtn = document.getElementById('newCollectionBtn');
 const quitBtn = document.getElementById('quitBtn');
-const quitSaveBtn = document.getElementById('quitSaveBtn');
 const filterToggleBtn = document.getElementById('filterToggleBtn');
 const filterPanel = document.getElementById('filterPanel');
 const filterTwitter = document.getElementById('filterTwitter');
@@ -160,6 +179,8 @@ const patternLifeRhythmSummary = document.getElementById('patternLifeRhythmSumma
 const patternLifeHourChart = document.getElementById('patternLifeHourChart');
 const patternLifeSourceMix = document.getElementById('patternLifeSourceMix');
 const patternLifeRhythmEmpty = document.getElementById('patternLifeRhythmEmpty');
+const patternLifePlatformFilters = document.getElementById('patternLifePlatformFilters');
+const patternLifeRefreshBtn = document.getElementById('patternLifeRefreshBtn');
 const keywordChart = document.getElementById('keywordChart');
 const keywordEmpty = document.getElementById('keywordEmpty');
 const typeMix = document.getElementById('typeMix');
@@ -169,6 +190,11 @@ const locationMapTotal = document.getElementById('locationMapTotal');
 const patternLifeMap = document.getElementById('patternLifeMap');
 const patternLifeMapEmpty = document.getElementById('patternLifeMapEmpty');
 const patternLifeLocationMapTotal = document.getElementById('patternLifeLocationMapTotal');
+const footprintTimelineSummary = document.getElementById('footprintTimelineSummary');
+const footprintTimelineSummaryText = document.getElementById('footprintTimelineSummaryText');
+const footprintTimelineEarliest = document.getElementById('footprintTimelineEarliest');
+const footprintTimelineEvents = document.getElementById('footprintTimelineEvents');
+const footprintTimelineEmpty = document.getElementById('footprintTimelineEmpty');
 const entityMix = document.getElementById('entityMix');
 const entityMixEmpty = document.getElementById('entityMixEmpty');
 const threatMix = document.getElementById('threatMix');
@@ -240,16 +266,26 @@ let activeStartDate = '';
 let activeEndDate = '';
 let activeUsername = '';
 let activeTargets = [];
+let latestFetchedPosts = [];
 let latestPosts = [];
 let latestRenderedPosts = [];
 let activeResultsView = 'posts';
 let reconTargets = [];
 let reconLeads = [];
 let reconProfiles = [];
+let latestReconPayload = null;
+const hiddenKnownSelectorKeys = new Set();
+const hiddenReconRowKeys = new Set();
+const hiddenOsintTileKeys = new Set();
+const hiddenPdlProfileKeys = new Set();
+const hiddenPdlContactValueKeys = new Set();
+const hiddenPdlProfileUrlKeys = new Set();
 let reconPersonDataProfile = {};
 let reconPersonDataProfiles = [];
 let reconOsintProfiles = [];
+let reconOsintSpecResults = [];
 let reconNumverifyProfiles = [];
+let reconSnapshotCache = null;
 let modalMode = 'chooser';
 let activeInsightsTab = 'ops';
 const activeEntityFilters = new Set();
@@ -277,6 +313,14 @@ const collectionNoticeKeys = new Set();
 const collectionIssueKeys = new Set();
 let reconPreviewTooltipEl = null;
 let activeReconPreviewAnchor = null;
+let activeKnownSelectorFocusKey = '';
+let activeKnownSelectorFocusIndex = -1;
+let reconProgressStartedAt = 0;
+let reconProgressTimer = null;
+let footprintReconProgressStartedAt = 0;
+let footprintReconProgressTimer = null;
+let footprintPivotProgressStartedAt = 0;
+let footprintPivotProgressTimer = null;
 const TARGET_PLATFORM_OPTIONS = [
   { value: 'twitter', label: 'Twitter/X' },
   { value: 'reddit', label: 'Reddit' },
@@ -303,7 +347,17 @@ let latestLocationMapPoints = [];
 let patternLifeMapInstance;
 let patternLifeMapLayer;
 let latestPatternLifeMapPoints = [];
+let latestPatternLifeMapRoutes = [];
+const activePatternLifePlatforms = new Set(SOURCE_ORDER);
+const activeTimelineSources = new Set();
+const activeTimelineActions = new Set();
+let timelineSelectorQuery = '';
+let timelineShowOnlyLinked = false;
+let activeFootprintSourceSelectorKey = 'all';
 let configCustomKeywordList = [];
+const DEFAULT_DATA_RETENTION_PERIOD = '3 months';
+const DATA_RETENTION_PERIOD_OPTIONS = ['24h', '1 week', '3 week', '6 weeks', '3 months', '1 year'];
+let defaultDataRetentionPeriod = DEFAULT_DATA_RETENTION_PERIOD;
 const STOP_WORDS = new Set([
   'about', 'after', 'again', 'also', 'and', 'any', 'are', 'back', 'because', 'been', 'before',
   'being', 'both', 'but', 'can', 'cant', 'could', 'did', 'does', 'dont', 'from', 'get', 'got',
@@ -315,6 +369,10 @@ const STOP_WORDS = new Set([
 ]);
 const LOCATION_COORDS_BY_TAG = {
   'loc:new-york': { name: 'New York', lat: 40.7128, lon: -74.0060 },
+  'loc:united-states': { name: 'United States', lat: 39.8283, lon: -98.5795 },
+  'loc:canada': { name: 'Canada', lat: 56.1304, lon: -106.3468 },
+  'loc:nova-scotia': { name: 'Nova Scotia', lat: 44.682, lon: -63.7443 },
+  'loc:halifax': { name: 'Halifax', lat: 44.6488, lon: -63.5752 },
   'loc:washington-dc': { name: 'Washington DC', lat: 38.9072, lon: -77.0369 },
   'loc:washington': { name: 'Washington', lat: 47.7511, lon: -120.7401 },
   'loc:los-angeles': { name: 'Los Angeles', lat: 34.0522, lon: -118.2437 },
@@ -335,6 +393,38 @@ const LOCATION_COORDS_BY_TAG = {
   'loc:beijing': { name: 'Beijing', lat: 39.9042, lon: 116.4074 },
   'loc:moscow': { name: 'Moscow', lat: 55.7558, lon: 37.6173 },
 };
+const LOCATION_ALIAS_TO_TAG = {
+  'new york city': 'loc:new-york',
+  nyc: 'loc:new-york',
+  'washington, dc': 'loc:washington-dc',
+  'washington d.c.': 'loc:washington-dc',
+  'district of columbia': 'loc:washington-dc',
+  dc: 'loc:washington-dc',
+  'd.c.': 'loc:washington-dc',
+  'united states of america': 'loc:united-states',
+  'united states': 'loc:united-states',
+  usa: 'loc:united-states',
+  'u.s.a.': 'loc:united-states',
+  us: 'loc:united-states',
+  'u.s.': 'loc:united-states',
+  'country us': 'loc:united-states',
+  'country usa': 'loc:united-states',
+  canada: 'loc:canada',
+  'country ca': 'loc:canada',
+  'nova scotia': 'loc:nova-scotia',
+  halifax: 'loc:halifax',
+  'halifax, nova scotia': 'loc:halifax',
+  'halifax, nova scotia, canada': 'loc:halifax',
+};
+
+function clearHiddenReconEntities() {
+  hiddenKnownSelectorKeys.clear();
+  hiddenReconRowKeys.clear();
+  hiddenOsintTileKeys.clear();
+  hiddenPdlProfileKeys.clear();
+  hiddenPdlContactValueKeys.clear();
+  hiddenPdlProfileUrlKeys.clear();
+}
 
 function toDateInputValue(date) {
   const year = date.getUTCFullYear();
@@ -445,8 +535,16 @@ function adjustTargetUsernameForCollection(platform, normalizedUsername) {
   return username;
 }
 
+function canonicalTargetKey(platform, username) {
+  const normalizedPlatform = String(platform || '').trim().toLowerCase();
+  const normalizedUsername = normalizeTargetUsername(normalizedPlatform, username);
+  const adjusted = adjustTargetUsernameForCollection(normalizedPlatform, normalizedUsername);
+  return `${normalizedPlatform}|${String(adjusted || '').trim().toLowerCase()}`;
+}
+
 function getTargetsFromForm() {
   const targets = [];
+  const seen = new Set();
   for (const row of targetsList.querySelectorAll('.target-row')) {
     const platformEl = row.querySelector('.target-platform');
     const usernameEl = row.querySelector('.target-username');
@@ -455,6 +553,9 @@ function getTargetsFromForm() {
     const normalizedUsername = normalizeTargetUsername(platform, usernameEl.value);
     if (!normalizedUsername) continue;
     const adjustedUsername = adjustTargetUsernameForCollection(platform, normalizedUsername);
+    const dedupeKey = canonicalTargetKey(platform, adjustedUsername);
+    if (seen.has(dedupeKey)) continue;
+    seen.add(dedupeKey);
     targets.push({ platform, username: adjustedUsername });
   }
   return targets;
@@ -544,6 +645,7 @@ function caseRowMarkup(row) {
   const caseName = String(row?.case_name || 'Untitled Case').trim() || 'Untitled Case';
   const status = String(row?.status || 'Open').trim() || 'Open';
   const threatLevel = String(row?.threat_level || 'Low Threat').trim() || 'Low Threat';
+  const retentionPeriod = normalizeDataRetentionPeriod(row?.data_retention_period);
   const knownLocation = String(row?.known_location || '').trim() || 'Unknown';
   const openedAt = formatIsoDateTime(row?.opened_at);
   const editedAt = formatIsoDateTime(row?.last_edited_at);
@@ -568,6 +670,7 @@ function caseRowMarkup(row) {
             <span class="case-chip case-badge case-status ${escapeAttr(statusCls)}">${escapeHtml(status)}</span>
             <span class="case-chip case-badge threat ${escapeAttr(threatCls)}">${escapeHtml(threatLevel)}</span>
             <span class="case-chip case-tag case-tag-location">${escapeHtml(knownLocation)}</span>
+            <span class="case-chip case-tag">Retention: ${escapeHtml(retentionPeriod)}</span>
             <span class="case-chip case-tag case-tag-collected">${postCount} Posts Collected</span>
           </div>
           <div class="case-submeta">
@@ -681,6 +784,21 @@ async function deleteCaseAndContents(caseId) {
   const ok = window.confirm('Delete this case and all collected posts?');
   if (!ok) return;
   try {
+    const archiveSelectors = window.confirm('Would you like to save selectors to your internal Known Entities Database?');
+    if (archiveSelectors) {
+      const archiveResponse = await fetch('/api/known-entities/archive-case', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ case_id: id }),
+      });
+      if (!archiveResponse.ok) {
+        const archiveError = await parseErrorResponse(archiveResponse);
+        const continueDelete = window.confirm(
+          `Could not save selectors to Known Entities Database (${archiveError}). Continue deleting this case anyway?`,
+        );
+        if (!continueDelete) return;
+      }
+    }
     const response = await fetch(`/api/cases/${encodeURIComponent(id)}`, { method: 'DELETE' });
     if (!response.ok) {
       const message = await parseErrorResponse(response);
@@ -697,7 +815,7 @@ async function deleteCaseAndContents(caseId) {
       showCaseWorkspace();
     }
     await loadCases();
-    showNotification('Case deleted', 'success');
+    showNotification(archiveSelectors ? 'Case deleted (selectors archived)' : 'Case deleted', 'success');
   } catch (error) {
     console.error(error);
     showNotification(`Delete failed: ${error.message || 'unknown error'}`, 'error');
@@ -739,6 +857,21 @@ function watchlistCadenceForCase(caseId, fallback = '') {
   return String(fallback || '').trim();
 }
 
+function normalizeDataRetentionPeriod(value) {
+  const clean = String(value || '').trim().toLowerCase();
+  const lookup = {
+    '24h': '24h',
+    '24 hours': '24h',
+    '1 week': '1 week',
+    '3 week': '3 week',
+    '3 weeks': '3 week',
+    '6 weeks': '6 weeks',
+    '3 months': '3 months',
+    '1 year': '1 year',
+  };
+  return lookup[clean] || DEFAULT_DATA_RETENTION_PERIOD;
+}
+
 function storeWatchlistCadence(caseId, status, cadence) {
   const key = String(caseId || '').trim();
   if (!key) return;
@@ -771,8 +904,12 @@ function openCaseEditModal(caseId) {
   const row = caseList.find((item) => String(item?.case_id || '') === id);
   if (!row) return;
   editingCaseId = id;
+  if (caseEditTitleInput instanceof HTMLInputElement) {
+    caseEditTitleInput.value = String(row.case_name || 'Untitled Case').trim() || 'Untitled Case';
+  }
   if (caseEditStatusSelect) caseEditStatusSelect.value = String(row.status || 'Open');
   if (caseEditThreatSelect) caseEditThreatSelect.value = String(row.threat_level || 'Low Threat');
+  if (caseEditRetentionSelect) caseEditRetentionSelect.value = normalizeDataRetentionPeriod(row.data_retention_period);
   if (caseEditLocationSelect) {
     caseEditLocationSelect.value = String(row.known_location || 'Unknown').trim() || 'Unknown';
   }
@@ -786,6 +923,7 @@ function openCaseEditModal(caseId) {
 function closeCaseEditModal() {
   editingCaseId = '';
   if (caseEditCadenceSelect) caseEditCadenceSelect.value = '';
+  if (caseEditRetentionSelect) caseEditRetentionSelect.value = DEFAULT_DATA_RETENTION_PERIOD;
   setWatchlistCadenceVisibility(caseEditStatusSelect, caseEditCadenceField, caseEditCadenceSelect);
   setCaseEditModalOpen(false);
 }
@@ -794,9 +932,11 @@ async function submitCaseEdit(event) {
   event.preventDefault();
   const id = String(editingCaseId || '').trim();
   if (!id) return;
+  const nextName = String(caseEditTitleInput?.value || '').trim() || 'Untitled Case';
   const nextStatus = String(caseEditStatusSelect?.value || '').trim();
   const nextCadence = String(caseEditCadenceSelect?.value || '').trim();
   const nextThreat = String(caseEditThreatSelect?.value || '').trim();
+  const nextRetention = normalizeDataRetentionPeriod(caseEditRetentionSelect?.value);
   const nextLocation = String(caseEditLocationSelect?.value || 'Unknown').trim() || 'Unknown';
   if (nextStatus === 'Watchlist' && !nextCadence) {
     showNotification('Monitoring refresh cadence is required for Watchlist.', 'warn');
@@ -809,8 +949,10 @@ async function submitCaseEdit(event) {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        case_name: nextName,
         status: nextStatus,
         threat_level: nextThreat,
+        data_retention_period: nextRetention,
         known_location: nextLocation,
       }),
     });
@@ -913,6 +1055,7 @@ async function fetchCasePosts(caseId) {
 
 async function openCaseSaveModal() {
   if (!activeCaseId) {
+    showNotification('No active case selected.', 'warn');
     showCaseWorkspace();
     return;
   }
@@ -920,29 +1063,42 @@ async function openCaseSaveModal() {
   const currentStatus = String(activeCase?.status || 'Open').trim() || 'Open';
   const currentCadence = watchlistCadenceForCase(activeCaseId, activeCase?.monitoring_refresh_cadence);
   const currentThreat = String(activeCase?.threat_level || 'Low Threat').trim() || 'Low Threat';
+  const currentRetention = normalizeDataRetentionPeriod(activeCase?.data_retention_period);
   const currentLocation = String(activeCase?.known_location || 'Unknown').trim() || 'Unknown';
   const currentPoiImage = normalizeProfileImageUrl(activeCase?.poi_image_url);
   if (caseSaveTitleInput) caseSaveTitleInput.value = currentName;
   if (caseSaveStatusSelect) caseSaveStatusSelect.value = currentStatus;
   if (caseSaveCadenceSelect) caseSaveCadenceSelect.value = currentCadence;
   if (caseSaveThreatSelect) caseSaveThreatSelect.value = currentThreat;
+  if (caseSaveRetentionSelect) caseSaveRetentionSelect.value = currentRetention;
   if (caseSaveLocationInput) caseSaveLocationInput.value = currentLocation;
-  const posts = await fetchCasePosts(activeCaseId);
-  const associatedImages = uniqueProfileImageUrls(posts);
-  if (currentPoiImage && !associatedImages.includes(currentPoiImage)) {
-    associatedImages.unshift(currentPoiImage);
-  }
-  caseSaveImageChoices = associatedImages;
+  caseSaveImageChoices = currentPoiImage ? [currentPoiImage] : [];
   caseSaveSelectedImageUrl = currentPoiImage || USER_PLACEHOLDER_AVATAR_URL;
   renderCaseSaveImageOptions();
   setWatchlistCadenceVisibility(caseSaveStatusSelect, caseSaveCadenceField, caseSaveCadenceSelect, currentCadence);
   setCaseSaveModalOpen(true);
+  fetchCasePosts(activeCaseId)
+    .then((posts) => {
+      const associatedImages = uniqueProfileImageUrls(posts);
+      if (currentPoiImage && !associatedImages.includes(currentPoiImage)) {
+        associatedImages.unshift(currentPoiImage);
+      }
+      caseSaveImageChoices = associatedImages;
+      if (!caseSaveSelectedImageUrl) {
+        caseSaveSelectedImageUrl = currentPoiImage || USER_PLACEHOLDER_AVATAR_URL;
+      }
+      renderCaseSaveImageOptions();
+    })
+    .catch(() => {
+      // Image candidates are optional for save flow.
+    });
 }
 
 function closeCaseSaveModal() {
   caseSaveSelectedImageUrl = '';
   caseSaveImageChoices = [];
   if (caseSaveCadenceSelect) caseSaveCadenceSelect.value = '';
+  if (caseSaveRetentionSelect) caseSaveRetentionSelect.value = DEFAULT_DATA_RETENTION_PERIOD;
   setWatchlistCadenceVisibility(caseSaveStatusSelect, caseSaveCadenceField, caseSaveCadenceSelect);
   setCaseSaveModalOpen(false);
 }
@@ -999,18 +1155,19 @@ function _collectionTargetFromKnownProfile(profile, siteKey) {
 function seedReconFromCaseNotes(caseRow) {
   const notes = normalizeCaseNotesObject(caseRow?.case_notes || {});
   const knownProfiles = normalizeKnownProfiles(notes.known_profiles);
+  const snapshot = normalizeReconSnapshot(notes.recon_snapshot);
+  if (snapshot && applyReconSnapshot(snapshot)) {
+    if (footprintReconStatus) {
+      const payload = snapshot.payload || {};
+      footprintReconStatus.textContent = `Loaded saved recon snapshot: ${Number(payload.present_count) || 0} account match(es) across ${Number(payload.checked) || 0} checks.`;
+    }
+    return;
+  }
+  reconSnapshotCache = null;
   if (!knownProfiles.length) {
-    reconProfiles = [];
-    reconTargets = [];
-    reconLeads = [];
-    reconPersonDataProfile = {};
-    reconPersonDataProfiles = [];
-    reconOsintProfiles = [];
-    reconNumverifyProfiles = [];
-    renderLeadsList();
-    renderReconResults({ results: [], checked: 0, present_count: 0 }, reconResults);
-    renderReconResults({ results: [], checked: 0, present_count: 0 }, footprintReconResults);
-    renderPatternOfLife(latestPosts);
+    latestReconPayload = emptyReconPayload();
+    clearHiddenReconEntities();
+    applyReconPayload(latestReconPayload, { statusPrefix: 'Recon ready' });
     if (footprintReconStatus) footprintReconStatus.textContent = 'No seeded digital footprint profiles found in case notes.';
     return;
   }
@@ -1029,8 +1186,8 @@ function seedReconFromCaseNotes(caseRow) {
     };
   });
 
-  const collectionReadyProfiles = results.filter((row) => row.supported_for_collection && String(row.profile_url || '').trim());
-  const unsupportedProfilesWithUrl = results.filter((row) => !row.supported_for_collection && String(row.profile_url || '').trim());
+  const collectionReadyProfiles = dedupeRowsByProfileUrl(results.filter((row) => row.supported_for_collection && String(row.profile_url || '').trim()));
+  const unsupportedProfilesWithUrl = dedupeRowsByProfileUrl(results.filter((row) => !row.supported_for_collection && String(row.profile_url || '').trim()));
   const knownPresentWithoutUrl = results.filter((row) => !String(row.profile_url || '').trim());
 
   const targetMap = new Map();
@@ -1043,35 +1200,29 @@ function seedReconFromCaseNotes(caseRow) {
     targetMap.set(key, target);
   }
 
-  reconProfiles = results;
-  reconTargets = Array.from(targetMap.values());
-  reconLeads = unsupportedProfilesWithUrl.map((row) => ({
-    site: row.site,
-    profile_url: row.profile_url,
-    screenshot_url: row.screenshot_url,
-    source: 'seed',
-  }));
-  reconPersonDataProfile = {};
-  reconPersonDataProfiles = [];
-  reconOsintProfiles = [];
-  reconNumverifyProfiles = [];
-  renderLeadsList();
-
   const payload = {
     results,
+    selectors: [],
+    collection_targets: Array.from(targetMap.values()),
+    leads: unsupportedProfilesWithUrl.map((row) => ({
+      site: row.site,
+      profile_url: row.profile_url,
+      screenshot_url: row.screenshot_url,
+      source: 'seed',
+    })),
     checked: results.length,
     present_count: results.length,
     collection_ready_profiles: collectionReadyProfiles,
     unsupported_profiles_with_url: unsupportedProfilesWithUrl,
     known_present_without_url: knownPresentWithoutUrl,
     osint_profiles: [],
+    osint_spec_results: [],
     numverify_profiles: [],
     person_data_profile: {},
     person_data_profiles: [],
   };
-  renderReconResults(payload, reconResults);
-  renderReconResults(payload, footprintReconResults);
-  renderPatternOfLife(latestPosts);
+  clearHiddenReconEntities();
+  applyReconPayload(payload, { statusPrefix: 'Seeded recon loaded' });
   if (footprintReconStatus) {
     footprintReconStatus.textContent = `Loaded ${results.length} seeded profile hit(s) from case notes.`;
   }
@@ -1092,6 +1243,71 @@ function normalizeProfileKey(site, url) {
   const handle = extractHandleFromProfileUrl(url).toLowerCase();
   if (platform && handle) return `${platform}|${handle}`;
   return `${platform}|${String(url || '').trim().toLowerCase()}`;
+}
+
+function cloneJsonSafe(value, fallback = null) {
+  try {
+    return JSON.parse(JSON.stringify(value));
+  } catch (error) {
+    return fallback;
+  }
+}
+
+function normalizeReconSnapshot(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const payloadRaw = raw.payload && typeof raw.payload === 'object' ? raw.payload : {};
+  return {
+    version: Number(raw.version) || 1,
+    saved_at: String(raw.saved_at || '').trim(),
+    payload: {
+      results: Array.isArray(payloadRaw.results) ? payloadRaw.results : [],
+      checked: Number(payloadRaw.checked) || 0,
+      present_count: Number(payloadRaw.present_count) || 0,
+      collection_targets: Array.isArray(payloadRaw.collection_targets) ? payloadRaw.collection_targets : [],
+      leads: Array.isArray(payloadRaw.leads) ? payloadRaw.leads : [],
+      collection_ready_profiles: Array.isArray(payloadRaw.collection_ready_profiles) ? payloadRaw.collection_ready_profiles : [],
+      unsupported_profiles_with_url: Array.isArray(payloadRaw.unsupported_profiles_with_url) ? payloadRaw.unsupported_profiles_with_url : [],
+      known_present_without_url: Array.isArray(payloadRaw.known_present_without_url) ? payloadRaw.known_present_without_url : [],
+      person_data_profile: payloadRaw.person_data_profile && typeof payloadRaw.person_data_profile === 'object' ? payloadRaw.person_data_profile : {},
+      person_data_profiles: Array.isArray(payloadRaw.person_data_profiles) ? payloadRaw.person_data_profiles : [],
+      osint_profiles: Array.isArray(payloadRaw.osint_profiles) ? payloadRaw.osint_profiles : [],
+      osint_spec_results: Array.isArray(payloadRaw.osint_spec_results) ? payloadRaw.osint_spec_results : [],
+      numverify_profiles: Array.isArray(payloadRaw.numverify_profiles) ? payloadRaw.numverify_profiles : [],
+      api_modules_queried: Array.isArray(payloadRaw.api_modules_queried) ? payloadRaw.api_modules_queried : [],
+    },
+  };
+}
+
+function buildReconSnapshotFromPayload(payload) {
+  const normalized = normalizeReconSnapshot({
+    version: 1,
+    saved_at: new Date().toISOString(),
+    payload: cloneJsonSafe(payload, {}),
+  });
+  return normalized;
+}
+
+function applyReconSnapshot(snapshot) {
+  const normalized = normalizeReconSnapshot(snapshot);
+  if (!normalized) return false;
+  const payload = normalized.payload;
+  reconSnapshotCache = normalized;
+  latestReconPayload = payload;
+  clearHiddenReconEntities();
+  applyReconPayload(payload, { statusPrefix: 'Recon snapshot loaded' });
+  return true;
+}
+
+function setReconSnapshotFromPayload(payload) {
+  const snapshot = buildReconSnapshotFromPayload(payload);
+  if (!snapshot) return;
+  reconSnapshotCache = snapshot;
+  if (!activeCase || typeof activeCase !== 'object') return;
+  const existingNotes = normalizeCaseNotesObject(activeCase.case_notes || {});
+  activeCase.case_notes = {
+    ...existingNotes,
+    recon_snapshot: snapshot,
+  };
 }
 
 function extractHandleFromProfileUrl(url) {
@@ -1403,6 +1619,7 @@ async function submitCaseNotes(event) {
     }))
     .filter((profile) => profile.site || profile.url || profile.image_url || profile.screenshot_url);
   const notes = {
+    ...normalizeCaseNotesObject(activeCase?.case_notes || {}),
     name,
     location,
     age,
@@ -1412,6 +1629,7 @@ async function submitCaseNotes(event) {
     threat_risk_assessment: threatRisk,
     personal_details: personal,
     known_profiles: sanitizedProfiles,
+    recon_snapshot: reconSnapshotCache || normalizeReconSnapshot(activeCase?.case_notes?.recon_snapshot),
   };
   if (caseNotesSaveBtn) caseNotesSaveBtn.disabled = true;
   try {
@@ -1478,15 +1696,33 @@ function exportCaseNotesPdf() {
 async function submitCaseSave(event) {
   event.preventDefault();
   const id = String(activeCaseId || '').trim();
-  if (!id) return;
+  if (!id) {
+    showNotification('Cannot save: no active case selected.', 'error');
+    return;
+  }
   const nextName = String(caseSaveTitleInput?.value || '').trim();
   const nextStatus = String(caseSaveStatusSelect?.value || '').trim();
   const nextCadence = String(caseSaveCadenceSelect?.value || '').trim();
   const nextThreat = String(caseSaveThreatSelect?.value || '').trim();
+  const nextRetention = normalizeDataRetentionPeriod(caseSaveRetentionSelect?.value);
   const nextLocation = String(caseSaveLocationInput?.value || 'Unknown').trim() || 'Unknown';
   const selectedInput = caseSaveForm?.querySelector('input[name="caseSavePoiImage"]:checked');
   const selectedImage = selectedInput instanceof HTMLInputElement ? String(selectedInput.value || '').trim() : '';
   const nextPoiImage = selectedImage === USER_PLACEHOLDER_AVATAR_URL ? '' : normalizeProfileImageUrl(selectedImage);
+  const existingNotes = normalizeCaseNotesObject(activeCase?.case_notes || {});
+  const existingKnownProfiles = normalizeKnownProfiles(existingNotes.known_profiles);
+  const discoveredFromRecon = defaultKnownProfilesFromRecon();
+  const discoveredFromPosts = discoverKnownProfilesFromPosts(Array.isArray(latestFetchedPosts) ? latestFetchedPosts : latestPosts);
+  const discoveredKnownProfiles = mergeDiscoveredKnownProfiles(discoveredFromRecon, discoveredFromPosts);
+  const mergedKnownProfiles = mergeDiscoveredKnownProfiles(existingKnownProfiles, discoveredKnownProfiles);
+  const notes = {
+    ...existingNotes,
+    name: String(existingNotes.name || nextName || '').trim(),
+    location: String(nextLocation || existingNotes.location || '').trim(),
+    subject_image_url: nextPoiImage,
+    known_profiles: mergedKnownProfiles,
+    recon_snapshot: reconSnapshotCache || normalizeReconSnapshot(existingNotes.recon_snapshot),
+  };
   if (!nextName) {
     showNotification('Case title is required.', 'warn');
     return;
@@ -1505,8 +1741,10 @@ async function submitCaseSave(event) {
         case_name: nextName,
         status: nextStatus,
         threat_level: nextThreat,
+        data_retention_period: nextRetention,
         known_location: nextLocation,
         poi_image_url: nextPoiImage,
+        case_notes: notes,
       }),
     });
     if (!response.ok) {
@@ -1558,6 +1796,7 @@ async function createNewCaseAndLaunch() {
         case_name: `Case ${stamp}`,
         status: 'Open',
         threat_level: 'Low Threat',
+        data_retention_period: normalizeDataRetentionPeriod(defaultDataRetentionPeriod),
         known_location: '',
       }),
     });
@@ -2337,13 +2576,13 @@ function inferQuotedText(post) {
 function renderQuoteNest(post) {
   if (String(post?.post_type || '').toLowerCase() !== 'quote') return '';
   const metadata = post?.metadata || {};
-  const referenced = String(post?.referenced_username || '').trim();
+  const referenced = String(post?.referenced_username || metadata.quote_username || '').trim();
   const quoteText = inferQuotedText(post);
   if (!quoteText) return '';
   const quoteUrl = String(metadata.quote_url || post?.source_url || '').trim();
   return `
     <blockquote class="quote-nest">
-      <div class="quote-meta">${referenced ? `@${escapeHtml(referenced)}` : 'Quoted'}</div>
+      <div class="quote-meta">${referenced ? `Quoted from @${escapeHtml(referenced)}` : 'Quoted'}</div>
       <div class="quote-text">${renderContentWithSignals(quoteText, searchInput.value, post)}</div>
       ${isHttpUrl(quoteUrl) ? `<a class="quote-link" href="${escapeHtml(quoteUrl)}" target="_blank" rel="noopener noreferrer">Open quoted post</a>` : ''}
     </blockquote>
@@ -2649,6 +2888,37 @@ function selectedTags() {
   return { include };
 }
 
+function sourceTypeFilterState() {
+  const sourceMap = new Map([
+    ['twitter', Boolean(filterTwitter?.checked)],
+    ['reddit', Boolean(filterReddit?.checked)],
+    ['tiktok', Boolean(filterTiktok?.checked)],
+    ['bluesky', Boolean(filterBluesky?.checked)],
+    ['instagram', Boolean(filterInstagram?.checked)],
+    ['youtube', Boolean(filterYoutube?.checked)],
+  ]);
+  const typeMap = new Map([
+    ['post', Boolean(filterPost?.checked)],
+    ['repost', Boolean(filterRepost?.checked)],
+    ['reply', Boolean(filterReply?.checked)],
+    ['quote', Boolean(filterQuote?.checked)],
+    ['comment', Boolean(filterComment?.checked)],
+  ]);
+  return { sourceMap, typeMap };
+}
+
+function applySourceAndTypeFilters(posts) {
+  const rows = Array.isArray(posts) ? posts : [];
+  const state = sourceTypeFilterState();
+  return rows.filter((post) => {
+    const source = normalizePlatformName(post?.platform);
+    if (source && state.sourceMap.has(source) && !state.sourceMap.get(source)) return false;
+    const kind = String(post?.post_type || 'post').trim().toLowerCase();
+    if (kind && state.typeMap.has(kind) && !state.typeMap.get(kind)) return false;
+    return true;
+  });
+}
+
 function normalizeCustomKeywordTerm(value) {
   return String(value || '').replace(/\s+/g, ' ').trim();
 }
@@ -2701,7 +2971,8 @@ function removeConfigCustomKeywordTerm(termLower) {
   renderConfigCustomKeywordPills();
   renderCustomKeywordMix(latestPosts);
   updateFilterToggleLabel();
-  queueRefresh();
+  _dashboardFilterCache = { rows: null, key: '', output: [] };
+  rerenderFromCurrentFilters();
 }
 
 function postHasPhoto(post) {
@@ -2757,6 +3028,19 @@ function applyMixFilters(posts) {
       }
       if (filter === 'media:photo' && !postHasPhoto(post)) return false;
       if (filter === 'media:video' && !postHasVideo(post)) return false;
+    }
+    return true;
+  });
+}
+
+function applyEntityTagFilters(posts) {
+  const rows = Array.isArray(posts) ? posts : [];
+  if (!activeEntityFilters.size) return rows;
+  return rows.filter((post) => {
+    const tags = Array.isArray(post?.tags) ? post.tags : [];
+    const lowered = new Set(tags.map((item) => String(item || '').trim().toLowerCase()).filter(Boolean));
+    for (const tag of activeEntityFilters) {
+      if (!lowered.has(tag)) return false;
     }
     return true;
   });
@@ -2820,8 +3104,59 @@ function applyFaceFilters(posts) {
   });
 }
 
+let _dashboardFilterCache = { rows: null, key: '', output: [] };
+
+function dashboardFilterCacheKey() {
+  const sourceType = sourceTypeFilterState();
+  const sourceBits = Array.from(sourceType.sourceMap.entries()).map(([name, enabled]) => `${name}:${enabled ? 1 : 0}`).join('|');
+  const postTypeBits = Array.from(sourceType.typeMap.entries()).map(([name, enabled]) => `${name}:${enabled ? 1 : 0}`).join('|');
+  const signalBits = [
+    filterSelectors?.checked ? 1 : 0,
+    filterIdeologicalIndicators?.checked ? 1 : 0,
+    filterThreatSignals?.checked ? 1 : 0,
+    filterLLMPrimary?.checked ? 1 : 0,
+    filterLLMSecondary?.checked ? 1 : 0,
+  ].join('');
+  const setKey = (values) => Array.from(values).sort().join(',');
+  return [
+    sourceBits,
+    postTypeBits,
+    signalBits,
+    setKey(activeEntityFilters),
+    setKey(activeMixFilters),
+    setKey(activeSignalFilters),
+    setKey(activeCustomKeywordFilters),
+    setKey(activeFaceFilters),
+    activeFaceMinConfidence.toFixed(2),
+  ].join('||');
+}
+
 function applyDashboardFilters(posts) {
-  return applyFaceFilters(applyCustomKeywordFilters(applySignalTagFilters(applyMixFilters(applySignalTypeFilter(posts)))));
+  const rows = Array.isArray(posts) ? posts : [];
+  const key = dashboardFilterCacheKey();
+  if (_dashboardFilterCache.rows === rows && _dashboardFilterCache.key === key) {
+    return _dashboardFilterCache.output;
+  }
+  const output = applyFaceFilters(
+    applyCustomKeywordFilters(
+      applySignalTagFilters(
+        applyMixFilters(
+          applyEntityTagFilters(
+            applySignalTypeFilter(
+              applySourceAndTypeFilters(rows),
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+  _dashboardFilterCache = { rows, key, output };
+  return output;
+}
+
+function rerenderFromCurrentFilters() {
+  const filteredPosts = applyDashboardFilters(latestFetchedPosts);
+  renderPosts(filteredPosts);
 }
 
 function dayKey(timestamp) {
@@ -3447,7 +3782,7 @@ function refreshMapLayout() {
     }
     if (patternLifeMapInstance) {
       patternLifeMapInstance.invalidateSize();
-      updatePatternLifeMapViewport(latestPatternLifeMapPoints);
+      updatePatternLifeMapViewport(latestPatternLifeMapPoints, latestPatternLifeMapRoutes);
     }
     if (postingTimezoneMapInstance) postingTimezoneMapInstance.invalidateSize();
   });
@@ -3561,11 +3896,49 @@ function _locationPairsByName() {
     .sort((a, b) => b.name.length - a.name.length);
 }
 
+function _normalizeLocationProbeText(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[_\u2013\u2014-]+/g, ' ')
+    .replace(/[()[\]{}]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function _locationCandidateFragments(text) {
+  const normalized = _normalizeLocationProbeText(text);
+  if (!normalized) return [];
+  const seen = new Set();
+  const out = [];
+  const pushCandidate = (candidate) => {
+    const clean = _normalizeLocationProbeText(candidate)
+      .replace(/^(?:biolocation|bio location|location|loc|city|state|province|region|country)\s*[:=]?\s*/i, '')
+      .trim();
+    if (!clean || seen.has(clean)) return;
+    seen.add(clean);
+    out.push(clean);
+  };
+  pushCandidate(normalized);
+  for (const part of normalized.split(/[|/;,]+/g)) pushCandidate(part);
+  for (const part of normalized.split(/\s+(?:or|and)\s+/g)) pushCandidate(part);
+  return out;
+}
+
 function _resolvedLocationsFromText(text, pairs) {
-  const normalized = String(text || '').trim().toLowerCase();
+  const normalized = _normalizeLocationProbeText(text);
   if (!normalized) return [];
   const hits = [];
   const seen = new Set();
+  for (const probe of _locationCandidateFragments(normalized)) {
+    const aliasTag = LOCATION_ALIAS_TO_TAG[probe];
+    const aliasLocation = aliasTag ? LOCATION_COORDS_BY_TAG[aliasTag] : null;
+    if (!aliasLocation) continue;
+    const aliasName = String(aliasLocation.name || '').trim().toLowerCase();
+    if (!aliasName || seen.has(aliasName)) continue;
+    seen.add(aliasName);
+    hits.push(aliasLocation);
+  }
   for (const location of pairs) {
     const candidate = String(location.name || '').trim();
     if (!candidate) continue;
@@ -3580,18 +3953,77 @@ function _resolvedLocationsFromText(text, pairs) {
   return hits;
 }
 
+function _selectMostSpecificLocationMatch(rawText, matches) {
+  if (!Array.isArray(matches) || !matches.length) return null;
+  const BROAD_LOCATION_NAMES = new Set([
+    'united states',
+    'canada',
+    'washington',
+    'texas',
+    'california',
+    'florida',
+    'ukraine',
+    'israel',
+    'palestine',
+    'gaza',
+  ]);
+  const fragments = _locationCandidateFragments(rawText);
+  const uniqueMatches = [];
+  const seenNames = new Set();
+  for (const row of matches) {
+    const name = String(row?.name || '').trim().toLowerCase();
+    if (!name || seenNames.has(name)) continue;
+    seenNames.add(name);
+    uniqueMatches.push(row);
+  }
+  for (const fragment of fragments) {
+    const hit = uniqueMatches.find((row) => String(row?.name || '').trim().toLowerCase() === fragment);
+    if (hit) return hit;
+  }
+  const ranked = uniqueMatches.slice().sort((a, b) => {
+    const aName = String(a?.name || '').trim().toLowerCase();
+    const bName = String(b?.name || '').trim().toLowerCase();
+    const aBroad = BROAD_LOCATION_NAMES.has(aName) ? 1 : 0;
+    const bBroad = BROAD_LOCATION_NAMES.has(bName) ? 1 : 0;
+    if (aBroad !== bBroad) return aBroad - bBroad;
+    const aWords = aName ? aName.split(/\s+/g).length : 0;
+    const bWords = bName ? bName.split(/\s+/g).length : 0;
+    if (aWords !== bWords) return bWords - aWords;
+    return bName.length - aName.length;
+  });
+  return ranked[0] || null;
+}
+
 function _primaryLocationLabel(locationName, fallbackLabel = 'Unknown') {
   const clean = String(locationName || '').trim();
   if (!clean) return fallbackLabel;
   return clean;
 }
 
+function _cleanLocationEntityLabel(value) {
+  const clean = String(value || '')
+    .trim()
+    .replace(/^(?:biolocation|bio location|location|loc|city|state|province|region|country)\s*[:=]?\s*/i, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return clean;
+}
+
 function collectPatternOfLifeLocationPoints(posts) {
   const locationPairsByName = _locationPairsByName();
+  const AMBIGUOUS_LOCATION_TOKENS = new Set([
+    'washington',
+    'georgia',
+    'victoria',
+    'queens',
+    'hamilton',
+  ]);
   const pointsByKey = new Map();
+  const routesByKey = new Map();
   const kindKey = (kind) => {
     const normalized = String(kind || '').trim().toLowerCase();
     if (normalized === 'post' || normalized === 'post_ner' || normalized === 'post_text') return 'post';
+    if (normalized === 'osint_industries_route') return 'osint_industries';
     if (normalized === 'pdl') return 'pdl';
     if (normalized === 'numverify') return 'numverify';
     if (normalized === 'osint_industries') return 'osint_industries';
@@ -3605,7 +4037,7 @@ function collectPatternOfLifeLocationPoints(posts) {
       const sourceKind = kindKey(reference?.kind);
       existing.sourceCounts.set(sourceKind, (existing.sourceCounts.get(sourceKind) || 0) + 1);
       if (reference && existing.refKeys.size < 24) {
-        const refKey = `${reference.kind || 'source'}|${reference.label || ''}|${reference.postIndex ?? ''}|${reference.detail || ''}`;
+        const refKey = `${reference.kind || 'source'}|${reference.label || ''}|${reference.postIndex ?? ''}|${reference.detail || ''}|${reference.profileUrl || ''}`;
         if (!existing.refKeys.has(refKey)) {
           existing.refKeys.add(refKey);
           existing.references.push(reference);
@@ -3619,11 +4051,62 @@ function collectPatternOfLifeLocationPoints(posts) {
     const sourceKind = kindKey(reference?.kind);
     sourceCounts.set(sourceKind, 1);
     if (reference) {
-      const refKey = `${reference.kind || 'source'}|${reference.label || ''}|${reference.postIndex ?? ''}|${reference.detail || ''}`;
+      const refKey = `${reference.kind || 'source'}|${reference.label || ''}|${reference.postIndex ?? ''}|${reference.detail || ''}|${reference.profileUrl || ''}`;
       refKeys.add(refKey);
       references.push(reference);
     }
     pointsByKey.set(key, { name, lat, lon, count: 1, references, refKeys, sourceCounts });
+  };
+  const addRoute = (name, coordinates, reference = null) => {
+    const points = Array.isArray(coordinates)
+      ? coordinates
+        .map((item) => {
+          const lat = Number(item?.lat);
+          const lon = Number(item?.lon);
+          if (Number.isNaN(lat) || Number.isNaN(lon)) return null;
+          return { lat, lon };
+        })
+        .filter(Boolean)
+      : [];
+    if (points.length < 2) return;
+    const start = points[0];
+    const end = points[points.length - 1];
+    const key = `${name}|${start.lat.toFixed(4)}|${start.lon.toFixed(4)}|${end.lat.toFixed(4)}|${end.lon.toFixed(4)}|${points.length}`;
+    const existing = routesByKey.get(key);
+    if (existing) {
+      existing.count += 1;
+      const sourceKind = kindKey(reference?.kind);
+      existing.sourceCounts.set(sourceKind, (existing.sourceCounts.get(sourceKind) || 0) + 1);
+      if (reference && existing.refKeys.size < 24) {
+        const refKey = `${reference.kind || 'source'}|${reference.label || ''}|${reference.postIndex ?? ''}|${reference.detail || ''}|${reference.profileUrl || ''}`;
+        if (!existing.refKeys.has(refKey)) {
+          existing.refKeys.add(refKey);
+          existing.references.push(reference);
+        }
+      }
+      return;
+    }
+    const center = points[Math.floor(points.length / 2)] || start;
+    const references = [];
+    const refKeys = new Set();
+    const sourceCounts = new Map();
+    const sourceKind = kindKey(reference?.kind);
+    sourceCounts.set(sourceKind, 1);
+    if (reference) {
+      const refKey = `${reference.kind || 'source'}|${reference.label || ''}|${reference.postIndex ?? ''}|${reference.detail || ''}|${reference.profileUrl || ''}`;
+      refKeys.add(refKey);
+      references.push(reference);
+    }
+    routesByKey.set(key, {
+      name: String(name || 'Route').trim() || 'Route',
+      coordinates: points.slice(0, 1000),
+      count: 1,
+      lat: Number(center?.lat),
+      lon: Number(center?.lon),
+      references,
+      refKeys,
+      sourceCounts,
+    });
   };
 
   const rows = Array.isArray(posts) ? posts : [];
@@ -3658,15 +4141,105 @@ function collectPatternOfLifeLocationPoints(posts) {
     }
   }
 
-  const addFromTextSource = (rawText, label, detail, kind) => {
+  const addFromTextSource = (rawText, label, detail, kind, profileUrl = '', options = {}) => {
+    const strict = Boolean(options?.strict);
+    const preferMostSpecific = Boolean(options?.preferMostSpecific);
     const matches = _resolvedLocationsFromText(rawText, locationPairsByName);
+    if (preferMostSpecific && matches.length) {
+      const selected = _selectMostSpecificLocationMatch(rawText, matches);
+      if (selected) {
+        const locationName = String(selected?.name || '').trim().toLowerCase();
+        if (!(strict && AMBIGUOUS_LOCATION_TOKENS.has(locationName))) {
+          addPoint(selected.name, selected.lat, selected.lon, {
+            kind,
+            label,
+            detail: String(detail || '').trim(),
+            profileUrl: String(profileUrl || '').trim(),
+          });
+          return;
+        }
+      }
+    }
     for (const location of matches) {
+      const locationName = String(location?.name || '').trim().toLowerCase();
+      if (strict && AMBIGUOUS_LOCATION_TOKENS.has(locationName)) continue;
       addPoint(location.name, location.lat, location.lon, {
         kind,
         label,
         detail: String(detail || '').trim(),
+        profileUrl: String(profileUrl || '').trim(),
       });
     }
+  };
+  const extractCoordinateSignals = (value, maxDepth = 6) => {
+    const found = [];
+    const seen = new Set();
+    const walk = (node, path = '', depth = 0) => {
+      if (depth > maxDepth || node === null || node === undefined) return;
+      if (Array.isArray(node)) {
+        for (let i = 0; i < Math.min(node.length, 160); i += 1) {
+          walk(node[i], `${path}[${i}]`, depth + 1);
+        }
+        return;
+      }
+      if (typeof node !== 'object') return;
+      const entries = Object.entries(node);
+      const lowered = new Map(entries.map(([key, raw]) => [String(key || '').trim().toLowerCase(), raw]));
+      const latKeys = Array.from(lowered.keys()).filter((key) => key === 'lat' || key === 'latitude' || key.endsWith('_lat') || key.endsWith('_latitude') || key.includes('latitude'));
+      const lonKeys = Array.from(lowered.keys()).filter((key) => key === 'lon' || key === 'lng' || key === 'longitude' || key.endsWith('_lon') || key.endsWith('_lng') || key.endsWith('_longitude') || key.includes('longitude'));
+      const parseNum = (input) => {
+        if (typeof input === 'number' && Number.isFinite(input)) return Number(input);
+        const text = String(input || '').trim();
+        if (!text) return Number.NaN;
+        const parsed = Number(text);
+        return Number.isFinite(parsed) ? parsed : Number.NaN;
+      };
+      for (const latKey of latKeys) {
+        const lat = parseNum(lowered.get(latKey));
+        for (const lonKey of lonKeys) {
+          const lon = parseNum(lowered.get(lonKey));
+          if (Number.isNaN(lat) || Number.isNaN(lon)) continue;
+          let mappedLat = lat;
+          let mappedLon = lon;
+          if (!(mappedLat >= -90 && mappedLat <= 90 && mappedLon >= -180 && mappedLon <= 180)) {
+            if (mappedLon >= -90 && mappedLon <= 90 && mappedLat >= -180 && mappedLat <= 180) {
+              mappedLat = lon;
+              mappedLon = lat;
+            } else {
+              continue;
+            }
+          }
+          const dedupe = `${mappedLat.toFixed(6)}|${mappedLon.toFixed(6)}`;
+          if (seen.has(dedupe)) continue;
+          seen.add(dedupe);
+          const label = _cleanLocationEntityLabel(node?.name || node?.title || node?.location || node?.address || '');
+          const detail = String(node?.bio || node?.review || node?.review_text || node?.description || '').trim();
+          found.push({
+            path,
+            label,
+            detail,
+            lat: mappedLat,
+            lon: mappedLon,
+          });
+        }
+      }
+      for (const [key, child] of entries) {
+        const nextPath = path ? `${path}.${key}` : String(key || '');
+        walk(child, nextPath, depth + 1);
+      }
+    };
+    walk(value);
+    return found;
+  };
+  const pdlProfileUrl = (profile) => {
+    const candidateList = [];
+    if (Array.isArray(profile?.profile_urls)) candidateList.push(...profile.profile_urls);
+    candidateList.push(profile?.linkedin_url, profile?.facebook_url, profile?.twitter_url, profile?.github_url);
+    for (const candidate of candidateList) {
+      const clean = String(candidate || '').trim();
+      if (clean) return clean;
+    }
+    return '';
   };
 
   const pdlProfiles = [];
@@ -3680,27 +4253,82 @@ function collectPatternOfLifeLocationPoints(posts) {
   for (const profile of pdlProfiles) {
     const locName = _primaryLocationLabel(profile?.location_name, '');
     if (!locName) continue;
+    const profileUrl = pdlProfileUrl(profile);
     const label = `PDL: ${String(profile?.full_name || profile?.query_value || 'profile').trim() || 'profile'}`;
     const detail = `primary location: ${locName}`;
     const lat = Number(profile?.location_latitude);
     const lon = Number(profile?.location_longitude);
     if (!Number.isNaN(lat) && !Number.isNaN(lon)) {
-      addPoint(locName, lat, lon, { kind: 'pdl', label, detail });
+      addPoint(locName, lat, lon, { kind: 'pdl', label, detail, profileUrl });
     } else {
-      addFromTextSource(locName, label, detail, 'pdl');
+      // Strict mode avoids low-confidence text-to-city fallbacks for ambiguous labels.
+      addFromTextSource(locName, label, detail, 'pdl', profileUrl, { strict: true, preferMostSpecific: true });
+    }
+    for (const geo of extractCoordinateSignals(profile)) {
+      addPoint(geo.label || locName || 'PDL location', geo.lat, geo.lon, {
+        kind: 'pdl',
+        label,
+        detail: `${geo.path || 'geo'}${geo.detail ? ` • ${geo.detail}` : ''}`,
+        profileUrl,
+      });
     }
   }
 
   const osintProfiles = Array.isArray(reconOsintProfiles) ? reconOsintProfiles : [];
   for (const profile of osintProfiles) {
     const title = String(profile?.title || profile?.name || profile?.username || 'profile').trim();
-    const location = String(profile?.location || '').trim();
+    const profileUrl = String(profile?.profile_url || profile?.website || '').trim();
+    const location = _cleanLocationEntityLabel(profile?.location || '');
+    const biolocation = _cleanLocationEntityLabel(profile?.biolocation || '');
     const bio = String(profile?.bio || '').trim();
+    const geoSignals = Array.isArray(profile?.geo_signals) ? profile.geo_signals : [];
+    for (const signal of geoSignals) {
+      const kind = String(signal?.kind || '').trim().toLowerCase();
+      const path = String(signal?.path || '').trim();
+      const signalLabel = _cleanLocationEntityLabel(signal?.label || '');
+      const detailText = String(signal?.detail || '').trim();
+      const detailParts = [];
+      if (signalLabel) detailParts.push(signalLabel);
+      if (path) detailParts.push(path);
+      if (detailText) detailParts.push(detailText);
+      const detail = detailParts.join(' • ').slice(0, 260);
+      if (kind === 'point') {
+        const lat = Number(signal?.lat);
+        const lon = Number(signal?.lon);
+        if (Number.isNaN(lat) || Number.isNaN(lon)) continue;
+        const pointName = _cleanLocationEntityLabel(signalLabel || title || 'OSINT location') || 'OSINT location';
+        addPoint(pointName, lat, lon, {
+          kind: 'osint_industries',
+          label: `OSINT Industries: ${title}`,
+          detail,
+          profileUrl,
+        });
+      } else if (kind === 'polyline') {
+        const coords = Array.isArray(signal?.coordinates) ? signal.coordinates : [];
+        addRoute(_cleanLocationEntityLabel(signalLabel || `${title} route`) || `${title} route`, coords, {
+          kind: 'osint_industries_route',
+          label: `OSINT Industries: ${title}`,
+          detail: detail || 'route geometry',
+          profileUrl,
+        });
+      }
+    }
     if (location) {
-      addFromTextSource(location, `OSINT Industries: ${title}`, `location: ${location}`, 'osint_industries');
+      addFromTextSource(location, `OSINT Industries: ${title}`, `location: ${location}`, 'osint_industries', profileUrl, { strict: true, preferMostSpecific: true });
+    }
+    if (biolocation) {
+      addFromTextSource(biolocation, `OSINT Industries: ${title}`, `biolocation: ${biolocation}`, 'osint_industries', profileUrl, { strict: true, preferMostSpecific: true });
     }
     if (bio) {
-      addFromTextSource(bio, `OSINT Industries: ${title}`, `bio: ${bio.slice(0, 180)}`, 'osint_industries');
+      addFromTextSource(bio, `OSINT Industries: ${title}`, `bio: ${bio.slice(0, 180)}`, 'osint_industries', profileUrl);
+    }
+    for (const geo of extractCoordinateSignals(profile?.parsed_values || profile?.spec_format || profile)) {
+      addPoint(geo.label || title || 'OSINT location', geo.lat, geo.lon, {
+        kind: 'osint_industries',
+        label: `OSINT Industries: ${title}`,
+        detail: `${geo.path || 'geo'}${geo.detail ? ` • ${geo.detail}` : ''}`,
+        profileUrl,
+      });
     }
   }
 
@@ -3710,10 +4338,17 @@ function collectPatternOfLifeLocationPoints(posts) {
     const location = String(profile?.location || '').trim();
     const country = String(profile?.country_name || '').trim();
     if (location) {
-      addFromTextSource(location, `Numverify: ${number}`, `location: ${location}`, 'numverify');
+      addFromTextSource(location, `Numverify: ${number}`, `location: ${location}`, 'numverify', '', { strict: true, preferMostSpecific: true });
     }
     if (country) {
       addFromTextSource(country, `Numverify: ${number}`, `country: ${country}`, 'numverify');
+    }
+    for (const geo of extractCoordinateSignals(profile?.raw || profile)) {
+      addPoint(geo.label || location || country || number, geo.lat, geo.lon, {
+        kind: 'numverify',
+        label: `Numverify: ${number}`,
+        detail: `${geo.path || 'geo'}${geo.detail ? ` • ${geo.detail}` : ''}`,
+      });
     }
   }
 
@@ -3729,7 +4364,19 @@ function collectPatternOfLifeLocationPoints(posts) {
     const sourceRows = Object.entries(point.sourceCounts || {}).sort((a, b) => Number(b[1]) - Number(a[1]));
     point.dominantKind = String(sourceRows[0]?.[0] || 'other');
   }
-  return points;
+  const routes = Array.from(routesByKey.values())
+    .map((row) => ({
+      ...row,
+      references: row.references.slice(0, 10),
+      sourceCounts: Object.fromEntries(row.sourceCounts.entries()),
+    }))
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+  for (const route of routes) {
+    delete route.refKeys;
+    const sourceRows = Object.entries(route.sourceCounts || {}).sort((a, b) => Number(b[1]) - Number(a[1]));
+    route.dominantKind = String(sourceRows[0]?.[0] || 'other');
+  }
+  return { points, routes };
 }
 
 function patternLifeMarkerStyle(point, maxCount) {
@@ -3838,6 +4485,13 @@ function patternLifePostPreviewMarkup(post, ref, locationName) {
   `;
 }
 
+function patternLifeSourceHeaderMarkup(label, profileUrl = '') {
+  const cleanLabel = String(label || '').trim() || 'source';
+  const cleanUrl = normalizeExternalUrl(profileUrl);
+  const icon = faviconMarkup(cleanLabel, cleanUrl);
+  return `<span class="pattern-life-source-head">${icon}<span class="pattern-life-source-label">${escapeHtml(cleanLabel)}</span></span>`;
+}
+
 function ensurePatternLifeMapInstance() {
   if (!patternLifeMap) return Promise.resolve(null);
   return loadLeaflet().then((L) => {
@@ -3851,7 +4505,7 @@ function ensurePatternLifeMapInstance() {
       }).setView([20, 0], 2);
       L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
         subdomains: 'abcd',
-        maxZoom: 6,
+        maxZoom: 19,
       }).addTo(patternLifeMapInstance);
       patternLifeMapLayer = L.layerGroup().addTo(patternLifeMapInstance);
     }
@@ -3859,18 +4513,35 @@ function ensurePatternLifeMapInstance() {
   });
 }
 
-function updatePatternLifeMapViewport(points) {
+function updatePatternLifeMapViewport(points, routes = []) {
   if (!patternLifeMapInstance) return;
-  const rows = Array.isArray(points) ? points : [];
-  if (!rows.length) {
+  const pointRows = Array.isArray(points) ? points : [];
+  const routeRows = Array.isArray(routes) ? routes : [];
+  if (!pointRows.length && !routeRows.length) {
     patternLifeMapInstance.setView([20, 0], 2);
     return;
   }
-  const bounds = rows.slice(0, 80).map((point) => [point.lat, point.lon]);
+  const bounds = [];
+  for (const point of pointRows.slice(0, 80)) {
+    bounds.push([point.lat, point.lon]);
+  }
+  for (const route of routeRows.slice(0, 24)) {
+    const coords = Array.isArray(route?.coordinates) ? route.coordinates : [];
+    for (const coord of coords.slice(0, 200)) {
+      const lat = Number(coord?.lat);
+      const lon = Number(coord?.lon);
+      if (Number.isNaN(lat) || Number.isNaN(lon)) continue;
+      bounds.push([lat, lon]);
+    }
+  }
+  if (!bounds.length) {
+    patternLifeMapInstance.setView([20, 0], 2);
+    return;
+  }
   if (bounds.length === 1) {
-    patternLifeMapInstance.setView(bounds[0], 4);
+    patternLifeMapInstance.setView(bounds[0], 13);
   } else {
-    patternLifeMapInstance.fitBounds(bounds, { padding: [20, 20], maxZoom: 4 });
+    patternLifeMapInstance.fitBounds(bounds, { padding: [20, 20], maxZoom: 16 });
   }
 }
 
@@ -3878,11 +4549,14 @@ function renderPatternLifeMap(posts, analysis = null) {
   if (!patternLifeMap || !patternLifeMapEmpty || !patternLifeLocationMapTotal) return;
   const rows = Array.isArray(posts) ? posts : [];
   const rhythm = analysis || summarizePostingRhythm(posts);
-  const points = collectPatternOfLifeLocationPoints(posts);
+  const geo = collectPatternOfLifeLocationPoints(posts);
+  const points = Array.isArray(geo?.points) ? geo.points : [];
+  const routes = Array.isArray(geo?.routes) ? geo.routes : [];
   latestPatternLifeMapPoints = points;
-  const totalMentions = points.reduce((sum, point) => sum + point.count, 0);
+  latestPatternLifeMapRoutes = routes;
+  const totalMentions = points.reduce((sum, point) => sum + point.count, 0) + routes.reduce((sum, route) => sum + route.count, 0);
   patternLifeLocationMapTotal.textContent = `${totalMentions} point${totalMentions === 1 ? '' : 's'}`;
-  patternLifeMapEmpty.classList.toggle('hidden', points.length > 0);
+  patternLifeMapEmpty.classList.toggle('hidden', (points.length + routes.length) > 0);
 
   ensurePatternLifeMapInstance()
     .then((L) => {
@@ -3916,8 +4590,60 @@ function renderPatternLifeMap(posts, analysis = null) {
         }
       }
 
-      if (!points.length) {
-        updatePatternLifeMapViewport(points);
+      for (const route of routes.slice(0, 30)) {
+        const coords = Array.isArray(route?.coordinates) ? route.coordinates : [];
+        const latLngs = coords
+          .map((row) => {
+            const lat = Number(row?.lat);
+            const lon = Number(row?.lon);
+            if (Number.isNaN(lat) || Number.isNaN(lon)) return null;
+            return [lat, lon];
+          })
+          .filter(Boolean);
+        if (latLngs.length < 2) continue;
+        const sourceBreakdown = Object.entries(route.sourceCounts || {})
+          .sort((a, b) => Number(b[1]) - Number(a[1]))
+          .slice(0, 4)
+          .map(([kind, count]) => `${kind.replace(/_/g, ' ')}: ${count}`)
+          .join(' • ');
+        const hoverRows = route.references
+          .slice(0, 3)
+          .map((ref) => {
+            const label = String(ref?.label || '').trim() || 'source';
+            const detail = String(ref?.detail || '').trim();
+            return `<div><strong>${escapeHtml(label)}</strong>${detail ? `<div>${escapeHtml(detail)}</div>` : ''}</div>`;
+          })
+          .join('');
+        const popupRows = route.references
+          .slice(0, 8)
+          .map((ref) => {
+            const label = String(ref?.label || '').trim() || 'source';
+            const detail = String(ref?.detail || '').trim();
+            const profileUrl = normalizeExternalUrl(ref?.profileUrl);
+            const linkMarkup = profileUrl
+              ? `<a href="${escapeAttr(profileUrl)}" target="_blank" rel="noopener noreferrer">open profile</a>`
+              : '';
+            return `<div class="pattern-life-popup-row">${patternLifeSourceHeaderMarkup(label, profileUrl)}<small>${escapeHtml(detail || 'route signal')}${linkMarkup ? ` • ${linkMarkup}` : ''}</small></div>`;
+          })
+          .join('');
+        const routeLine = L.polyline(latLngs, {
+          color: '#c084fc',
+          weight: 2.4,
+          opacity: 0.78,
+        });
+        routeLine.bindTooltip(
+          `<div class="pattern-life-tooltip"><strong>${escapeHtml(route.name || 'Route')}</strong><div>${route.count} signal${route.count === 1 ? '' : 's'}</div>${sourceBreakdown ? `<div>${escapeHtml(sourceBreakdown)}</div>` : ''}${hoverRows}</div>`,
+          { sticky: true, direction: 'top', opacity: 0.96 },
+        );
+        routeLine.bindPopup(
+          `<div class="pattern-life-popup"><h4>${escapeHtml(route.name || 'Route')}</h4><p>${route.count} signal${route.count === 1 ? '' : 's'} mapped</p><div class="pattern-life-popup-list">${popupRows}</div></div>`,
+          { maxWidth: 520, autoPan: false },
+        );
+        routeLine.addTo(patternLifeMapLayer);
+      }
+
+      if (!points.length && !routes.length) {
+        updatePatternLifeMapViewport(points, routes);
         return;
       }
 
@@ -3947,7 +4673,11 @@ function renderPatternLifeMap(posts, analysis = null) {
             if (Number.isFinite(postIndex) && postIndex >= 0) {
               return patternLifePostPreviewMarkup(rows[postIndex], ref, point.name);
             }
-            return `<div class="pattern-life-popup-row"><span>${escapeHtml(label)}</span><small>${escapeHtml(detail || 'location signal')}</small></div>`;
+            const profileUrl = normalizeExternalUrl(ref?.profileUrl);
+            const linkMarkup = profileUrl
+              ? `<a href="${escapeAttr(profileUrl)}" target="_blank" rel="noopener noreferrer">open profile</a>`
+              : '';
+            return `<div class="pattern-life-popup-row">${patternLifeSourceHeaderMarkup(label, profileUrl)}<small>${escapeHtml(detail || 'location signal')}${linkMarkup ? ` • ${linkMarkup}` : ''}</small></div>`;
           })
           .join('');
         const marker = L.circleMarker([point.lat, point.lon], {
@@ -3966,7 +4696,7 @@ function renderPatternLifeMap(posts, analysis = null) {
         marker
           .bindPopup(
             `<div class="pattern-life-popup"><h4>${escapeHtml(point.name)}</h4><p>${point.count} signal${point.count === 1 ? '' : 's'} mapped</p><div class="pattern-life-popup-list">${popupRows}</div></div>`,
-            { maxWidth: 320, autoPan: false },
+            { maxWidth: 500, autoPan: false },
           );
         let isMarkerHovered = false;
         let isPopupHovered = false;
@@ -3981,7 +4711,7 @@ function renderPatternLifeMap(posts, analysis = null) {
           const popup = marker.getPopup();
           if (!popup) return;
           popup.options.offset = L.point(...patternLifePopupOffset(nextPlacement));
-          popup.options.maxWidth = (nextPlacement === 'left' || nextPlacement === 'right') ? 380 : 320;
+          popup.options.maxWidth = (nextPlacement === 'left' || nextPlacement === 'right') ? 540 : 500;
         };
         const clearPopupCloseTimer = () => {
           if (popupCloseTimer) {
@@ -4033,22 +4763,73 @@ function renderPatternLifeMap(posts, analysis = null) {
         });
         marker.addTo(patternLifeMapLayer);
       }
-      updatePatternLifeMapViewport(points);
+      updatePatternLifeMapViewport(points, routes);
       if (activeResultsView === 'pattern') {
         window.requestAnimationFrame(() => patternLifeMapInstance?.invalidateSize());
       }
     })
     .catch(() => {
-      patternLifeMap.textContent = points.length
-        ? points.slice(0, 8).map((item) => `${item.name} (${item.count})`).join(' • ')
+      patternLifeMap.textContent = (points.length || routes.length)
+        ? [
+          ...points.slice(0, 6).map((item) => `${item.name} (${item.count})`),
+          ...routes.slice(0, 2).map((item) => `${item.name || 'Route'} (${item.count})`),
+        ].join(' • ')
         : 'Map unavailable';
     });
 }
 
+function normalizePlatformSetFromPosts(posts) {
+  const available = new Set();
+  for (const post of Array.isArray(posts) ? posts : []) {
+    const platform = normalizePlatformName(post?.platform);
+    if (SOURCE_ORDER.includes(platform)) {
+      available.add(platform);
+    }
+  }
+  return available;
+}
+
+function renderPatternLifePlatformFilters(posts) {
+  if (!(patternLifePlatformFilters instanceof HTMLElement)) return;
+  const available = normalizePlatformSetFromPosts(posts);
+  if (!available.size) {
+    activePatternLifePlatforms.clear();
+    patternLifePlatformFilters.innerHTML = '<span class="theme-filter-empty">No platform data available.</span>';
+    return;
+  }
+  for (const platform of Array.from(activePatternLifePlatforms)) {
+    if (!available.has(platform)) activePatternLifePlatforms.delete(platform);
+  }
+  if (!activePatternLifePlatforms.size) {
+    for (const platform of available) activePatternLifePlatforms.add(platform);
+  }
+  const ordered = SOURCE_ORDER.filter((platform) => available.has(platform));
+  patternLifePlatformFilters.innerHTML = ordered
+    .map((platform) => {
+      const active = activePatternLifePlatforms.has(platform);
+      return `<button type="button" class="mix-pill mix-filter-pill${active ? ' is-active' : ''}" data-pattern-platform="${escapeAttr(platform)}"><span>${escapeHtml(platformDisplayName(platform))}</span></button>`;
+    })
+    .join('');
+}
+
+function filterPatternLifePosts(posts) {
+  const rows = Array.isArray(posts) ? posts : [];
+  if (!activePatternLifePlatforms.size) return rows;
+  return rows.filter((post) => activePatternLifePlatforms.has(normalizePlatformName(post?.platform)));
+}
+
 function renderPatternOfLife(posts) {
-  const analysis = summarizePostingRhythm(posts);
-  renderPatternPostingRhythm(posts, analysis);
-  renderPatternLifeMap(posts, analysis);
+  const rows = Array.isArray(posts) ? posts : [];
+  renderPatternLifePlatformFilters(rows);
+  const scopedRows = filterPatternLifePosts(rows);
+  const analysis = summarizePostingRhythm(scopedRows);
+  renderPatternPostingRhythm(scopedRows, analysis);
+  renderPatternLifeMap(scopedRows, analysis);
+}
+
+function refreshPatternOfLifeEstimate() {
+  renderPatternOfLife(latestPosts);
+  refreshMapLayout();
 }
 
 function renderEntityMix(posts) {
@@ -4177,7 +4958,7 @@ function renderCustomKeywordMix(posts) {
   const keywords = normalizeCustomKeywordList(configCustomKeywordList);
   if (!keywords.length) {
     customKeywordMix.innerHTML = '';
-    customKeywordMixEmpty.textContent = 'No custom keywords configured. Add keywords in Configuration.';
+    customKeywordMixEmpty.textContent = 'No custom keywords configured. Add keywords in Master Settings.';
     customKeywordMixEmpty.classList.remove('hidden');
     return;
   }
@@ -4381,10 +5162,8 @@ async function refreshPosts(options = {}) {
   const sort = sortSelect.value;
   const params = new URLSearchParams({ query, sort });
   if (activeCaseId) params.set('case_id', activeCaseId);
-  const tags = selectedTags();
   if (activeStartDate) params.set('start_date', activeStartDate);
   if (activeEndDate) params.set('end_date', activeEndDate);
-  if (tags.include.length) params.set('include_tags', tags.include.join(','));
   const includeFaceAnalysis = forceFaceRefresh || activeFaceFilters.size > 0;
   if (includeFaceAnalysis) params.set('include_faces', '1');
   if (forceFaceRefresh) params.set('face_refresh', '1');
@@ -4401,8 +5180,9 @@ async function refreshPosts(options = {}) {
       ? data.face_recognition
       : { available: false, reason: 'unknown' };
     renderFaceRecognitionFilters();
-    const filteredPosts = applyDashboardFilters(data.posts || []);
-    renderPosts(filteredPosts);
+    latestFetchedPosts = Array.isArray(data.posts) ? data.posts : [];
+    _dashboardFilterCache = { rows: null, key: '', output: [] };
+    rerenderFromCurrentFilters();
     dashboardBaseStatus = '';
     updateStatusLine();
   } catch (error) {
@@ -4427,21 +5207,25 @@ function applyResultsViewButtonState() {
   const mediaView = activeResultsView === 'media';
   const footprintMode = activeResultsView === 'footprint';
   const patternLifeMode = activeResultsView === 'pattern';
+  const timelineMode = activeResultsView === 'timeline';
   viewPostsBtn?.classList.toggle('is-active', postView);
   viewMediaBtn?.classList.toggle('is-active', mediaView);
   viewFootprintBtn?.classList.toggle('is-active', footprintMode);
   viewPatternLifeBtn?.classList.toggle('is-active', patternLifeMode);
+  viewTimelineBtn?.classList.toggle('is-active', timelineMode);
   viewPostsBtn?.setAttribute('aria-pressed', String(postView));
   viewMediaBtn?.setAttribute('aria-pressed', String(mediaView));
   viewFootprintBtn?.setAttribute('aria-pressed', String(footprintMode));
   viewPatternLifeBtn?.setAttribute('aria-pressed', String(patternLifeMode));
-  const hideStandardLayout = footprintMode || patternLifeMode;
+  viewTimelineBtn?.setAttribute('aria-pressed', String(timelineMode));
+  const hideStandardLayout = footprintMode || patternLifeMode || timelineMode;
   resultsEl?.classList.toggle('hidden', hideStandardLayout);
   dashboardContent?.classList.toggle('media-grid-mode', mediaView);
   const insightsEl = dashboardContent?.querySelector('.insights');
   if (insightsEl instanceof HTMLElement) insightsEl.classList.toggle('hidden', hideStandardLayout || mediaView);
   footprintView?.classList.toggle('hidden', !footprintMode);
   patternLifeView?.classList.toggle('hidden', !patternLifeMode);
+  timelineView?.classList.toggle('hidden', !timelineMode);
   if (filterMenu instanceof HTMLElement) filterMenu.classList.toggle('hidden', hideStandardLayout);
 }
 
@@ -4449,7 +5233,9 @@ function setResultsView(mode) {
   const normalized = String(mode || '').trim().toLowerCase();
   const next = normalized === 'media'
     ? 'media'
-    : (normalized === 'footprint' ? 'footprint' : (normalized === 'pattern' ? 'pattern' : 'posts'));
+    : (normalized === 'footprint'
+      ? 'footprint'
+      : (normalized === 'pattern' ? 'pattern' : (normalized === 'timeline' ? 'timeline' : 'posts')));
   if (activeResultsView === next) return;
   activeResultsView = next;
   if (activeResultsView === 'footprint') {
@@ -4460,6 +5246,9 @@ function setResultsView(mode) {
     renderPatternOfLife(latestPosts);
     refreshMapLayout();
     window.setTimeout(refreshMapLayout, 80);
+  }
+  if (activeResultsView === 'timeline') {
+    renderFootprintTimeline();
   }
   renderPosts(latestPosts);
 }
@@ -4526,7 +5315,11 @@ function syncModalActiveState() {
   const configOpen = configModal && !configModal.classList.contains('hidden');
   const manualInsertOpen = manualInsertModal && !manualInsertModal.classList.contains('hidden');
   const postOpen = postModal && !postModal.classList.contains('hidden');
-  document.body.classList.toggle('modal-active', Boolean(setupOpen || editOpen || saveOpen || notesOpen || configOpen || manualInsertOpen || postOpen));
+  const quitOptionsOpen = quitOptionsModal && !quitOptionsModal.classList.contains('hidden');
+  document.body.classList.toggle(
+    'modal-active',
+    Boolean(setupOpen || editOpen || saveOpen || notesOpen || configOpen || manualInsertOpen || postOpen || quitOptionsOpen),
+  );
 }
 
 function openConfigModal() {
@@ -4584,11 +5377,12 @@ async function loadConfig() {
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const payload = await response.json();
     const storageMode = String(payload?.secret_storage_mode || '').trim();
-    if (configOsintIndustriesPremiumInput instanceof HTMLInputElement) {
-      configOsintIndustriesPremiumInput.checked = Boolean(payload?.osint_industries_use_premium);
-    }
     if (configCustomKeywordInput instanceof HTMLInputElement) configCustomKeywordInput.value = '';
     configCustomKeywordList = normalizeCustomKeywordList(payload?.custom_keyword_list);
+    defaultDataRetentionPeriod = normalizeDataRetentionPeriod(payload?.default_data_retention_period);
+    if (configDefaultRetentionSelect instanceof HTMLSelectElement) {
+      configDefaultRetentionSelect.value = defaultDataRetentionPeriod;
+    }
     const validKeywords = new Set(configCustomKeywordList.map((item) => item.toLowerCase()));
     for (const keyword of Array.from(activeCustomKeywordFilters)) {
       if (!validKeywords.has(keyword)) activeCustomKeywordFilters.delete(keyword);
@@ -4601,15 +5395,21 @@ async function loadConfig() {
       Boolean(payload?.osint_industries_api_key_configured),
       Boolean(payload?.numverify_api_key_configured),
       Boolean(payload?.openai_api_key_configured),
+      Boolean(payload?.apify_api_token_configured),
     ];
     summarizeSecretState(secretFlags.filter(Boolean).length, secretFlags.length, storageMode);
     setConfiguredHint(configPdlApiKeyInput, configPdlApiKeyHint, secretFlags[0], storageMode);
     setConfiguredHint(configOsintIndustriesApiKeyInput, configOsintIndustriesApiKeyHint, secretFlags[1], storageMode);
     setConfiguredHint(configNumverifyApiKeyInput, configNumverifyApiKeyHint, secretFlags[2], storageMode);
     setConfiguredHint(configOpenAiApiKeyInput, configOpenAiApiKeyHint, secretFlags[3], storageMode);
+    setConfiguredHint(configApifyApiTokenInput, configApifyApiTokenHint, secretFlags[4], storageMode);
   } catch (error) {
     console.error(error);
-    if (configStatus) configStatus.textContent = 'Failed to load configuration.';
+    defaultDataRetentionPeriod = DEFAULT_DATA_RETENTION_PERIOD;
+    if (configDefaultRetentionSelect instanceof HTMLSelectElement) {
+      configDefaultRetentionSelect.value = defaultDataRetentionPeriod;
+    }
+    if (configStatus) configStatus.textContent = 'Failed to load master settings.';
     if (configSecretStateSummary instanceof HTMLElement) {
       configSecretStateSummary.dataset.secretState = 'error';
       configSecretStateSummary.textContent = 'Unable to determine saved API key status right now.';
@@ -4624,27 +5424,29 @@ async function saveConfig(event) {
     || !configOsintIndustriesApiKeyInput
     || !configNumverifyApiKeyInput
     || !configOpenAiApiKeyInput
-    || !(configOsintIndustriesPremiumInput instanceof HTMLInputElement)
+    || !configApifyApiTokenInput
   ) return;
   if (configSaveBtn instanceof HTMLButtonElement) configSaveBtn.disabled = true;
-  if (configStatus) configStatus.textContent = 'Saving configuration...';
+  if (configStatus) configStatus.textContent = 'Saving master settings...';
   try {
     if (configCustomKeywordInput instanceof HTMLInputElement) {
       addConfigCustomKeywordTerm(configCustomKeywordInput.value);
       configCustomKeywordInput.value = '';
     }
     const body = {
-      osint_industries_use_premium: Boolean(configOsintIndustriesPremiumInput.checked),
       custom_keyword_list: normalizeCustomKeywordList(configCustomKeywordList),
+      default_data_retention_period: normalizeDataRetentionPeriod(configDefaultRetentionSelect?.value),
     };
     const pdlKey = String(configPdlApiKeyInput.value || '').trim();
     const osintKey = String(configOsintIndustriesApiKeyInput.value || '').trim();
     const numverifyKey = String(configNumverifyApiKeyInput.value || '').trim();
     const openAiKey = String(configOpenAiApiKeyInput.value || '').trim();
+    const apifyToken = String(configApifyApiTokenInput.value || '').trim();
     if (pdlKey) body.pdl_api_key = pdlKey;
     if (osintKey) body.osint_industries_api_key = osintKey;
     if (numverifyKey) body.numverify_api_key = numverifyKey;
     if (openAiKey) body.openai_api_key = openAiKey;
+    if (apifyToken) body.apify_api_token = apifyToken;
     const response = await fetch('/api/config', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -4653,11 +5455,11 @@ async function saveConfig(event) {
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     await loadConfig();
     if (configStatus) {
-      configStatus.textContent = 'Configuration saved. API keys are write-only and never returned by the API.';
+      configStatus.textContent = 'Master settings saved. API keys are write-only and never returned by the API.';
     }
   } catch (error) {
     console.error(error);
-    if (configStatus) configStatus.textContent = `Failed to save configuration: ${error.message || 'unknown error'}`;
+    if (configStatus) configStatus.textContent = `Failed to save master settings: ${error.message || 'unknown error'}`;
   } finally {
     if (configSaveBtn instanceof HTMLButtonElement) configSaveBtn.disabled = false;
   }
@@ -4786,6 +5588,7 @@ function setReconBusy(isBusy) {
   if (goReconAssessmentBtn instanceof HTMLButtonElement) {
     goReconAssessmentBtn.disabled = isBusy;
   }
+  toggleReconProgress(isBusy);
 }
 
 function setFootprintBusy(isBusy) {
@@ -4800,6 +5603,100 @@ function setFootprintBusy(isBusy) {
       }
     }
   }
+  toggleFootprintReconProgress(isBusy);
+}
+
+function formatReconElapsed(seconds) {
+  const total = Math.max(0, Number(seconds) || 0);
+  if (total < 60) return `${total}s`;
+  const mins = Math.floor(total / 60);
+  const rem = total % 60;
+  return `${mins}m ${rem}s`;
+}
+
+function toggleReconProgress(isBusy) {
+  if (!(reconProgress instanceof HTMLElement)) return;
+  if (!isBusy) {
+    reconProgress.classList.add('hidden');
+    if (reconProgressTimer) {
+      clearInterval(reconProgressTimer);
+      reconProgressTimer = null;
+    }
+    reconProgressStartedAt = 0;
+    if (reconProgressLabel instanceof HTMLElement) {
+      reconProgressLabel.textContent = 'Recon modules are running...';
+    }
+    return;
+  }
+  reconProgress.classList.remove('hidden');
+  reconProgressStartedAt = Date.now();
+  if (reconProgressLabel instanceof HTMLElement) {
+    reconProgressLabel.textContent = 'Recon modules are running... (0s elapsed)';
+  }
+  if (reconProgressTimer) clearInterval(reconProgressTimer);
+  reconProgressTimer = setInterval(() => {
+    const elapsedSeconds = Math.max(0, Math.floor((Date.now() - reconProgressStartedAt) / 1000));
+    if (reconProgressLabel instanceof HTMLElement) {
+      reconProgressLabel.textContent = `Recon modules are running... (${formatReconElapsed(elapsedSeconds)} elapsed)`;
+    }
+  }, 1000);
+}
+
+function toggleFootprintReconProgress(isBusy) {
+  if (!(footprintReconProgress instanceof HTMLElement)) return;
+  if (!isBusy) {
+    footprintReconProgress.classList.add('hidden');
+    if (footprintReconProgressTimer) {
+      clearInterval(footprintReconProgressTimer);
+      footprintReconProgressTimer = null;
+    }
+    footprintReconProgressStartedAt = 0;
+    if (footprintReconProgressLabel instanceof HTMLElement) {
+      footprintReconProgressLabel.textContent = 'Recon modules are running...';
+    }
+    return;
+  }
+  footprintReconProgress.classList.remove('hidden');
+  footprintReconProgressStartedAt = Date.now();
+  if (footprintReconProgressLabel instanceof HTMLElement) {
+    footprintReconProgressLabel.textContent = 'Recon modules are running... (0s elapsed)';
+  }
+  if (footprintReconProgressTimer) clearInterval(footprintReconProgressTimer);
+  footprintReconProgressTimer = setInterval(() => {
+    const elapsedSeconds = Math.max(0, Math.floor((Date.now() - footprintReconProgressStartedAt) / 1000));
+    if (footprintReconProgressLabel instanceof HTMLElement) {
+      footprintReconProgressLabel.textContent = `Recon modules are running... (${formatReconElapsed(elapsedSeconds)} elapsed)`;
+    }
+  }, 1000);
+}
+
+function toggleFootprintPivotProgress(isBusy, prefix = 'Pivot recon running') {
+  if (!(footprintPivotProgress instanceof HTMLElement)) return;
+  const cleanPrefix = String(prefix || '').trim() || 'Pivot recon running';
+  if (!isBusy) {
+    footprintPivotProgress.classList.add('hidden');
+    if (footprintPivotProgressTimer) {
+      clearInterval(footprintPivotProgressTimer);
+      footprintPivotProgressTimer = null;
+    }
+    footprintPivotProgressStartedAt = 0;
+    if (footprintPivotProgressLabel instanceof HTMLElement) {
+      footprintPivotProgressLabel.textContent = `${cleanPrefix}...`;
+    }
+    return;
+  }
+  footprintPivotProgress.classList.remove('hidden');
+  footprintPivotProgressStartedAt = Date.now();
+  if (footprintPivotProgressLabel instanceof HTMLElement) {
+    footprintPivotProgressLabel.textContent = `${cleanPrefix}... (0s elapsed)`;
+  }
+  if (footprintPivotProgressTimer) clearInterval(footprintPivotProgressTimer);
+  footprintPivotProgressTimer = setInterval(() => {
+    const elapsedSeconds = Math.max(0, Math.floor((Date.now() - footprintPivotProgressStartedAt) / 1000));
+    if (footprintPivotProgressLabel instanceof HTMLElement) {
+      footprintPivotProgressLabel.textContent = `${cleanPrefix}... (${formatReconElapsed(elapsedSeconds)} elapsed)`;
+    }
+  }, 1000);
 }
 
 function getDefaultFaviconDomain(site) {
@@ -4817,7 +5714,7 @@ function getDefaultFaviconDomain(site) {
 }
 
 function profileDomain(url) {
-  const value = String(url || '').trim();
+  const value = normalizeExternalUrl(url);
   if (!value) return '';
   try {
     const parsed = new URL(value);
@@ -4825,6 +5722,16 @@ function profileDomain(url) {
   } catch (error) {
     return '';
   }
+}
+
+function normalizeExternalUrl(rawUrl) {
+  const raw = String(rawUrl || '').trim();
+  if (!raw) return '';
+  if (/^https?:\/\//i.test(raw)) return raw;
+  if (/^\/\//.test(raw)) return `https:${raw}`;
+  const candidate = raw.replace(/^\/+/, '');
+  if (/^[a-z0-9.-]+\.[a-z]{2,}(?:[/:?#]|$)/i.test(candidate)) return `https://${candidate}`;
+  return '';
 }
 
 function faviconUrl(site, profileUrl) {
@@ -4839,18 +5746,1021 @@ function faviconMarkup(site, profileUrl) {
   return `<img class="site-favicon" src="${escapeHtml(iconUrl)}" alt="" aria-hidden="true" loading="lazy" referrerpolicy="no-referrer" />`;
 }
 
-function toReconBadge(row, clsName = 'lead') {
-  const label = String(row.site || 'unknown');
-  const url = String(row.profile_url || '').trim();
+const NON_PROFILE_PATH_SEGMENTS = new Set([
+  'about', 'account', 'accounts', 'app', 'apps', 'blog', 'careers', 'company', 'contact', 'dashboard',
+  'developers', 'discover', 'docs', 'download', 'explore', 'features', 'help', 'home', 'jobs', 'join',
+  'legal', 'login', 'pricing', 'privacy', 'products', 'search', 'settings', 'signup', 'support', 'terms',
+]);
+
+function isLikelyAccountProfileUrl(rawUrl) {
+  const value = normalizeExternalUrl(rawUrl);
+  if (!value) return false;
+  try {
+    const parsed = new URL(value);
+    const host = String(parsed.hostname || '').trim().toLowerCase();
+    if (!host || !host.includes('.')) return false;
+    const segments = String(parsed.pathname || '').split('/').filter(Boolean);
+    if (!segments.length) return false;
+    const first = segments[0].toLowerCase();
+    if (NON_PROFILE_PATH_SEGMENTS.has(first)) return false;
+    if (segments.length === 1 && (first === 'www' || first === 'm')) return false;
+    return true;
+  } catch (error) {
+    return false;
+  }
+}
+
+function siteDisplayNameFromDomain(domain) {
+  const clean = String(domain || '').trim().toLowerCase().replace(/^www\./, '');
+  if (!clean) return '';
+  if (clean === 'x.com' || clean.endsWith('.x.com') || clean.includes('twitter.com')) return 'Twitter/X';
+  if (clean.includes('reddit.com')) return 'Reddit';
+  if (clean.includes('tiktok.com')) return 'TikTok';
+  if (clean.includes('bsky.app') || clean.includes('bsky.social')) return 'Bluesky';
+  if (clean.includes('instagram.com')) return 'Instagram';
+  if (clean.includes('youtube.com') || clean.includes('youtu.be')) return 'YouTube';
+  if (clean.includes('linkedin.com')) return 'LinkedIn';
+  if (clean.includes('facebook.com')) return 'Facebook';
+  if (clean.includes('threads.net')) return 'Threads';
+  if (clean.includes('github.com')) return 'GitHub';
+  if (clean.includes('gitlab.com')) return 'GitLab';
+  if (clean.includes('twitch.tv')) return 'Twitch';
+  if (clean.includes('medium.com')) return 'Medium';
+  const root = clean.split('.')[0] || clean;
+  return titleCaseLabel(root);
+}
+
+function normalizeReconSiteLabel(rawSite, profileUrl = '', siteUrl = '') {
+  const cleanSite = String(rawSite || '').trim();
+  const normalized = normalizePlatformName(cleanSite);
+  if (normalized) return platformDisplayName(normalized);
+  if (cleanSite && !isHttpUrl(cleanSite)) {
+    const asDomain = cleanSite.replace(/^https?:\/\//i, '').split('/')[0].trim();
+    if (/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(asDomain)) return siteDisplayNameFromDomain(asDomain);
+    return titleCaseLabel(cleanSite);
+  }
+  const domain = profileDomain(profileUrl) || profileDomain(siteUrl);
+  if (domain) return siteDisplayNameFromDomain(domain);
+  return cleanSite || 'Unknown';
+}
+
+function reconRowVisibilityKey(row) {
+  return [
+    String(row?.selector_type || '').trim().toLowerCase(),
+    String(row?.selector || '').trim().toLowerCase(),
+    String(row?.site_key || row?.site || '').trim().toLowerCase(),
+    String(row?.profile_url || '').trim().toLowerCase(),
+    String(row?.source || '').trim().toLowerCase(),
+  ].join('|');
+}
+
+function osintTileVisibilityKey(profile) {
+  return [
+    String(profile?.module || '').trim().toLowerCase(),
+    String(profile?.query_type || '').trim().toLowerCase(),
+    String(profile?.query_value || '').trim().toLowerCase(),
+    String(profile?.profile_url || '').trim().toLowerCase(),
+    String(profile?.website || '').trim().toLowerCase(),
+    String(profile?.username || '').trim().toLowerCase(),
+    String(profile?.email || '').trim().toLowerCase(),
+    String(profile?.phone || '').trim().toLowerCase(),
+  ].join('|');
+}
+
+function pdlProfileVisibilityKey(profile) {
+  return [
+    String(profile?.id || '').trim().toLowerCase(),
+    String(profile?.query_type || '').trim().toLowerCase(),
+    String(profile?.query_value || '').trim().toLowerCase(),
+    String(profile?.full_name || '').trim().toLowerCase(),
+  ].join('|');
+}
+
+function pdlContactVisibilityKey(profile, label, value) {
+  return [
+    pdlProfileVisibilityKey(profile),
+    String(label || '').trim().toLowerCase(),
+    String(value || '').trim().toLowerCase(),
+  ].join('|');
+}
+
+function dedupeRowsByProfileUrl(rows) {
+  const items = Array.isArray(rows) ? rows : [];
+  const seen = new Set();
+  const output = [];
+  for (const row of items) {
+    const normalized = normalizeExternalUrl(row?.profile_url) || String(row?.profile_url || '').trim();
+    const key = String(normalized || '').toLowerCase();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    output.push(row);
+  }
+  return output;
+}
+
+function filteredReconPayload(payload) {
+  const base = payload && typeof payload === 'object' ? payload : emptyReconPayload();
+  const resultsRaw = Array.isArray(base?.results) ? base.results : [];
+  const osintProfilesRaw = Array.isArray(base?.osint_profiles) ? base.osint_profiles : [];
+  const personDataProfilesRaw = Array.isArray(base?.person_data_profiles) ? base.person_data_profiles : [];
+  const pdlProfileQueryKeys = new Set(
+    personDataProfilesRaw
+      .filter((profile) => hiddenPdlProfileKeys.has(pdlProfileVisibilityKey(profile)))
+      .map((profile) => `${String(profile?.query_type || '').trim().toLowerCase()}|${String(profile?.query_value || '').trim().toLowerCase()}`),
+  );
+  const hiddenOsintKeys = new Set(
+    osintProfilesRaw
+      .filter((profile) => hiddenOsintTileKeys.has(osintTileVisibilityKey(profile)))
+      .map((profile) => osintTileVisibilityKey(profile)),
+  );
+
+  const results = resultsRaw.filter((row) => {
+    const rowKey = reconRowVisibilityKey(row);
+    if (hiddenReconRowKeys.has(rowKey)) return false;
+    const source = String(row?.source || '').trim().toLowerCase();
+    const queryKey = `${String(row?.selector_type || '').trim().toLowerCase()}|${String(row?.selector || '').trim().toLowerCase()}`;
+    if (source === 'pdl' && pdlProfileQueryKeys.has(queryKey)) return false;
+    if (source === 'pdl' && hiddenPdlProfileUrlKeys.has(String(row?.profile_url || '').trim().toLowerCase())) return false;
+    if (source === 'osint_industries') {
+      const profile = row?.osint_profile;
+      if (profile && hiddenOsintKeys.has(osintTileVisibilityKey(profile))) return false;
+    }
+    return true;
+  });
+
+  const osintProfiles = osintProfilesRaw.filter((profile) => !hiddenOsintTileKeys.has(osintTileVisibilityKey(profile)));
+  const personDataProfiles = personDataProfilesRaw.filter((profile) => !hiddenPdlProfileKeys.has(pdlProfileVisibilityKey(profile)));
+  const personDataProfile = personDataProfiles[0] || {};
+  const leadsRaw = Array.isArray(base?.leads) ? base.leads : [];
+  const leads = leadsRaw.filter((lead) => {
+    const source = String(lead?.source || '').trim().toLowerCase();
+    const leadUrl = String(lead?.profile_url || '').trim().toLowerCase();
+    if (leadUrl && hiddenPdlProfileUrlKeys.has(leadUrl)) return false;
+    if (source === 'pdl' && String(lead?.lead_type || '').trim().toLowerCase() === 'attribute') {
+      const profileName = String(lead?.profile_name || '').trim().toLowerCase();
+      const label = String(lead?.attribute || '').trim();
+      const value = String(lead?.value || '').trim();
+      const matchedProfile = personDataProfiles.find((profile) => String(profile?.full_name || '').trim().toLowerCase() === profileName);
+      if (matchedProfile && hiddenPdlContactValueKeys.has(pdlContactVisibilityKey(matchedProfile, label, value))) return false;
+      if (!matchedProfile) {
+        const syntheticKey = ['unknown-profile', String(label || '').trim().toLowerCase(), String(value || '').trim().toLowerCase()].join('|');
+        if (hiddenPdlContactValueKeys.has(syntheticKey)) return false;
+      }
+    }
+    return true;
+  });
+
+  const output = {
+    ...base,
+    results,
+    osint_profiles: osintProfiles,
+    person_data_profiles: personDataProfiles,
+    person_data_profile: personDataProfile,
+    leads,
+  };
+  output.collection_ready_profiles = dedupeRowsByProfileUrl(results.filter((row) => row?.status === 'present' && row?.supported_for_collection && String(row?.profile_url || '').trim()));
+  output.unsupported_profiles_with_url = dedupeRowsByProfileUrl(results.filter((row) => row?.status === 'present' && !row?.supported_for_collection && String(row?.profile_url || '').trim()));
+  output.known_present_without_url = results.filter((row) => row?.status === 'present' && !String(row?.profile_url || '').trim());
+  output.checked = results.length;
+  output.present_count = results.filter((row) => row?.status === 'present').length;
+  return output;
+}
+
+function pivotSelectorActionMarkup(type, value, title = 'Pivot Search') {
+  const cleanType = String(type || '').trim().toLowerCase();
+  const cleanValue = String(value || '').trim();
+  if (!['username', 'email', 'phone'].includes(cleanType) || !cleanValue) return '';
+  return `
+    <button type="button" class="known-selector-action pivot recon-pill-action" data-recon-pivot-type="${escapeAttr(cleanType)}" data-recon-pivot-value="${escapeAttr(cleanValue)}" title="${escapeAttr(title)}" aria-label="${escapeAttr(title)}">
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="11" cy="11" r="6.5"></circle><path d="M16.5 16.5L21 21"></path></svg>
+    </button>
+  `;
+}
+
+function toReconBadge(row, clsName = 'lead', options = {}) {
+  const removable = options?.removable === true;
+  const rowKey = reconRowVisibilityKey(row);
+  const label = normalizeReconSiteLabel(row?.site, row?.profile_url, row?.site_url);
+  const url = isLikelyAccountProfileUrl(row?.profile_url) ? normalizeExternalUrl(row?.profile_url) : '';
   const screenshotUrl = String(row.screenshot_url || '').trim();
+  const avatarUrl = normalizeExternalUrl(row.picture_url || row.avatar_url || '');
   const source = String(row.source || '').trim().toLowerCase();
   const icon = faviconMarkup(label, url);
-  const content = `<span class="recon-label">${icon}<span>${escapeHtml(label)}</span></span>`;
+  const avatarMarkup = avatarUrl
+    ? `<img class="recon-pill-avatar" src="${escapeAttr(avatarUrl)}" alt="${escapeAttr(label)} profile image" loading="lazy" referrerpolicy="no-referrer" />`
+    : '';
+  const content = `<span class="recon-label">${avatarMarkup}${icon}<span>${escapeHtml(label)}</span></span>`;
   const classes = source === 'pdl' ? `${clsName} pdl` : clsName;
-  if (!url) return `<span class="recon-pill ${escapeHtml(classes)}">${content}</span>`;
+  const selectorType = String(row?.selector_type || '').trim().toLowerCase();
+  const selectorValue = String(row?.selector || '').trim();
+  const selectorKey = sourceSelectorKey(selectorType, selectorValue);
+  const selectorAttr = selectorKey ? ` data-source-selector-key="${escapeAttr(selectorKey)}"` : '';
+  const pivotMarkup = options?.pivotable === false ? '' : pivotSelectorActionMarkup(selectorType, selectorValue, 'Pivot from selector');
+  const removeMarkup = removable
+    ? `<button type="button" class="known-selector-action recon-pill-remove recon-pill-action" data-recon-remove="${escapeAttr(rowKey)}" title="Remove result">×</button>`
+    : '';
+  if (!url) return `<span class="recon-pill ${escapeHtml(classes)}"${selectorAttr}>${content}${pivotMarkup}${removeMarkup}</span>`;
   const previewAttr = screenshotUrl ? ` data-preview-image="${escapeAttr(screenshotUrl)}"` : '';
   const previewLabelAttr = screenshotUrl ? ` data-preview-label="${escapeAttr(label)}"` : '';
-  return `<a class="recon-pill ${escapeHtml(classes)} lead-link" target="_blank" rel="noopener noreferrer" href="${escapeHtml(url)}"${previewAttr}${previewLabelAttr}>${content}</a>`;
+  return `
+    <span class="recon-pill ${escapeHtml(classes)}"${selectorAttr}${previewAttr}${previewLabelAttr}>
+      <a class="lead-link recon-pill-link" target="_blank" rel="noopener noreferrer" href="${escapeHtml(url)}">${content}</a>
+      ${pivotMarkup}
+      ${removeMarkup}
+    </span>
+  `;
+}
+
+function formatSelectorLabel(selectorType, selectorValue) {
+  const type = String(selectorType || '').trim().toLowerCase() || 'selector';
+  const value = String(selectorValue || '').trim() || 'unknown';
+  return `${type}: ${value}`;
+}
+
+function sourceSelectorKey(selectorType, selectorValue) {
+  const type = String(selectorType || '').trim().toLowerCase();
+  const value = String(selectorValue || '').trim();
+  if (!type || !value) return '';
+  return `${type}|${value.toLowerCase()}`;
+}
+
+function sourceSelectorParts(key) {
+  const raw = String(key || '').trim().toLowerCase();
+  if (!raw || !raw.includes('|')) return { type: '', value: '' };
+  const [type, ...rest] = raw.split('|');
+  const value = rest.join('|').trim();
+  return { type: String(type || '').trim(), value };
+}
+
+function collectSourceSelectorFilterOptions(results) {
+  const rows = Array.isArray(results) ? results : [];
+  const counts = new Map();
+  const labels = new Map();
+  for (const row of rows) {
+    const type = String(row?.selector_type || '').trim().toLowerCase();
+    const value = String(row?.selector || '').trim();
+    const key = sourceSelectorKey(type, value);
+    if (!key) continue;
+    counts.set(key, (counts.get(key) || 0) + 1);
+    if (!labels.has(key)) labels.set(key, formatSelectorLabel(type, value));
+  }
+  return Array.from(counts.entries())
+    .map(([key, count]) => ({ key, count, label: labels.get(key) || key }))
+    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+}
+
+const KNOWN_SELECTOR_GROUPS = ['email', 'phone', 'username', 'name', 'location'];
+const KNOWN_SELECTOR_NAME_SITE_WORDS = new Set([
+  'x', 'twitter', 'reddit', 'instagram', 'facebook', 'youtube', 'tiktok', 'bluesky', 'github', 'gitlab',
+  'linkedin', 'threads', 'twitch', 'medium', 'strava', 'airbnb', 'google', 'maps', 'website', 'profile',
+  'osint', 'industries',
+]);
+const KNOWN_SELECTOR_COMPANY_TERMS = new Set([
+  'inc', 'llc', 'ltd', 'corp', 'corporation', 'co', 'company', 'solutions', 'technology', 'technologies',
+  'tech', 'group', 'media', 'systems', 'labs', 'ventures', 'partners', 'associates', 'agency', 'capital',
+  'holdings',
+]);
+const KNOWN_SELECTOR_NON_PERSON_NAME_TERMS = new Set([
+  'manager', 'senior', 'public', 'sector', 'transformation', 'director', 'lead', 'team', 'official',
+  'account', 'verified',
+]);
+
+function normalizeKnownSelectorValue(type, value) {
+  const normalizedType = String(type || '').trim().toLowerCase();
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  if (normalizedType === 'email') return raw.toLowerCase();
+  if (normalizedType === 'phone') return raw.replace(/[^\d+]/g, '');
+  if (normalizedType === 'username') return raw.replace(/^@+/, '');
+  if (normalizedType === 'name') return raw.replace(/\s+/g, ' ');
+  return raw;
+}
+
+function isLikelyPersonName(value) {
+  const clean = String(value || '').trim().replace(/\s+/g, ' ');
+  if (!clean) return false;
+  if (isHttpUrl(clean) || clean.includes('@') || /^\+?[\d().\s-]{6,}$/.test(clean)) return false;
+  if (/\b[a-z0-9-]+\.(?:com|net|org|io|co|ai|dev|gov|edu|us)\b/i.test(clean)) return false;
+  if (/[(),]/.test(clean)) return false;
+  if (/\d/.test(clean)) return false;
+  if (clean.length > 80 || clean.length < 2) return false;
+  if (/[|/\\]/.test(clean)) return false;
+  const pieces = clean.split(' ').filter(Boolean);
+  if (!pieces.length || pieces.length > 4) return false;
+  if (pieces.length === 1 && !/^[A-Za-z][A-Za-z'.-]{1,}$/.test(pieces[0])) return false;
+  const lowered = clean.toLowerCase();
+  if (KNOWN_SELECTOR_NAME_SITE_WORDS.has(lowered)) return false;
+  const nonPersonHits = pieces.filter((piece) => KNOWN_SELECTOR_NON_PERSON_NAME_TERMS.has(piece.toLowerCase().replace(/[.,]/g, ''))).length;
+  if (nonPersonHits > 0) return false;
+  const companyHits = pieces.filter((piece) => KNOWN_SELECTOR_COMPANY_TERMS.has(piece.toLowerCase().replace(/[.,]/g, ''))).length;
+  if (companyHits > 0) return false;
+  const wordHits = pieces.filter((piece) => KNOWN_SELECTOR_NAME_SITE_WORDS.has(piece.toLowerCase())).length;
+  if (wordHits && wordHits === pieces.length) return false;
+  return true;
+}
+
+function isLikelyUsername(value) {
+  const clean = String(value || '').trim().replace(/^@+/, '');
+  if (!clean) return false;
+  if (clean.length < 2 || clean.length > 48) return false;
+  if (clean.includes(' ') || isHttpUrl(clean)) return false;
+  if (/[(),]/.test(clean)) return false;
+  if (/^[a-z0-9-]+\.(?:com|net|org|io|co|ai|dev|gov|edu|us)$/i.test(clean)) return false;
+  if (!/^[a-z0-9._-]+$/i.test(clean)) return false;
+  if (KNOWN_SELECTOR_NAME_SITE_WORDS.has(clean.toLowerCase())) return false;
+  return true;
+}
+
+function addKnownSelector(map, type, value) {
+  const normalizedType = String(type || '').trim().toLowerCase();
+  if (!KNOWN_SELECTOR_GROUPS.includes(normalizedType)) return;
+  const normalizedValue = normalizeKnownSelectorValue(normalizedType, value);
+  if (!normalizedValue) return;
+  if (normalizedType === 'name' && !isLikelyPersonName(normalizedValue)) return;
+  if (normalizedType === 'username' && !isLikelyUsername(normalizedValue)) return;
+  if (!map.has(normalizedType)) map.set(normalizedType, new Set());
+  map.get(normalizedType).add(normalizedValue);
+}
+
+function inferKnownSelectorType(raw) {
+  const clean = String(raw || '').trim();
+  if (!clean) return '';
+  if (isValidReconEmail(clean)) return 'email';
+  const compact = clean.replace(/[^\d+]/g, '');
+  if (isValidReconPhone(compact)) return 'phone';
+  if (clean.startsWith('@')) return 'username';
+  if (/[a-z0-9_]{2,}/i.test(clean) && !clean.includes(' ')) return 'username';
+  return 'name';
+}
+
+function collectKnownSelectors(payload) {
+  const selectorMap = new Map(KNOWN_SELECTOR_GROUPS.map((type) => [type, new Set()]));
+  const rows = Array.isArray(payload?.results) ? payload.results : [];
+  const selectors = Array.isArray(payload?.selectors) ? payload.selectors : [];
+  const osintProfiles = Array.isArray(payload?.osint_profiles) ? payload.osint_profiles : [];
+  const numverifyProfiles = Array.isArray(payload?.numverify_profiles) ? payload.numverify_profiles : [];
+  const personDataProfiles = Array.isArray(payload?.person_data_profiles) ? payload.person_data_profiles : [];
+  const leads = Array.isArray(payload?.leads) ? payload.leads : [];
+
+  for (const selector of selectors) addKnownSelector(selectorMap, selector?.type, selector?.value);
+  for (const row of rows) addKnownSelector(selectorMap, row?.selector_type, row?.selector);
+
+  for (const profile of osintProfiles) {
+    const moduleName = String(profile?.module || '').trim().toLowerCase();
+    if (moduleName === 'hibp') continue;
+    addKnownSelector(selectorMap, 'email', profile?.email);
+    addKnownSelector(selectorMap, 'phone', profile?.phone);
+    addKnownSelector(selectorMap, 'username', profile?.username);
+    addKnownSelector(selectorMap, 'name', profile?.name);
+    addKnownSelector(selectorMap, 'location', profile?.location);
+    addKnownSelector(selectorMap, 'phone', profile?.phone_hint);
+    addKnownSelector(selectorMap, 'email', profile?.email_hint);
+  }
+
+  for (const profile of personDataProfiles) {
+    addKnownSelector(selectorMap, 'name', profile?.full_name);
+    addKnownSelector(selectorMap, 'location', profile?.location_name);
+    addKnownSelector(selectorMap, 'email', profile?.professional_email || profile?.work_email);
+    for (const row of (Array.isArray(profile?.personal_emails) ? profile.personal_emails : [])) addKnownSelector(selectorMap, 'email', row);
+    addKnownSelector(selectorMap, 'phone', profile?.mobile_phone);
+    for (const row of (Array.isArray(profile?.personal_phones) ? profile.personal_phones : [])) addKnownSelector(selectorMap, 'phone', row);
+    for (const row of (Array.isArray(profile?.professional_phones) ? profile.professional_phones : [])) addKnownSelector(selectorMap, 'phone', row);
+  }
+
+  for (const profile of numverifyProfiles) {
+    addKnownSelector(selectorMap, 'phone', profile?.number || profile?.international_format || profile?.e164);
+    addKnownSelector(selectorMap, 'location', profile?.location);
+  }
+
+  for (const lead of leads) {
+    const leadType = String(lead?.lead_type || '').trim().toLowerCase();
+    if (leadType !== 'attribute') continue;
+    const attr = String(lead?.attribute || '').trim().toLowerCase();
+    const value = String(lead?.value || '').trim();
+    if (!value) continue;
+    if (attr.includes('company') || attr.includes('breach') || attr.includes('site') || attr.includes('job title') || attr === 'title') continue;
+    if (attr.includes('email')) addKnownSelector(selectorMap, 'email', value);
+    else if (attr.includes('phone')) addKnownSelector(selectorMap, 'phone', value);
+    else if (attr.includes('name')) addKnownSelector(selectorMap, 'name', value);
+    else if (attr.includes('location')) addKnownSelector(selectorMap, 'location', value);
+    else addKnownSelector(selectorMap, inferKnownSelectorType(value), value);
+  }
+
+  return Object.fromEntries(
+    KNOWN_SELECTOR_GROUPS.map((type) => [type, Array.from(selectorMap.get(type) || []).sort((a, b) => a.localeCompare(b))]),
+  );
+}
+
+function titleCaseLabel(value) {
+  return String(value || '')
+    .trim()
+    .split(/[\s_-]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(' ');
+}
+
+function parseTimelineDateValue(value) {
+  if (value === null || value === undefined) return null;
+  if (value instanceof Date && !Number.isNaN(value.getTime())) return value;
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    const abs = Math.abs(value);
+    const asMillis = abs > 1e12 ? value : (abs > 1e9 ? value * 1000 : NaN);
+    if (Number.isFinite(asMillis)) {
+      const date = new Date(asMillis);
+      if (!Number.isNaN(date.getTime())) return date;
+    }
+    return null;
+  }
+  const text = String(value).trim();
+  if (!text) return null;
+  if (/^\d{10}$/.test(text) || /^\d{13}$/.test(text)) {
+    const numeric = Number(text);
+    if (Number.isFinite(numeric)) {
+      const date = new Date(text.length === 13 ? numeric : numeric * 1000);
+      if (!Number.isNaN(date.getTime())) return date;
+    }
+  }
+  const parsed = new Date(text);
+  if (Number.isNaN(parsed.getTime())) return null;
+  const year = parsed.getUTCFullYear();
+  if (year < 1970 || year > 2105) return null;
+  return parsed;
+}
+
+function timelineKeyLooksRelevant(pathKey) {
+  const key = String(pathKey || '').toLowerCase();
+  if (!key) return false;
+  const hints = [
+    'date', 'time', 'seen', 'last_seen', 'last active', 'active', 'created', 'creation', 'registered',
+    'joined', 'signup', 'review', 'comment', 'post', 'activity', 'updated', 'update', 'login',
+    'breach', 'timeline',
+  ];
+  return hints.some((hint) => key.includes(hint));
+}
+
+function timelineActivityLabel(pathKey) {
+  const key = String(pathKey || '').toLowerCase();
+  if (key.includes('creation') || key.includes('created') || key.includes('registered') || key.includes('joined') || key.includes('signup')) {
+    return 'Account Created';
+  }
+  if (key.includes('last_seen') || key.includes('last seen') || key.includes('last_active') || key.includes('last active') || key.includes('seen') || key.includes('active')) {
+    return 'Last Seen';
+  }
+  if (key.includes('review')) return 'Review Left';
+  if (key.includes('comment')) return 'Comment Activity';
+  if (key.includes('post')) return 'Post Activity';
+  if (key.includes('login')) return 'Login Activity';
+  if (key.includes('update')) return 'Updated Activity';
+  const leaf = key.split('.').pop() || key;
+  return titleCaseLabel(leaf) || 'Observed Activity';
+}
+
+function collectTimelineDateEntries(value, path = '', output = []) {
+  if (value === null || value === undefined) return output;
+  if (Array.isArray(value)) {
+    const max = Math.min(value.length, 30);
+    for (let index = 0; index < max; index += 1) {
+      const nextPath = path ? `${path}[${index}]` : `[${index}]`;
+      collectTimelineDateEntries(value[index], nextPath, output);
+    }
+    return output;
+  }
+  if (typeof value === 'object') {
+    const entries = Object.entries(value);
+    for (const [rawKey, child] of entries) {
+      const key = String(rawKey || '').trim();
+      if (!key) continue;
+      const nextPath = path ? `${path}.${key}` : key;
+      collectTimelineDateEntries(child, nextPath, output);
+    }
+    return output;
+  }
+  const parsed = parseTimelineDateValue(value);
+  if (!parsed) return output;
+  if (!timelineKeyLooksRelevant(path)) return output;
+  output.push({ path, date: parsed, raw: value });
+  return output;
+}
+
+function firstHttpUrlFromObject(value) {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'string') {
+    const text = value.trim();
+    return /^https?:\/\//i.test(text) ? text : '';
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const found = firstHttpUrlFromObject(item);
+      if (found) return found;
+    }
+    return '';
+  }
+  if (typeof value === 'object') {
+    for (const [key, child] of Object.entries(value)) {
+      const lower = String(key || '').toLowerCase();
+      if (!lower.includes('url') && !lower.includes('website') && !lower.includes('link')) continue;
+      const found = firstHttpUrlFromObject(child);
+      if (found) return found;
+    }
+    for (const child of Object.values(value)) {
+      const found = firstHttpUrlFromObject(child);
+      if (found) return found;
+    }
+  }
+  return '';
+}
+
+function timelineSourceDisplayName(event) {
+  const rawSite = String(event?.site || event?.module || '').trim();
+  const normalized = normalizePlatformName(rawSite);
+  if (normalized) return platformDisplayName(normalized);
+  const domain = profileDomain(event?.profileUrl);
+  if (domain) {
+    const root = domain.split('.')[0] || domain;
+    return titleCaseLabel(root);
+  }
+  return titleCaseLabel(rawSite) || 'Source';
+}
+
+function timelineActionCode(actionLabel) {
+  const action = String(actionLabel || '').trim().toLowerCase();
+  if (action.includes('account created')) return 'AC';
+  if (action.includes('last seen')) return 'LS';
+  if (action.includes('review')) return 'RV';
+  if (action.includes('comment')) return 'CM';
+  if (action.includes('post')) return 'PO';
+  if (action.includes('login')) return 'LG';
+  if (action.includes('update')) return 'UP';
+  if (action.includes('geo') || action.includes('route')) return 'GE';
+  return 'EV';
+}
+
+function timelineSourceIconMarkup(event) {
+  return faviconMarkup(event?.site, event?.profileUrl)
+    || `<span class="timeline-source-fallback" aria-hidden="true">${escapeHtml(timelineSourceDisplayName(event).slice(0, 1).toUpperCase())}</span>`;
+}
+
+function collectOsintTimelineModel() {
+  const profiles = Array.isArray(reconOsintProfiles) ? reconOsintProfiles : [];
+  const specRows = Array.isArray(reconOsintSpecResults) ? reconOsintSpecResults : [];
+  const events = [];
+  const selectors = new Map();
+  const profileLookup = new Map();
+  const seenEvents = new Set();
+
+  const selectorKeyFor = (selectorType, selectorValue) => {
+    const type = String(selectorType || '').trim().toLowerCase() || 'selector';
+    const value = String(selectorValue || '').trim();
+    return `${type}|${value.toLowerCase()}`;
+  };
+
+  const addSelector = (selectorType, selectorValue) => {
+    const key = selectorKeyFor(selectorType, selectorValue);
+    if (!selectors.has(key)) {
+      selectors.set(key, {
+        selectorType: String(selectorType || '').trim().toLowerCase() || 'selector',
+        selectorValue: String(selectorValue || '').trim() || 'unknown',
+      });
+    }
+    return key;
+  };
+
+  const addEvent = (event) => {
+    if (!(event?.date instanceof Date) || Number.isNaN(event.date.getTime())) return;
+    const selectorType = String(event.selectorType || '').trim().toLowerCase() || 'selector';
+    const selectorValue = String(event.selectorValue || '').trim() || 'unknown';
+    const selectorKey = addSelector(selectorType, selectorValue);
+    const label = String(event.label || '').trim() || 'Observed Activity';
+    const moduleName = String(event.module || '').trim().toLowerCase() || 'osint';
+    const profileUrl = normalizeExternalUrl(event.profileUrl);
+    const dedupeKey = `${selectorKey}|${moduleName}|${label.toLowerCase()}|${event.date.toISOString()}|${profileUrl.toLowerCase()}`;
+    if (seenEvents.has(dedupeKey)) return;
+    seenEvents.add(dedupeKey);
+    events.push({
+      selectorKey,
+      selectorType,
+      selectorValue,
+      label,
+      module: String(event.module || '').trim() || 'OSINT',
+      profileUrl,
+      site: String(event.site || event.module || '').trim() || 'osint',
+      date: event.date,
+      detail: String(event.detail || '').trim(),
+    });
+  };
+
+  for (const profile of profiles) {
+    const selectorType = String(profile?.query_type || '').trim();
+    const selectorValue = String(profile?.query_value || '').trim();
+    const moduleName = String(profile?.module || '').trim() || 'osint';
+    const profileUrl = normalizeExternalUrl(profile?.profile_url || profile?.website || '');
+    const lookupKey = `${selectorKeyFor(selectorType, selectorValue)}|${moduleName.toLowerCase()}`;
+    if (!profileLookup.has(lookupKey)) profileLookup.set(lookupKey, profile);
+    addSelector(selectorType, selectorValue);
+
+    const creationDate = parseTimelineDateValue(profile?.creation_date);
+    if (creationDate) {
+      addEvent({
+        selectorType,
+        selectorValue,
+        module: moduleName,
+        profileUrl,
+        site: moduleName,
+        date: creationDate,
+        label: 'Account Created',
+      });
+    }
+    const lastSeen = parseTimelineDateValue(profile?.last_seen);
+    if (lastSeen) {
+      addEvent({
+        selectorType,
+        selectorValue,
+        module: moduleName,
+        profileUrl,
+        site: moduleName,
+        date: lastSeen,
+        label: 'Last Seen',
+      });
+    }
+    const geoSignals = Array.isArray(profile?.geo_signals) ? profile.geo_signals : [];
+    for (const signal of geoSignals) {
+      const signalDate = parseTimelineDateValue(signal?.timestamp || signal?.date || signal?.datetime);
+      if (!signalDate) continue;
+      const signalKind = String(signal?.kind || '').trim().toLowerCase();
+      const pathText = String(signal?.path || '').trim();
+      const detailText = String(signal?.detail || '').trim();
+      addEvent({
+        selectorType,
+        selectorValue,
+        module: moduleName,
+        profileUrl,
+        site: moduleName,
+        date: signalDate,
+        label: signalKind === 'polyline' ? 'Route Activity' : 'Geo Activity',
+        detail: [pathText, detailText].filter(Boolean).join(' • '),
+      });
+    }
+  }
+
+  for (const row of specRows) {
+    const selectorType = String(row?.query_type || '').trim();
+    const selectorValue = String(row?.query_value || '').trim();
+    const moduleName = String(row?.module || '').trim() || 'osint';
+    const selectorKey = selectorKeyFor(selectorType, selectorValue);
+    const lookupKey = `${selectorKey}|${moduleName.toLowerCase()}`;
+    const linkedProfile = profileLookup.get(lookupKey);
+    const parsedValues = row?.parsed_values && typeof row.parsed_values === 'object' ? row.parsed_values : {};
+    const specFormat = row?.spec_format && typeof row.spec_format === 'object' ? row.spec_format : {};
+    const timelineEntries = collectTimelineDateEntries(parsedValues);
+    if (!timelineEntries.length) collectTimelineDateEntries(specFormat, 'spec', timelineEntries);
+    addSelector(selectorType, selectorValue);
+
+    const profileUrl = normalizeExternalUrl(linkedProfile?.profile_url || linkedProfile?.website || firstHttpUrlFromObject(parsedValues) || firstHttpUrlFromObject(specFormat));
+    for (const entry of timelineEntries) {
+      addEvent({
+        selectorType,
+        selectorValue,
+        module: moduleName,
+        profileUrl,
+        site: moduleName,
+        date: entry.date,
+        label: timelineActivityLabel(entry.path),
+        detail: entry.path,
+      });
+    }
+  }
+
+  events.sort((a, b) => b.date.getTime() - a.date.getTime());
+  const selectorTimeline = new Map();
+  for (const event of events) {
+    const row = selectorTimeline.get(event.selectorKey) || {
+      earliest: null,
+      latest: null,
+      totalEvents: 0,
+    };
+    row.totalEvents += 1;
+    if (!row.earliest || event.date.getTime() < row.earliest.date.getTime()) row.earliest = event;
+    if (!row.latest || event.date.getTime() > row.latest.date.getTime()) row.latest = event;
+    selectorTimeline.set(event.selectorKey, row);
+  }
+
+  const selectorRanges = [];
+  for (const [selectorKey, selector] of selectors.entries()) {
+    const timeline = selectorTimeline.get(selectorKey) || {};
+    selectorRanges.push({
+      selectorKey,
+      selectorType: selector.selectorType,
+      selectorValue: selector.selectorValue,
+      earliest: timeline.earliest || null,
+      latest: timeline.latest || null,
+      totalEvents: Number.isFinite(timeline.totalEvents) ? timeline.totalEvents : 0,
+    });
+  }
+  selectorRanges.sort((a, b) => {
+    if (!a.earliest && !b.earliest) return a.selectorValue.localeCompare(b.selectorValue);
+    if (!a.earliest) return 1;
+    if (!b.earliest) return -1;
+    return a.earliest.date.getTime() - b.earliest.date.getTime();
+  });
+
+  return { events, selectorRanges };
+}
+
+function renderFootprintTimeline() {
+  if (
+    !(footprintTimelineSummary instanceof HTMLElement)
+    || !(footprintTimelineSummaryText instanceof HTMLElement)
+    || !(footprintTimelineEarliest instanceof HTMLElement)
+    || !(footprintTimelineEvents instanceof HTMLElement)
+    || !(footprintTimelineEmpty instanceof HTMLElement)
+  ) {
+    return;
+  }
+
+  const model = collectOsintTimelineModel();
+  const events = model.events;
+  const selectorRanges = model.selectorRanges;
+  const selectorCount = selectorRanges.length;
+
+  if (!events.length) {
+    footprintTimelineSummary.textContent = selectorCount
+      ? `${selectorCount} selector${selectorCount === 1 ? '' : 's'} • 0 events`
+      : 'No OSINT timeline data';
+    footprintTimelineSummaryText.textContent = selectorCount
+      ? 'Selectors were detected but no date-stamped activity was returned from OSINT Industries.'
+      : 'Run Digital Footprint recon to map OSINT Industries activity signals.';
+    footprintTimelineEarliest.innerHTML = selectorRanges.length
+      ? selectorRanges.map((row) => `<article class="timeline-earliest-card"><p>${escapeHtml(formatSelectorLabel(row.selectorType, row.selectorValue))}</p><strong>No dated observation</strong></article>`).join('')
+      : '';
+    footprintTimelineEvents.innerHTML = '';
+    footprintTimelineEmpty.classList.remove('hidden');
+    return;
+  }
+
+  const enriched = events.map((event) => ({
+    ...event,
+    sourceName: timelineSourceDisplayName(event),
+    actionLabel: String(event.label || '').trim() || 'Unknown activity',
+    moduleName: String(event.module || '').trim() || 'unknown',
+    selectorLabel: formatSelectorLabel(event.selectorType, event.selectorValue),
+  }));
+
+  const sourceCounts = new Map();
+  const actionCounts = new Map();
+  let linkedProfilesTotal = 0;
+  for (const event of enriched) {
+    sourceCounts.set(event.sourceName, (sourceCounts.get(event.sourceName) || 0) + 1);
+    actionCounts.set(event.actionLabel, (actionCounts.get(event.actionLabel) || 0) + 1);
+    if (event.profileUrl) linkedProfilesTotal += 1;
+  }
+  for (const source of Array.from(activeTimelineSources)) {
+    if (!sourceCounts.has(source)) activeTimelineSources.delete(source);
+  }
+  for (const action of Array.from(activeTimelineActions)) {
+    if (!actionCounts.has(action)) activeTimelineActions.delete(action);
+  }
+  if (!activeTimelineSources.size) {
+    for (const source of sourceCounts.keys()) activeTimelineSources.add(source);
+  }
+  if (!activeTimelineActions.size) {
+    for (const action of actionCounts.keys()) activeTimelineActions.add(action);
+  }
+
+  const query = timelineSelectorQuery.trim().toLowerCase();
+  const filteredEvents = enriched.filter((event) => {
+    if (!activeTimelineSources.has(event.sourceName)) return false;
+    if (!activeTimelineActions.has(event.actionLabel)) return false;
+    if (timelineShowOnlyLinked && !event.profileUrl) return false;
+    if (!query) return true;
+    const haystack = [
+      event.sourceName,
+      event.moduleName,
+      event.actionLabel,
+      event.selectorLabel,
+      event.selectorType,
+      event.selectorValue,
+      event.detail,
+    ].join(' ').toLowerCase();
+    return haystack.includes(query);
+  });
+
+  const sourceFilterActive = activeTimelineSources.size !== sourceCounts.size;
+  const actionFilterActive = activeTimelineActions.size !== actionCounts.size;
+  const queryFilterActive = Boolean(query);
+  const linkFilterActive = timelineShowOnlyLinked;
+  const filteredCount = filteredEvents.length;
+  const hasActiveFilters = sourceFilterActive || actionFilterActive || queryFilterActive || linkFilterActive;
+
+  footprintTimelineSummary.textContent = `${events.length} event${events.length === 1 ? '' : 's'} • ${selectorCount} selector${selectorCount === 1 ? '' : 's'}${hasActiveFilters ? ` • showing ${filteredCount}` : ''}`;
+  footprintTimelineSummaryText.textContent = hasActiveFilters
+    ? 'Filters active. Review is scoped to the visible events below.'
+    : 'Chronological OSINT activity feed from profile creation, last seen, and other timestamped enrichment fields.';
+  footprintTimelineEmpty.classList.add('hidden');
+
+  footprintTimelineEarliest.innerHTML = selectorRanges.map((row) => {
+    const selectorLabel = formatSelectorLabel(row.selectorType, row.selectorValue);
+    if (!row.earliest || !row.latest) {
+      return `
+        <article class="timeline-earliest-card">
+          <header>
+            <p>${escapeHtml(selectorLabel)}</p>
+            <strong>No dated observation</strong>
+          </header>
+          <span>OSINT returned no usable timeline fields for this selector.</span>
+        </article>
+      `;
+    }
+    const spanDays = Math.max(1, Math.round((row.latest.date.getTime() - row.earliest.date.getTime()) / 86400000) + 1);
+    return `
+      <article class="timeline-earliest-card">
+        <header>
+          <p>${escapeHtml(selectorLabel)}</p>
+          <span class="timeline-selector-event-total">${row.totalEvents} event${row.totalEvents === 1 ? '' : 's'}</span>
+        </header>
+        <div class="timeline-selector-range">
+          <div class="timeline-selector-range-row">
+            <span>First observed</span>
+            <strong>${escapeHtml(formatIsoDateTime(row.earliest.date.toISOString()))}</strong>
+            <em>${escapeHtml(`${row.earliest.label} • ${row.earliest.module}`)}</em>
+          </div>
+          <div class="timeline-selector-range-row">
+            <span>Latest activity</span>
+            <strong>${escapeHtml(formatIsoDateTime(row.latest.date.toISOString()))}</strong>
+            <em>${escapeHtml(`${row.latest.label} • ${row.latest.module}`)}</em>
+          </div>
+        </div>
+        <span>${spanDays} day${spanDays === 1 ? '' : 's'} of observed activity</span>
+      </article>
+    `;
+  }).join('');
+
+  const axisEvents = filteredEvents.length ? filteredEvents : enriched;
+  const minTs = Math.min(...axisEvents.map((event) => event.date.getTime()));
+  const maxTs = Math.max(...axisEvents.map((event) => event.date.getTime()));
+  const daySpan = Math.max(1, Math.round((maxTs - minTs) / 86400000) + 1);
+  const topSourceRow = Array.from(sourceCounts.entries()).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0];
+  const topActionRow = Array.from(actionCounts.entries()).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0];
+
+  const filteredSourceCounts = new Map();
+  for (const event of filteredEvents) {
+    filteredSourceCounts.set(event.sourceName, (filteredSourceCounts.get(event.sourceName) || 0) + 1);
+  }
+  const sourceLegend = Array.from((filteredEvents.length ? filteredSourceCounts : sourceCounts).entries())
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, 8)
+    .map(([source, count]) => `<span class="recon-pill"><span>${escapeHtml(source)}</span><strong>${count}</strong></span>`)
+    .join('');
+  const eventDensity = new Map();
+  for (const event of (filteredEvents.length ? filteredEvents : axisEvents)) {
+    const key = dayKey(event.date.toISOString());
+    if (!key) continue;
+    eventDensity.set(key, (eventDensity.get(key) || 0) + 1);
+  }
+  const densityRows = Array.from(eventDensity.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+  const maxDensity = Math.max(1, ...densityRows.map((row) => row[1]));
+  const densityMarkup = densityRows.length
+    ? densityRows.map(([key, count]) => {
+      const pct = Math.max(10, Math.round((count / maxDensity) * 100));
+      return `
+        <span class="timeline-density-bar" style="height:${pct}%;" title="${escapeAttr(`${shortDayLabel(key)}: ${count} events`)}" aria-label="${escapeAttr(`${shortDayLabel(key)}: ${count} events`)}"></span>
+      `;
+    }).join('')
+    : '<span class="timeline-density-empty">No visible timeline density</span>';
+
+  const sourceFilters = Array.from(sourceCounts.entries())
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .map(([source, count]) => {
+      const active = activeTimelineSources.has(source);
+      return `<button type="button" class="mix-pill mix-filter-pill timeline-filter-pill${active ? ' is-active' : ''}" data-timeline-source="${escapeAttr(source)}"><span>${escapeHtml(source)}</span><strong>${count}</strong></button>`;
+    })
+    .join('');
+  const actionFilters = Array.from(actionCounts.entries())
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .map(([action, count]) => {
+      const active = activeTimelineActions.has(action);
+      return `<button type="button" class="mix-pill mix-filter-pill timeline-filter-pill${active ? ' is-active' : ''}" data-timeline-action="${escapeAttr(action)}"><span>${escapeHtml(action)}</span><strong>${count}</strong></button>`;
+    })
+    .join('');
+
+  const feedRows = [];
+  let lastDayKey = '';
+  for (const event of filteredEvents) {
+    const sourceName = event.sourceName;
+    const selectorValue = String(event.selectorValue || '').trim() || 'unknown';
+    const actionTitle = `${sourceName} - ${event.actionLabel} (${selectorValue})`;
+    const when = formatIsoDateTime(event.date.toISOString());
+    const recency = formatRecency(event.date.toISOString());
+    const actionCode = timelineActionCode(event.actionLabel);
+    const sourceIcon = timelineSourceIconMarkup(event);
+    const selectorLabel = event.selectorLabel;
+    const eventDayKey = dayKey(event.date.toISOString());
+    if (eventDayKey && eventDayKey !== lastDayKey) {
+      feedRows.push(`
+        <div class="timeline-feed-day">
+          <span>${escapeHtml(shortDayLabel(eventDayKey))}</span>
+        </div>
+      `);
+      lastDayKey = eventDayKey;
+    }
+    const linkMarkup = event.profileUrl
+      ? `<a class="timeline-event-link lead-link" href="${escapeAttr(event.profileUrl)}" target="_blank" rel="noopener noreferrer">open profile</a>`
+      : '';
+    feedRows.push(`
+      <article class="timeline-feed-event">
+        <div class="timeline-vis-pin">
+          <span class="timeline-vis-source">${sourceIcon}</span>
+        </div>
+        <div class="timeline-vis-card">
+          <p class="timeline-vis-title">
+            <span class="timeline-action-icon" aria-hidden="true">${escapeHtml(actionCode)}</span>
+            <span>${escapeHtml(actionTitle)}</span>
+          </p>
+          <p class="timeline-vis-meta">${escapeHtml(`${when} • ${recency}`)}</p>
+          <div class="recon-pills">
+            <span class="recon-pill">${escapeHtml(selectorLabel)}</span>
+            <span class="recon-pill">${escapeHtml(sourceName)}</span>
+            ${linkMarkup}
+          </div>
+        </div>
+      </article>
+    `);
+  }
+
+  if (!feedRows.length) {
+    feedRows.push(`
+      <article class="timeline-filter-empty">
+        <strong>No events match current filters</strong>
+        <span>Clear filters or widen the selector query to continue review.</span>
+      </article>
+    `);
+  }
+
+  footprintTimelineEvents.innerHTML = `
+    <div class="timeline-vis">
+      <div class="timeline-factor-grid">
+        <article class="timeline-factor-card">
+          <p>Visible Events</p>
+          <strong>${filteredCount}</strong>
+          <span>${events.length === filteredCount ? 'No filters applied' : `${events.length - filteredCount} hidden by filters`}</span>
+        </article>
+        <article class="timeline-factor-card">
+          <p>Date Window</p>
+          <strong>${daySpan} day${daySpan === 1 ? '' : 's'}</strong>
+          <span>${escapeHtml(`${formatIsoDateTime(new Date(minTs).toISOString())} to ${formatIsoDateTime(new Date(maxTs).toISOString())}`)}</span>
+        </article>
+        <article class="timeline-factor-card">
+          <p>Top Source</p>
+          <strong>${escapeHtml(topSourceRow?.[0] || 'Unknown')}</strong>
+          <span>${topSourceRow ? `${topSourceRow[1]} event${topSourceRow[1] === 1 ? '' : 's'}` : 'No source data'}</span>
+        </article>
+        <article class="timeline-factor-card">
+          <p>Top Activity</p>
+          <strong>${escapeHtml(topActionRow?.[0] || 'Unknown')}</strong>
+          <span>${escapeHtml(`${linkedProfilesTotal} linked profile${linkedProfilesTotal === 1 ? '' : 's'}`)}</span>
+        </article>
+      </div>
+      <div class="timeline-filter-panel">
+        <div class="timeline-filter-controls">
+          <label class="timeline-search">
+            <span>Find in timeline</span>
+            <input
+              type="search"
+              data-timeline-query
+              value="${escapeAttr(timelineSelectorQuery)}"
+              placeholder="selector, source, module, activity"
+              autocomplete="off"
+            />
+          </label>
+          <label class="timeline-filter-toggle">
+            <input type="checkbox" data-timeline-linked-only ${timelineShowOnlyLinked ? 'checked' : ''} />
+            <span>Only events with profile links</span>
+          </label>
+          <button type="button" class="secondary-btn timeline-filter-reset" data-timeline-reset>Reset filters</button>
+        </div>
+        <div class="timeline-filter-row">
+          <span class="filter-label">Sources</span>
+          <div class="type-mix">${sourceFilters}</div>
+        </div>
+        <div class="timeline-filter-row">
+          <span class="filter-label">Activity</span>
+          <div class="type-mix">${actionFilters}</div>
+        </div>
+      </div>
+      <div class="timeline-vis-axis">
+        <span>${escapeHtml(formatIsoDateTime(new Date(minTs).toISOString()))}</span>
+        <span>${escapeHtml(formatIsoDateTime(new Date(maxTs).toISOString()))}</span>
+      </div>
+      <div class="timeline-density-track" role="img" aria-label="Timeline event density by day">
+        ${densityMarkup}
+      </div>
+      <div class="timeline-vis-track timeline-feed-scroll">
+        <div class="timeline-feed-line" aria-hidden="true"></div>
+        ${feedRows.join('')}
+      </div>
+      <div class="timeline-vis-legend">${sourceLegend}</div>
+    </div>
+  `;
 }
 
 function ensureReconPreviewTooltip() {
@@ -4878,7 +6788,7 @@ function positionReconPreviewTooltip(mouseEvent) {
 }
 
 function showReconPreview(anchor, mouseEvent) {
-  if (!(anchor instanceof HTMLAnchorElement)) return;
+  if (!(anchor instanceof Element)) return;
   const src = String(anchor.getAttribute('data-preview-image') || '').trim();
   if (!src) return;
   const label = String(anchor.getAttribute('data-preview-label') || '').trim() || 'Preview';
@@ -4906,47 +6816,44 @@ function attachReconPreviewHandlers(container) {
   container.addEventListener('mouseover', (event) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
-    const anchor = target.closest('a[data-preview-image]');
-    if (!(anchor instanceof HTMLAnchorElement)) return;
+    const anchor = target.closest('[data-preview-image]');
+    if (!(anchor instanceof Element)) return;
     showReconPreview(anchor, event);
   });
   container.addEventListener('mousemove', (event) => {
-    if (!(activeReconPreviewAnchor instanceof HTMLAnchorElement)) return;
+    if (!(activeReconPreviewAnchor instanceof Element)) return;
     positionReconPreviewTooltip(event);
   });
   container.addEventListener('mouseout', (event) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
-    const fromAnchor = target.closest('a[data-preview-image]');
-    if (!(fromAnchor instanceof HTMLAnchorElement)) return;
+    const fromAnchor = target.closest('[data-preview-image]');
+    if (!(fromAnchor instanceof Element)) return;
     const related = event.relatedTarget;
     if (related instanceof Node && fromAnchor.contains(related)) return;
     hideReconPreview();
   });
 }
 
-function personDataProfileMarkup(profile, totalProfiles = 0, pdlProfiles = []) {
+function personDataProfileMarkup(profile, totalProfiles = 0, pdlProfiles = [], options = {}) {
+  const removable = options?.removable === true;
   if (!profile || typeof profile !== 'object' || !Object.keys(profile).length) {
     return '';
   }
+  const profileKey = pdlProfileVisibilityKey(profile);
   const fullName = String(profile.full_name || '').trim();
   const title = String(profile.job_title || '').trim();
   const company = String(profile.job_company_name || '').trim();
   const location = String(profile.location_name || '').trim();
   const queryType = String(profile.query_type || '').trim() || 'unknown';
   const queryValue = String(profile.query_value || '').trim() || 'unknown';
+  const profileSelectorKey = sourceSelectorKey(queryType, queryValue);
+  const profileSelectorAttr = profileSelectorKey ? ` data-source-selector-key="${escapeAttr(profileSelectorKey)}"` : '';
   const proEmail = String(profile.professional_email || profile.work_email || '').trim();
   const personalEmails = Array.isArray(profile.personal_emails) ? profile.personal_emails.filter(Boolean).map((item) => String(item).trim()) : [];
   const mobilePhone = String(profile.mobile_phone || profile.phone || '').trim();
   const personalPhones = Array.isArray(profile.personal_phones) ? profile.personal_phones.filter(Boolean).map((item) => String(item).trim()) : [];
   const professionalPhones = Array.isArray(profile.professional_phones) ? profile.professional_phones.filter(Boolean).map((item) => String(item).trim()) : [];
-  const professionalContacts = [];
-  const personalContacts = [];
-  if (proEmail) professionalContacts.push(proEmail);
-  for (const item of professionalPhones) professionalContacts.push(item);
-  for (const item of personalEmails) personalContacts.push(item);
-  if (mobilePhone) personalContacts.push(mobilePhone);
-  for (const item of personalPhones) personalContacts.push(item);
   const uniqueValues = (values) => {
     const output = [];
     const seen = new Set();
@@ -4959,13 +6866,28 @@ function personDataProfileMarkup(profile, totalProfiles = 0, pdlProfiles = []) {
     }
     return output;
   };
-  const professionalValues = uniqueValues(professionalContacts);
-  const personalValues = uniqueValues(personalContacts);
+  const filterVisibleContactValues = (label, values) => values.filter((value) => !hiddenPdlContactValueKeys.has(pdlContactVisibilityKey(profile, label, value)));
+  const professionalEmailValues = filterVisibleContactValues('Professional Email', uniqueValues(proEmail ? [proEmail] : []));
+  const personalEmailValues = filterVisibleContactValues('Personal Email', uniqueValues(personalEmails));
+  const professionalPhoneValues = filterVisibleContactValues('Professional Phone', uniqueValues(professionalPhones));
+  const personalPhoneValues = filterVisibleContactValues('Personal Phone', uniqueValues([mobilePhone, ...personalPhones]));
+  const contactSelectorType = (heading) => {
+    const lowered = String(heading || '').toLowerCase();
+    if (lowered.includes('email')) return 'email';
+    if (lowered.includes('phone')) return 'phone';
+    return '';
+  };
   const contactGroupMarkup = (heading, values) => `
     <div class="pdl-contact-group">
       <span class="pdl-contact-heading">${escapeHtml(heading)}</span>
       <div class="recon-pills pdl-contact-pills">
-        ${values.length ? values.map((value) => `<span class="recon-pill">${escapeHtml(value)}</span>`).join('') : '<span class="recon-pill">None</span>'}
+        ${values.length ? values.map((value) => `
+          <span class="recon-pill">
+            <span>${escapeHtml(value)}</span>
+            ${pivotSelectorActionMarkup(contactSelectorType(heading), value, 'Pivot Search')}
+            ${removable ? `<button type="button" class="known-selector-action recon-pill-remove recon-pill-action" data-pdl-contact-remove="${escapeAttr(pdlContactVisibilityKey(profile, heading.replace(/s$/, ''), value))}" title="Remove value">×</button>` : ''}
+          </span>
+        `).join('') : '<span class="recon-pill">None</span>'}
       </div>
     </div>
   `;
@@ -5038,12 +6960,16 @@ function personDataProfileMarkup(profile, totalProfiles = 0, pdlProfiles = []) {
     };
     for (const row of (Array.isArray(pdlProfiles) ? pdlProfiles : [])) addRow(row);
     for (const url of fallbackProfileUrls) addRow({ profile_url: url, site: siteFromUrl(url) });
-    return rows;
+    return rows.filter((row) => !hiddenPdlProfileUrlKeys.has(String(row?.profile_url || '').trim().toLowerCase()));
   })();
   return `
     <div class="recon-group">
       <p>Person Data Profile${totalProfiles > 1 ? ` (${totalProfiles} matches)` : ''}</p>
-      <div class="pdl-poi-profile">
+      <div class="pdl-poi-profile"${profileSelectorAttr}>
+        ${removable ? `<button type="button" class="known-selector-action recon-tile-remove" data-pdl-profile-remove="${escapeAttr(profileKey)}" title="Remove Person Data Profile">×</button>` : ''}
+        <div class="recon-pills">
+          <span class="recon-pill">${escapeHtml(fullName || `${queryType}: ${queryValue}`)}</span>
+        </div>
         <div class="pdl-poi-grid">
           <div class="pdl-poi-field">
             <span class="pdl-poi-label">Name</span>
@@ -5063,13 +6989,22 @@ function personDataProfileMarkup(profile, totalProfiles = 0, pdlProfiles = []) {
           <span class="pdl-contact-heading">Profiles</span>
           <div class="recon-pills">
             ${mergedProfileRows.length
-    ? mergedProfileRows.map((row) => toReconBadge(row)).join('')
+    ? mergedProfileRows.map((row) => {
+      const rowWithSelector = { ...row, selector_type: 'username', selector: String(profile?.query_value || '').trim() };
+      if (!removable) return toReconBadge(rowWithSelector, 'lead', { pivotable: false });
+      return toReconBadge(rowWithSelector, 'lead', {
+        removable: true,
+        pivotable: false,
+      }).replace('data-recon-remove=', 'data-pdl-url-remove=');
+    }).join('')
     : '<span class="recon-pill">No profile URLs returned by People Data Labs.</span>'}
           </div>
         </div>
         <div class="pdl-contact-sections">
-          ${contactGroupMarkup('Professional', professionalValues)}
-          ${contactGroupMarkup('Personal', personalValues)}
+          ${contactGroupMarkup('Professional Emails', professionalEmailValues)}
+          ${contactGroupMarkup('Personal Emails', personalEmailValues)}
+          ${contactGroupMarkup('Professional Phones', professionalPhoneValues)}
+          ${contactGroupMarkup('Personal Phones', personalPhoneValues)}
         </div>
         <div class="recon-pills">
           <span class="recon-pill">${escapeHtml(identificationText)}</span>
@@ -5079,69 +7014,225 @@ function personDataProfileMarkup(profile, totalProfiles = 0, pdlProfiles = []) {
   `;
 }
 
-function osintProfilesMarkup(profiles, rows = []) {
+function osintProfilesMarkup(profiles, rows = [], options = {}) {
+  const removable = options?.removable === true;
   const items = Array.isArray(profiles) ? profiles : [];
-  if (!items.length) return '';
+  const resultRows = Array.isArray(rows) ? rows : [];
+  if (!items.length && !resultRows.length) return '';
   const screenshotByUrl = new Map();
-  for (const row of (Array.isArray(rows) ? rows : [])) {
+  for (const row of resultRows) {
     if (String(row?.source || '').trim().toLowerCase() !== 'osint_industries') continue;
-    const url = String(row?.profile_url || '').trim();
+    const url = normalizeExternalUrl(row?.profile_url);
     const shot = String(row?.screenshot_url || '').trim();
     if (!url || !shot || screenshotByUrl.has(url.toLowerCase())) continue;
     screenshotByUrl.set(url.toLowerCase(), shot);
   }
-  const linkPill = (label, rawUrl, screenshotLabel) => {
-    const url = String(rawUrl || '').trim();
+  const normalizedSiteLabel = (value) => {
+    const clean = String(value || '').trim();
+    if (!clean) return 'OSINT';
+    return clean.replace(/_/g, ' ');
+  };
+  const linkPill = (label, rawUrl, screenshotLabel, cls = '') => {
+    const url = normalizeExternalUrl(rawUrl);
     if (!url) return '';
     const screenshotUrl = screenshotByUrl.get(url.toLowerCase()) || '';
     const previewAttr = screenshotUrl ? ` data-preview-image="${escapeAttr(screenshotUrl)}"` : '';
     const previewLabelAttr = screenshotUrl ? ` data-preview-label="${escapeAttr(screenshotLabel)}"` : '';
-    return `<a class="recon-pill lead-link" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer"${previewAttr}${previewLabelAttr}>${escapeHtml(label)}</a>`;
+    const classAttr = cls ? ` ${cls}` : '';
+    return `<a class="recon-pill lead-link${classAttr}" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer"${previewAttr}${previewLabelAttr}>${escapeHtml(label)}</a>`;
   };
   const valueItem = (label, value) => {
-    const clean = String(value || '').trim();
+    if (value === null || value === undefined) return '';
+    const clean = typeof value === 'string' ? value.trim() : String(value).trim();
     if (!clean) return '';
     return `<div class="osint-value"><span class="osint-key">${escapeHtml(label)}</span><strong>${escapeHtml(clean)}</strong></div>`;
   };
-  const cards = items.map((profile, index) => {
-    const title = String(profile?.title || profile?.name || profile?.username || `Result ${index + 1}`).trim();
-    const profileUrl = String(profile?.profile_url || '').trim();
-    const website = String(profile?.website || '').trim();
-    const profileLink = linkPill('Profile URL', profileUrl, title);
-    const websiteLink = website && website !== profileUrl ? linkPill('Website', website, title) : '';
-    const imageUrl = String(profile?.picture_url || '').trim();
+  const rowsByUrl = new Map();
+  for (const row of resultRows) {
+    if (String(row?.source || '').trim().toLowerCase() !== 'osint_industries') continue;
+    const profileUrl = normalizeExternalUrl(row?.profile_url);
+    if (!profileUrl) continue;
+    if (!rowsByUrl.has(profileUrl.toLowerCase())) rowsByUrl.set(profileUrl.toLowerCase(), row);
+  }
+  const mergedItems = (() => {
+    const output = [];
+    const seen = new Set();
+    for (const profile of items) {
+      const title = String(profile?.title || profile?.name || profile?.username || '').trim();
+      const profileUrl = normalizeExternalUrl(profile?.profile_url);
+      const website = normalizeExternalUrl(profile?.website);
+      const dedupe = [
+        String(profile?.module || '').trim().toLowerCase(),
+        profileUrl.toLowerCase(),
+        String(profile?.username || '').trim().toLowerCase(),
+        String(profile?.email || '').trim().toLowerCase(),
+        String(profile?.phone || '').trim().toLowerCase(),
+        title.toLowerCase(),
+      ].join('|');
+      if (seen.has(dedupe)) continue;
+      seen.add(dedupe);
+      output.push({ profile, profileUrl, website, title });
+    }
+    return output;
+  })();
+  const cards = mergedItems.map((entry, index) => {
+    const profile = entry.profile;
+    const profileKey = osintTileVisibilityKey(profile);
+    const title = entry.title || `Result ${index + 1}`;
+    const displayName = String(profile?.name || '').trim() || 'Unnamed';
+    const username = String(profile?.username || '').trim();
+    const profileUrl = entry.profileUrl;
+    const website = entry.website;
+    const siteLabel = normalizedSiteLabel(profile?.module || rowsByUrl.get(profileUrl.toLowerCase())?.site || 'osint');
+    const row = rowsByUrl.get(profileUrl.toLowerCase());
+    const selectorKey = sourceSelectorKey(
+      profile?.query_type || row?.selector_type,
+      profile?.query_value || row?.selector,
+    );
+    const selectorAttr = selectorKey ? ` data-source-selector-key="${escapeAttr(selectorKey)}"` : '';
+    const profileLink = profileUrl ? linkPill('Profile', profileUrl, title, 'osint-profile-link') : '';
+    const websiteLink = website && website !== profileUrl ? linkPill('Website', website, `${title} website`, 'osint-website-link') : '';
+    const imageUrl = normalizeExternalUrl(profile?.picture_url || profile?.avatar_url || '') || normalizeExternalUrl(row?.picture_url || '');
+    const siteIcon = faviconMarkup(siteLabel, profileUrl || website);
+    const avatarMarkup = imageUrl
+      ? `<img class="osint-profile-avatar" src="${escapeHtml(imageUrl)}" alt="${escapeAttr(title)}" loading="lazy" referrerpolicy="no-referrer" />`
+      : `
+        <div class="osint-profile-avatar empty" aria-label="No profile image">
+          <svg class="osint-profile-avatar-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor">
+            <circle cx="12" cy="8" r="4" fill="none"></circle>
+            <path d="M4.5 20c0-3.9 3.3-7 7.5-7s7.5 3.1 7.5 7" fill="none"></path>
+          </svg>
+        </div>
+      `;
     return `
-      <article class="osint-profile-card">
+      <article class="osint-profile-card"${selectorAttr}>
         <div class="osint-profile-head">
-          ${imageUrl ? `<img class="osint-profile-avatar" src="${escapeHtml(imageUrl)}" alt="${escapeAttr(title)}" loading="lazy" referrerpolicy="no-referrer" />` : '<div class="osint-profile-avatar empty">No image</div>'}
+          ${avatarMarkup}
           <div>
+            <p class="osint-profile-site">${siteIcon}<span>${escapeHtml(siteLabel)}</span></p>
             <h4>${escapeHtml(title)}</h4>
-            <p>${escapeHtml(String(profile?.name || '').trim() || 'Unnamed')}</p>
+            <p>${escapeHtml(displayName)}</p>
+            ${username ? `<p>@${escapeHtml(username)}</p>` : ''}
           </div>
+          ${removable ? `<button type="button" class="known-selector-action recon-tile-remove" data-osint-remove="${escapeAttr(profileKey)}" title="Remove OSINT tile">×</button>` : ''}
         </div>
         <div class="osint-profile-grid">
-          ${valueItem('first_name', profile?.first_name)}
-          ${valueItem('last_name', profile?.last_name)}
-          ${valueItem('gender', profile?.gender)}
-          ${valueItem('age', profile?.age)}
-          ${valueItem('location', profile?.location)}
+          ${valueItem('name', profile?.name)}
           ${valueItem('username', profile?.username)}
+          ${valueItem('location', profile?.location)}
           ${valueItem('email', profile?.email)}
           ${valueItem('phone', profile?.phone)}
           ${valueItem('email_hint', profile?.email_hint)}
           ${valueItem('phone_hint', profile?.phone_hint)}
+          ${valueItem('registered', profile?.registered)}
+          ${valueItem('followers', profile?.followers)}
+          ${valueItem('following', profile?.following)}
+          ${valueItem('language', profile?.language)}
           ${valueItem('bio', profile?.bio)}
+          ${valueItem('verified', profile?.verified)}
+          ${valueItem('premium', profile?.premium)}
+          ${valueItem('private', profile?.private)}
+          ${valueItem('breach', profile?.breach)}
         </div>
-        <div class="recon-pills">
+        <div class="osint-profile-links">
           ${profileLink}
           ${websiteLink}
         </div>
       </article>
     `;
   }).join('');
+  if (!cards) return '';
   return `
     <div class="recon-group">
-      <p>OSINT Industries Results (${items.length})</p>
+      <p>OSINT Industries Tiles (${mergedItems.length})</p>
+      <div class="osint-profiles-list">${cards}</div>
+    </div>
+  `;
+}
+
+function hibpAggregateMarkup(profiles, specRows = []) {
+  const items = Array.isArray(profiles) ? profiles : [];
+  const rows = Array.isArray(specRows) ? specRows : [];
+  const hibpProfiles = items.filter((row) => String(row?.module || '').trim().toLowerCase() === 'hibp');
+  const hibpSpecs = rows.filter((row) => String(row?.module || '').trim().toLowerCase() === 'hibp');
+  if (!hibpProfiles.length && !hibpSpecs.length) return '';
+
+  const bySelector = new Map();
+  const ensureSelector = (selectorType, selectorValue) => {
+    const type = String(selectorType || '').trim().toLowerCase() || 'selector';
+    const value = String(selectorValue || '').trim() || 'unknown';
+    const key = `${type}|${value.toLowerCase()}`;
+    if (!bySelector.has(key)) {
+      bySelector.set(key, { selectorType: type, selectorValue: value, breaches: new Set() });
+    }
+    return bySelector.get(key);
+  };
+  const parseBreachesFromValue = (value) => {
+    const output = [];
+    const append = (raw) => {
+      const clean = String(raw || '').trim();
+      if (!clean) return;
+      output.push(clean);
+    };
+    if (Array.isArray(value)) {
+      for (const item of value) append(item?.name || item?.title || item);
+      return output;
+    }
+    if (typeof value === 'string') {
+      for (const part of value.split(/[,;\n]+/g)) append(part);
+      return output;
+    }
+    if (value && typeof value === 'object') {
+      for (const item of Object.values(value)) append(item?.name || item?.title || item);
+    }
+    return output;
+  };
+
+  for (const profile of hibpProfiles) {
+    const bucket = ensureSelector(profile?.query_type, profile?.query_value);
+    for (const breach of parseBreachesFromValue(profile?.breach)) bucket.breaches.add(breach);
+    const parsedValues = profile?.parsed_values && typeof profile.parsed_values === 'object' ? profile.parsed_values : {};
+    for (const [key, value] of Object.entries(parsedValues)) {
+      const lowered = String(key || '').toLowerCase();
+      if (!lowered.includes('breach') && !lowered.includes('pwn')) continue;
+      for (const breach of parseBreachesFromValue(value)) bucket.breaches.add(breach);
+    }
+  }
+  for (const row of hibpSpecs) {
+    const bucket = ensureSelector(row?.query_type, row?.query_value);
+    const parsedValues = row?.parsed_values && typeof row.parsed_values === 'object' ? row.parsed_values : {};
+    for (const [key, value] of Object.entries(parsedValues)) {
+      const lowered = String(key || '').toLowerCase();
+      if (!lowered.includes('breach') && !lowered.includes('pwn')) continue;
+      for (const breach of parseBreachesFromValue(value)) bucket.breaches.add(breach);
+    }
+  }
+
+  const selectorRows = Array.from(bySelector.values());
+  if (!selectorRows.length) return '';
+  const cards = selectorRows.map((row) => {
+    const selectorLabel = formatSelectorLabel(row.selectorType, row.selectorValue);
+    const breaches = Array.from(row.breaches).sort((a, b) => a.localeCompare(b));
+    return `
+      <article class="osint-profile-card">
+        <div class="osint-profile-head">
+          <div class="osint-profile-avatar empty">HIBP</div>
+          <div>
+            <h4>${escapeHtml(selectorLabel)}</h4>
+            <p>${breaches.length} breach${breaches.length === 1 ? '' : 'es'}</p>
+          </div>
+        </div>
+        <div class="recon-pills">
+          ${breaches.length
+    ? breaches.map((name) => `<span class="recon-pill">${escapeHtml(name)}</span>`).join('')
+    : '<span class="recon-pill">No breach names returned.</span>'}
+        </div>
+      </article>
+    `;
+  }).join('');
+  return `
+    <div class="recon-group recon-group-low-priority">
+      <p>HIBP Breach Summary (Deprioritized)</p>
       <div class="osint-profiles-list">${cards}</div>
     </div>
   `;
@@ -5189,10 +7280,331 @@ function numverifyProfilesMarkup(profiles) {
   `;
 }
 
+function knownSelectorPillMarkup(type, value) {
+  const key = `${type}|${String(value || '').toLowerCase()}`;
+  if (hiddenKnownSelectorKeys.has(key)) return '';
+  return `
+    <span class="known-selector-pill known-selector-pill-${escapeAttr(type)}" data-known-focus-key="${escapeAttr(key)}">
+      <span class="known-selector-value">${escapeHtml(value)}</span>
+      <button type="button" class="known-selector-action pivot" data-known-pivot-type="${escapeAttr(type)}" data-known-pivot-value="${escapeAttr(value)}" title="Pivot Search" aria-label="Pivot Search">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="11" cy="11" r="6.5"></circle><path d="M16.5 16.5L21 21"></path></svg>
+      </button>
+      <button type="button" class="known-selector-action" data-known-remove="${escapeAttr(key)}" title="Remove selector">×</button>
+    </span>
+  `;
+}
+
+function hideResultsForSelector(selectorKey) {
+  const cleanKey = String(selectorKey || '').trim().toLowerCase();
+  if (!cleanKey || cleanKey === 'all') return false;
+  const { type, value } = sourceSelectorParts(cleanKey);
+  if (!type || !value) return false;
+  const payload = latestReconPayload && typeof latestReconPayload === 'object' ? latestReconPayload : emptyReconPayload();
+  const rows = Array.isArray(payload?.results) ? payload.results : [];
+  const osintProfiles = Array.isArray(payload?.osint_profiles) ? payload.osint_profiles : [];
+  const pdlProfiles = Array.isArray(payload?.person_data_profiles) ? payload.person_data_profiles : [];
+  let hiddenCount = 0;
+
+  for (const row of rows) {
+    const rowType = String(row?.selector_type || '').trim().toLowerCase();
+    const rowValue = String(row?.selector || '').trim().toLowerCase();
+    if (rowType !== type || rowValue !== value) continue;
+    const rowKey = reconRowVisibilityKey(row);
+    if (!hiddenReconRowKeys.has(rowKey)) {
+      hiddenReconRowKeys.add(rowKey);
+      hiddenCount += 1;
+    }
+    const source = String(row?.source || '').trim().toLowerCase();
+    if (source === 'osint_industries' && row?.osint_profile) {
+      hiddenOsintTileKeys.add(osintTileVisibilityKey(row.osint_profile));
+    }
+    if (source === 'pdl') {
+      const urlKey = String(row?.profile_url || '').trim().toLowerCase();
+      if (urlKey) hiddenPdlProfileUrlKeys.add(urlKey);
+    }
+  }
+
+  for (const profile of osintProfiles) {
+    const queryType = String(profile?.query_type || '').trim().toLowerCase();
+    const queryValue = String(profile?.query_value || '').trim().toLowerCase();
+    if (queryType === type && queryValue === value) {
+      hiddenOsintTileKeys.add(osintTileVisibilityKey(profile));
+    }
+  }
+
+  for (const profile of pdlProfiles) {
+    const queryType = String(profile?.query_type || '').trim().toLowerCase();
+    const queryValue = String(profile?.query_value || '').trim().toLowerCase();
+    if (queryType === type && queryValue === value) {
+      hiddenPdlProfileKeys.add(pdlProfileVisibilityKey(profile));
+    }
+  }
+
+  hiddenKnownSelectorKeys.add(cleanKey);
+  return hiddenCount > 0;
+}
+
+function focusKnownSelectorInstances(selectorKey) {
+  const cleanKey = String(selectorKey || '').trim().toLowerCase();
+  if (!cleanKey || cleanKey === 'all') return false;
+  if (!(footprintReconResults instanceof HTMLElement)) return false;
+  const payload = latestReconPayload && typeof latestReconPayload === 'object' ? latestReconPayload : emptyReconPayload();
+  if (activeFootprintSourceSelectorKey !== 'all') {
+    activeFootprintSourceSelectorKey = 'all';
+    renderReconResults(payload, footprintReconResults);
+  }
+  const candidates = Array.from(footprintReconResults.querySelectorAll('[data-source-selector-key]'));
+  const matches = candidates.filter((node) => String(node.getAttribute('data-source-selector-key') || '').trim().toLowerCase() === cleanKey);
+  for (const node of candidates) {
+    node.classList.remove('selector-match', 'selector-match-active');
+  }
+  const knownPills = Array.from(footprintKnownSelectorsGroups?.querySelectorAll('[data-known-focus-key]') || []);
+  for (const pill of knownPills) {
+    const isActive = String(pill.getAttribute('data-known-focus-key') || '').trim().toLowerCase() === cleanKey;
+    pill.classList.toggle('known-selector-pill-focus', isActive);
+  }
+  if (!matches.length) {
+    activeKnownSelectorFocusKey = '';
+    activeKnownSelectorFocusIndex = -1;
+    if (footprintReconStatus) footprintReconStatus.textContent = `No visible instances found for ${cleanKey}.`;
+    return false;
+  }
+  const nextIndex = activeKnownSelectorFocusKey === cleanKey
+    ? (activeKnownSelectorFocusIndex + 1) % matches.length
+    : 0;
+  activeKnownSelectorFocusKey = cleanKey;
+  activeKnownSelectorFocusIndex = nextIndex;
+  for (const node of matches) node.classList.add('selector-match');
+  const current = matches[nextIndex];
+  current.classList.add('selector-match-active');
+  current.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+  const parts = sourceSelectorParts(cleanKey);
+  const label = formatSelectorLabel(parts.type, parts.value);
+  if (footprintReconStatus) footprintReconStatus.textContent = `Selector focus: ${label} (${nextIndex + 1}/${matches.length})`;
+  return true;
+}
+
+function renderKnownSelectorsPanel(payload) {
+  if (!(footprintKnownSelectorsGroups instanceof HTMLElement) || !(footprintKnownSelectorsTotal instanceof HTMLElement)) return;
+  const known = collectKnownSelectors(payload || {});
+  const labels = {
+    email: 'Email/s',
+    phone: 'Phone/s',
+    username: 'Username/s',
+    name: 'Name/s',
+    location: 'Location/s',
+  };
+  let total = 0;
+  const sections = KNOWN_SELECTOR_GROUPS
+    .map((type) => {
+      const values = Array.isArray(known?.[type]) ? known[type] : [];
+      const pills = values.map((value) => knownSelectorPillMarkup(type, value)).filter(Boolean).join('');
+      const count = pills ? values.filter((value) => !hiddenKnownSelectorKeys.has(`${type}|${String(value || '').toLowerCase()}`)).length : 0;
+      total += Math.max(0, count);
+      return `
+        <section class="known-selector-group">
+          <h5>${escapeHtml(labels[type] || type)}</h5>
+          <div class="known-selector-pills">
+            ${pills || '<span class="recon-pill">None</span>'}
+          </div>
+        </section>
+      `;
+    })
+    .join('');
+  footprintKnownSelectorsTotal.textContent = String(total);
+  footprintKnownSelectorsGroups.innerHTML = sections || '<p class="viz-empty">No selectors returned yet.</p>';
+}
+
+function emptyReconPayload() {
+  return {
+    selectors: [],
+    results: [],
+    collection_targets: [],
+    leads: [],
+    osint_profiles: [],
+    osint_spec_results: [],
+    numverify_profiles: [],
+    person_data_profile: {},
+    person_data_profiles: [],
+    api_modules_queried: [],
+    collection_ready_profiles: [],
+    unsupported_profiles_with_url: [],
+    known_present_without_url: [],
+    checked: 0,
+    present_count: 0,
+  };
+}
+
+function mergeReconPayloads(basePayload, incomingPayload) {
+  const base = basePayload && typeof basePayload === 'object' ? basePayload : emptyReconPayload();
+  const incoming = incomingPayload && typeof incomingPayload === 'object' ? incomingPayload : emptyReconPayload();
+  const dedupeBy = (rows, keyFn) => {
+    const output = [];
+    const seen = new Set();
+    for (const row of rows) {
+      const key = keyFn(row);
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      output.push(row);
+    }
+    return output;
+  };
+  const merged = {
+    selectors: dedupeBy([...(base.selectors || []), ...(incoming.selectors || [])], (row) => `${String(row?.type || '').toLowerCase()}|${String(row?.value || '').toLowerCase()}`),
+    results: dedupeBy([...(base.results || []), ...(incoming.results || [])], (row) => [
+      String(row?.selector_type || '').toLowerCase(),
+      String(row?.selector || '').toLowerCase(),
+      String(row?.site_key || row?.site || '').toLowerCase(),
+      String(row?.profile_url || '').toLowerCase(),
+      String(row?.source || '').toLowerCase(),
+    ].join('|')),
+    collection_targets: dedupeBy([...(base.collection_targets || []), ...(incoming.collection_targets || [])], (row) => `${String(row?.platform || '').toLowerCase()}|${String(row?.username || '').toLowerCase()}`),
+    leads: dedupeBy([...(base.leads || []), ...(incoming.leads || [])], (row) => [
+      String(row?.site || '').toLowerCase(),
+      String(row?.profile_url || '').toLowerCase(),
+      String(row?.lead_type || '').toLowerCase(),
+      String(row?.attribute || '').toLowerCase(),
+      String(row?.value || '').toLowerCase(),
+      String(row?.profile_name || '').toLowerCase(),
+    ].join('|')),
+    osint_profiles: dedupeBy([...(base.osint_profiles || []), ...(incoming.osint_profiles || [])], (row) => [
+      String(row?.module || '').toLowerCase(),
+      String(row?.profile_url || '').toLowerCase(),
+      String(row?.website || '').toLowerCase(),
+      String(row?.username || '').toLowerCase(),
+      String(row?.email || '').toLowerCase(),
+      String(row?.phone || '').toLowerCase(),
+      String(row?.title || '').toLowerCase(),
+    ].join('|')),
+    osint_spec_results: dedupeBy([...(base.osint_spec_results || []), ...(incoming.osint_spec_results || [])], (row) => [
+      String(row?.module || '').toLowerCase(),
+      String(row?.query_type || '').toLowerCase(),
+      String(row?.query_value || '').toLowerCase(),
+      String(row?.title || '').toLowerCase(),
+    ].join('|')),
+    numverify_profiles: dedupeBy([...(base.numverify_profiles || []), ...(incoming.numverify_profiles || [])], (row) => `${String(row?.number || row?.query_value || '').toLowerCase()}`),
+    person_data_profiles: dedupeBy([...(base.person_data_profiles || []), ...(incoming.person_data_profiles || [])], (row) => `${String(row?.id || '').toLowerCase()}|${String(row?.full_name || '').toLowerCase()}|${String(row?.query_value || '').toLowerCase()}`),
+    api_modules_queried: dedupeBy([...(base.api_modules_queried || []), ...(incoming.api_modules_queried || [])], (row) => `${String(row?.module || '').toLowerCase()}`),
+  };
+  merged.person_data_profile = merged.person_data_profiles[0] || {};
+  merged.collection_ready_profiles = dedupeRowsByProfileUrl(merged.results.filter((row) => row?.status === 'present' && row?.supported_for_collection && String(row?.profile_url || '').trim()));
+  merged.unsupported_profiles_with_url = dedupeRowsByProfileUrl(merged.results.filter((row) => row?.status === 'present' && !row?.supported_for_collection && String(row?.profile_url || '').trim()));
+  merged.known_present_without_url = merged.results.filter((row) => row?.status === 'present' && !String(row?.profile_url || '').trim());
+  merged.checked = merged.results.length;
+  merged.present_count = merged.results.filter((row) => row?.status === 'present').length;
+  return merged;
+}
+
+function collectionTargetsFromReconResults(results) {
+  const rows = Array.isArray(results) ? results : [];
+  const seenUrls = new Set();
+  const seenTargets = new Set();
+  const targets = [];
+  for (const row of rows) {
+    if (String(row?.status || '').trim().toLowerCase() !== 'present') continue;
+    if (!row?.supported_for_collection) continue;
+    const normalizedUrl = normalizeExternalUrl(row?.profile_url);
+    if (!normalizedUrl) continue;
+    const urlKey = normalizedUrl.toLowerCase();
+    if (seenUrls.has(urlKey)) continue;
+    seenUrls.add(urlKey);
+    const platform = normalizePlatformName(row?.site || inferPlatformFromProfileUrl(normalizedUrl));
+    if (!COLLECTION_READY_SITE_KEYS.has(platform)) continue;
+    const handle = extractHandleFromProfileUrl(normalizedUrl);
+    if (!handle) continue;
+    const username = adjustTargetUsernameForCollection(platform, handle);
+    const targetKey = `${platform}|${String(username || '').trim().toLowerCase()}`;
+    if (!username || seenTargets.has(targetKey)) continue;
+    seenTargets.add(targetKey);
+    targets.push({ platform, username });
+  }
+  return targets;
+}
+
+function applyReconPayload(payload, options = {}) {
+  const { statusPrefix = 'Recon complete', footprintOnly = false } = options;
+  const rawPayload = payload && typeof payload === 'object' ? payload : emptyReconPayload();
+  latestReconPayload = rawPayload;
+  const normalized = filteredReconPayload(rawPayload);
+  const derivedTargets = collectionTargetsFromReconResults(normalized.results);
+  reconTargets = derivedTargets.length
+    ? derivedTargets
+    : (Array.isArray(normalized.collection_targets) ? normalized.collection_targets : []);
+  if (useReconTargetsBtn instanceof HTMLButtonElement) {
+    useReconTargetsBtn.disabled = reconTargets.length === 0;
+    useReconTargetsBtn.classList.toggle('hidden', reconTargets.length === 0);
+  }
+  if (footprintUseTargetsBtn instanceof HTMLButtonElement) {
+    footprintUseTargetsBtn.disabled = reconTargets.length === 0;
+    footprintUseTargetsBtn.classList.toggle('hidden', reconTargets.length === 0);
+  }
+  reconLeads = Array.isArray(normalized.leads) ? normalized.leads : [];
+  reconProfiles = (Array.isArray(normalized.results) ? normalized.results : []).filter((row) => String(row?.status || '').trim() === 'present');
+  reconPersonDataProfile = normalized?.person_data_profile && typeof normalized.person_data_profile === 'object'
+    ? normalized.person_data_profile
+    : {};
+  reconPersonDataProfiles = Array.isArray(normalized?.person_data_profiles) ? normalized.person_data_profiles : [];
+  reconOsintProfiles = Array.isArray(normalized?.osint_profiles) ? normalized.osint_profiles : [];
+  reconOsintSpecResults = Array.isArray(normalized?.osint_spec_results) ? normalized.osint_spec_results : [];
+  reconNumverifyProfiles = Array.isArray(normalized?.numverify_profiles) ? normalized.numverify_profiles : [];
+  notifyReconApiModules(normalized);
+  renderReconResults(normalized, footprintReconResults);
+  if (!footprintOnly) renderReconResults(normalized);
+  renderKnownSelectorsPanel(normalized);
+  renderLeadsList();
+  renderFootprintTimeline();
+  renderPatternOfLife(latestPosts);
+  renderLocationMap(latestPosts);
+  const statusText = `${statusPrefix}: ${normalized.present_count || 0} account match(es) found across ${normalized.checked || 0} checks.`;
+  if (footprintReconStatus) footprintReconStatus.textContent = statusText;
+  if (!footprintOnly) reconStatus.textContent = statusText;
+}
+
 function renderReconResults(payload, targetEl = reconResults) {
   if (!(targetEl instanceof HTMLElement)) return;
-  const results = Array.isArray(payload?.results) ? payload.results : [];
-  const osintProfiles = Array.isArray(payload?.osint_profiles) ? payload.osint_profiles : [];
+  const rawResults = Array.isArray(payload?.results) ? payload.results : [];
+  const rawOsintSpecRows = Array.isArray(payload?.osint_spec_results) ? payload.osint_spec_results : [];
+  const sourceSelectorOptions = collectSourceSelectorFilterOptions(rawResults);
+  const showSourceSelectorFilter = targetEl === footprintReconResults && sourceSelectorOptions.length > 1;
+  if (showSourceSelectorFilter) {
+    const valid = sourceSelectorOptions.some((item) => item.key === activeFootprintSourceSelectorKey);
+    if (!valid) activeFootprintSourceSelectorKey = 'all';
+  } else {
+    activeFootprintSourceSelectorKey = 'all';
+  }
+  const results = activeFootprintSourceSelectorKey !== 'all'
+    ? rawResults.filter((row) => sourceSelectorKey(row?.selector_type, row?.selector) === activeFootprintSourceSelectorKey)
+    : rawResults;
+  const osintSpecRows = activeFootprintSourceSelectorKey !== 'all'
+    ? rawOsintSpecRows.filter((row) => sourceSelectorKey(row?.query_type, row?.query_value) === activeFootprintSourceSelectorKey)
+    : rawOsintSpecRows;
+  const allOsintProfiles = (() => {
+    const explicitRaw = Array.isArray(payload?.osint_profiles) ? payload.osint_profiles : [];
+    const explicit = activeFootprintSourceSelectorKey !== 'all'
+      ? explicitRaw.filter((item) => sourceSelectorKey(item?.query_type, item?.query_value) === activeFootprintSourceSelectorKey)
+      : explicitRaw;
+    const fromRows = results
+      .map((row) => row?.osint_profile)
+      .filter((item) => item && typeof item === 'object');
+    const merged = [...explicit, ...fromRows];
+    const deduped = [];
+    const seen = new Set();
+    for (const item of merged) {
+      const key = [
+        String(item?.module || '').trim().toLowerCase(),
+        String(item?.profile_url || '').trim().toLowerCase(),
+        String(item?.website || '').trim().toLowerCase(),
+        String(item?.username || '').trim().toLowerCase(),
+        String(item?.email || '').trim().toLowerCase(),
+        String(item?.phone || '').trim().toLowerCase(),
+      ].join('|');
+      if (seen.has(key)) continue;
+      seen.add(key);
+      deduped.push(item);
+    }
+    return deduped;
+  })();
+  const osintProfiles = allOsintProfiles.filter((item) => String(item?.module || '').trim().toLowerCase() !== 'hibp');
   const numverifyProfiles = Array.isArray(payload?.numverify_profiles) ? payload.numverify_profiles : [];
   const personDataProfile = payload?.person_data_profile && typeof payload.person_data_profile === 'object'
     ? payload.person_data_profile
@@ -5205,45 +7617,82 @@ function renderReconResults(payload, targetEl = reconResults) {
   );
   const supportedPresent = Array.isArray(payload?.collection_ready_profiles)
     ? payload.collection_ready_profiles
-    : results.filter((row) => row.status === 'present' && row.supported_for_collection && String(row.profile_url || '').trim());
+    : dedupeRowsByProfileUrl(results.filter((row) => row.status === 'present' && row.supported_for_collection && String(row.profile_url || '').trim()));
   const leadPresent = Array.isArray(payload?.unsupported_profiles_with_url)
     ? payload.unsupported_profiles_with_url
-    : results.filter((row) => row.status === 'present' && !row.supported_for_collection && String(row.profile_url || '').trim());
+    : dedupeRowsByProfileUrl(results.filter((row) => row.status === 'present' && !row.supported_for_collection && String(row.profile_url || '').trim()));
   const nonPdlSupportedPresent = supportedPresent.filter((row) => String(row.source || '').trim().toLowerCase() !== 'pdl');
-  const nonPdlLeadPresent = leadPresent.filter((row) => String(row.source || '').trim().toLowerCase() !== 'pdl');
+  const nonPdlLeadPresent = leadPresent.filter((row) => {
+    const source = String(row.source || '').trim().toLowerCase();
+    if (source === 'pdl') return false;
+    if (row?.has_direct_profile_url === false) return false;
+    if (!isLikelyAccountProfileUrl(row?.profile_url)) return false;
+    return true;
+  });
   const knownPresentNoUrl = Array.isArray(payload?.known_present_without_url)
     ? payload.known_present_without_url
     : results.filter((row) => row.status === 'present' && !String(row.profile_url || '').trim());
   const unknown = results.filter((row) => row.status === 'unknown');
+  const showHibpAggregate = targetEl === footprintReconResults;
+  const activeSelectorLabel = activeFootprintSourceSelectorKey === 'all'
+    ? ''
+    : (sourceSelectorOptions.find((item) => item.key === activeFootprintSourceSelectorKey)?.label || activeFootprintSourceSelectorKey);
+  const sourceSelectorFilterMarkup = showSourceSelectorFilter
+    ? `
+      <div class="recon-group">
+        <p>Source Selector Filter</p>
+        <div class="type-mix">
+          <button type="button" class="mix-pill mix-filter-pill${activeFootprintSourceSelectorKey === 'all' ? ' is-active' : ''}" data-footprint-source-selector="all">
+            <span>All selectors</span>
+            <strong>${rawResults.length}</strong>
+          </button>
+          ${sourceSelectorOptions.map((item) => `
+            <div class="mix-pill mix-filter-pill mix-filter-pill-with-clear${item.key === activeFootprintSourceSelectorKey ? ' is-active' : ''}">
+              <button type="button" class="mix-pill-select" data-footprint-source-selector="${escapeAttr(item.key)}">
+                <span>${escapeHtml(item.label)}</span>
+                <strong>${item.count}</strong>
+              </button>
+              <button type="button" class="known-selector-action recon-pill-remove recon-pill-action mix-pill-clear" data-footprint-source-clear="${escapeAttr(item.key)}" title="Clear all records for this selector" aria-label="Clear all records for this selector">×</button>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `
+    : '';
 
   targetEl.classList.remove('hidden');
   targetEl.innerHTML = `
+    ${sourceSelectorFilterMarkup}
     <div class="recon-summary">
+      ${activeSelectorLabel ? `Filtered by ${escapeHtml(activeSelectorLabel)} • ` : ''}
       Checked ${results.length} records • ${nonPdlSupportedPresent.length} collection-ready with URL • ${nonPdlLeadPresent.length} unsupported with URL • ${knownPresentNoUrl.length} known without URL • ${unknown.length} unknown
     </div>
+    ${osintProfilesMarkup(osintProfiles, results, { removable: targetEl === footprintReconResults })}
+    <div class="recon-status-stack">
     <div class="recon-group">
       <p>Collection-ready with account URL</p>
       <div class="recon-pills">
         ${nonPdlSupportedPresent.length
-    ? nonPdlSupportedPresent.map((row) => toReconBadge(row, 'success')).join('')
+    ? nonPdlSupportedPresent.map((row) => toReconBadge(row, 'success', { removable: targetEl === footprintReconResults, pivotable: false })).join('')
     : '<span class="recon-pill">No supported profiles with direct URLs</span>'}
       </div>
     </div>
     <div class="recon-group">
       <p>Unsupported with account URL</p>
       <div class="recon-pills">
-        ${nonPdlLeadPresent.length ? nonPdlLeadPresent.map((row) => toReconBadge(row)).join('') : '<span class="recon-pill">No unsupported account URLs detected</span>'}
+        ${nonPdlLeadPresent.length ? nonPdlLeadPresent.map((row) => toReconBadge(row, 'lead', { removable: targetEl === footprintReconResults, pivotable: false })).join('') : '<span class="recon-pill">No unsupported account URLs detected</span>'}
       </div>
     </div>
     <div class="recon-group">
       <p>Known present without direct account URL</p>
       <div class="recon-pills">
-        ${knownPresentNoUrl.length ? knownPresentNoUrl.map((row) => toReconBadge(row, 'warn')).join('') : '<span class="recon-pill">No known-present no-URL results</span>'}
+        ${knownPresentNoUrl.length ? knownPresentNoUrl.map((row) => toReconBadge(row, 'warn', { removable: targetEl === footprintReconResults, pivotable: false })).join('') : '<span class="recon-pill">No known-present no-URL results</span>'}
       </div>
     </div>
-    ${osintProfilesMarkup(osintProfiles, results)}
+    </div>
     ${numverifyProfilesMarkup(numverifyProfiles)}
-    ${personDataProfileMarkup(personDataProfile, personDataProfiles.length, pdlProfiles)}
+    ${personDataProfileMarkup(personDataProfile, personDataProfiles.length, pdlProfiles, { removable: targetEl === footprintReconResults })}
+    ${showHibpAggregate ? hibpAggregateMarkup(allOsintProfiles, osintSpecRows) : ''}
   `;
 }
 
@@ -5289,6 +7738,7 @@ function renderLeadsList() {
 function fillTargetsFromRecon(targets) {
   const rows = Array.isArray(targets) ? targets : [];
   targetsList.innerHTML = '';
+  const seen = new Set();
   const displayUsernameForPlatform = (platform, username) => {
     const value = String(username || '').trim();
     if (!value) return '';
@@ -5306,6 +7756,9 @@ function fillTargetsFromRecon(targets) {
   }
   for (const target of rows) {
     const platform = String(target.platform || '').trim().toLowerCase();
+    const canonical = canonicalTargetKey(platform, target.username);
+    if (seen.has(canonical)) continue;
+    seen.add(canonical);
     const username = displayUsernameForPlatform(platform, target.username);
     addTargetRow(platform || 'twitter', username);
   }
@@ -5490,7 +7943,7 @@ function setInsightsTab(tabName) {
     }
     activeSignalFilters.clear();
     updateFilterToggleLabel();
-    queueRefresh();
+    rerenderFromCurrentFilters();
     return;
   }
   if (latestPosts.length) {
@@ -5741,13 +8194,14 @@ function clearCollectionPolling() {
 
 function applyCollectionPayload(data) {
   const incomingPosts = Array.isArray(data?.posts) ? data.posts : [];
-  const allPosts = collectionAppendMode ? mergePostsForAppend(latestPosts, incomingPosts) : incomingPosts;
+  const allPosts = collectionAppendMode ? mergePostsForAppend(latestFetchedPosts, incomingPosts) : incomingPosts;
+  latestFetchedPosts = Array.isArray(allPosts) ? allPosts : [];
+  _dashboardFilterCache = { rows: null, key: '', output: [] };
   latestFaceClusters = [];
   activeFaceFilters.clear();
   latestFaceRecognition = { available: false, reason: 'not_run' };
   renderFaceRecognitionFilters();
-  const filteredPosts = applyDashboardFilters(allPosts);
-  renderPosts(filteredPosts);
+  rerenderFromCurrentFilters();
   applyCollectionPerTarget(data?.per_target);
   dashboardBaseStatus = '';
   updateStatusLine();
@@ -5883,6 +8337,10 @@ async function parseErrorResponse(response) {
     const platform = errorData.platform || 'source';
     const username = errorData.username || 'unknown';
     return `${platform} username "${username}" was not found.`;
+  }
+  if (errorData.code === 'apify_token_required') {
+    const platforms = Array.isArray(errorData.platforms) ? errorData.platforms.join(', ') : '';
+    return `Apify API token is required for ${platforms || 'selected platform(s)'}. Open Config and set Apify API Token.`;
   }
   if (errorData.message) return errorData.message;
   return `HTTP ${response.status}`;
@@ -6081,12 +8539,181 @@ function parseReconSelectorsFromRows(container = reconSelectorsList) {
   return selectors;
 }
 
+function selectorsFromTargetsForKnownEntities(targets) {
+  const rows = Array.isArray(targets) ? targets : [];
+  const output = [];
+  const seen = new Set();
+  for (const row of rows) {
+    const platform = normalizePlatformName(row?.platform);
+    const username = String(row?.username || '').trim().replace(/^@+/, '').toLowerCase();
+    if (!username) continue;
+    const usernameKey = `username|${username}`;
+    if (!seen.has(usernameKey)) {
+      seen.add(usernameKey);
+      output.push({ type: 'username', value: username });
+    }
+    if (platform) {
+      const platformKey = `platform_username|${platform}|${username}`;
+      if (!seen.has(platformKey)) {
+        seen.add(platformKey);
+        output.push({ type: 'platform_username', value: `${platform}|${username}` });
+      }
+    }
+  }
+  return output;
+}
+
+function selectorsFromReconForKnownEntities(selectors) {
+  const rows = Array.isArray(selectors) ? selectors : [];
+  const output = [];
+  const seen = new Set();
+  for (const row of rows) {
+    if (!row || typeof row !== 'object') continue;
+    const type = String(row.type || '').trim().toLowerCase();
+    const value = String(row.value || '').trim();
+    if (!type || !value) continue;
+    const key = `${type}|${value.toLowerCase()}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    output.push({ type, value });
+  }
+  return output;
+}
+
+async function maybeRestoreArchivedCaseForSelectors(selectors) {
+  const rows = Array.isArray(selectors) ? selectors : [];
+  if (!rows.length) return false;
+  try {
+    const matchResponse = await fetch('/api/known-entities/match', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ selectors: rows }),
+    });
+    if (!matchResponse.ok) return false;
+    const matchPayload = await matchResponse.json();
+    const matches = Array.isArray(matchPayload?.matches) ? matchPayload.matches : [];
+    if (!matches.length) return false;
+    const best = matches[0] || {};
+    const shouldRestore = window.confirm(
+      'This selector is associated with a Known Enitity, would you like to retrieve the case file from archive?',
+    );
+    if (!shouldRestore) return false;
+
+    const archiveId = String(best.archive_id || '').trim();
+    if (!archiveId) return false;
+    const restoreResponse = await fetch('/api/known-entities/restore', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ archive_id: archiveId }),
+    });
+    if (!restoreResponse.ok) {
+      const message = await parseErrorResponse(restoreResponse);
+      throw new Error(message);
+    }
+    const restorePayload = await restoreResponse.json();
+    const restoredCase = restorePayload?.case && typeof restorePayload.case === 'object' ? restorePayload.case : null;
+    if (!restoredCase) return false;
+    clearCollectionPolling();
+    activeCaseId = String(restoredCase.case_id || '').trim();
+    activeCase = restoredCase;
+    activeCaseExplicitlySaved = true;
+    await loadCases();
+    showDashboard();
+    setModalOpen(false);
+    await refreshPosts();
+    const restoredName = String(restoredCase.case_name || 'Archived case').trim() || 'Archived case';
+    showNotification(`Restored archived case: ${restoredName}`, 'success');
+    return true;
+  } catch (error) {
+    console.error(error);
+    showNotification(`Archive lookup failed: ${error.message || 'unknown error'}`, 'error');
+    return false;
+  }
+}
+
+async function consumeReconStream(selectors, handlers = {}) {
+  const onStart = typeof handlers.onStart === 'function' ? handlers.onStart : () => {};
+  const onProgress = typeof handlers.onProgress === 'function' ? handlers.onProgress : () => {};
+  const onChunk = typeof handlers.onChunk === 'function' ? handlers.onChunk : () => {};
+  const onDone = typeof handlers.onDone === 'function' ? handlers.onDone : () => {};
+  const response = await fetch('/api/recon/stream', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ selectors }),
+  });
+  if (!response.ok) {
+    const message = await parseErrorResponse(response);
+    throw new Error(message);
+  }
+  if (!response.body || typeof response.body.getReader !== 'function') {
+    const payload = await response.json();
+    if (payload && typeof payload === 'object') onChunk(payload, { event: 'chunk', selector_index: 1, selectors_total: 1 });
+    onDone({ event: 'done', selectors_processed: 1 });
+    return;
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    while (true) {
+      const split = buffer.indexOf('\n');
+      if (split < 0) break;
+      const line = buffer.slice(0, split).trim();
+      buffer = buffer.slice(split + 1);
+      if (!line) continue;
+      let event;
+      try {
+        event = JSON.parse(line);
+      } catch (error) {
+        continue;
+      }
+      const kind = String(event?.event || '').trim().toLowerCase();
+      if (kind === 'start') {
+        onStart(event);
+        continue;
+      }
+      if (kind === 'progress') {
+        onProgress(event);
+        continue;
+      }
+      if (kind === 'chunk') {
+        const payload = event?.payload;
+        if (payload && typeof payload === 'object') onChunk(payload, event);
+        continue;
+      }
+      if (kind === 'error') {
+        throw new Error(String(event?.message || 'streaming recon failed'));
+      }
+      if (kind === 'done') {
+        onDone(event);
+      }
+    }
+  }
+  if (buffer.trim()) {
+    try {
+      const event = JSON.parse(buffer.trim());
+      if (String(event?.event || '').trim().toLowerCase() === 'done') onDone(event);
+    } catch (error) {
+      // ignore trailing parse errors
+    }
+  }
+}
+
 async function runRecon(event) {
   event.preventDefault();
   hideReconPreview();
   const selectors = parseReconSelectorsFromRows();
   if (!selectors.length) {
     reconStatus.textContent = 'Enter at least one valid selector value.';
+    return;
+  }
+  const archivedRestored = await maybeRestoreArchivedCaseForSelectors(selectorsFromReconForKnownEntities(selectors));
+  if (archivedRestored) {
+    reconStatus.textContent = 'Known entity case restored from archive.';
     return;
   }
 
@@ -6097,12 +8724,7 @@ async function runRecon(event) {
   useReconTargetsBtn.disabled = true;
   goReconAssessmentBtn?.classList.add('hidden');
   if (goReconAssessmentBtn instanceof HTMLButtonElement) goReconAssessmentBtn.disabled = true;
-  reconTargets = [];
-  reconProfiles = [];
-  reconPersonDataProfile = {};
-  reconPersonDataProfiles = [];
-  reconOsintProfiles = [];
-  reconNumverifyProfiles = [];
+  clearHiddenReconEntities();
 
   try {
     const response = await fetch('/api/recon', {
@@ -6115,21 +8737,9 @@ async function runRecon(event) {
       throw new Error(message);
     }
     const payload = await response.json();
-    reconTargets = Array.isArray(payload.collection_targets) ? payload.collection_targets : [];
-    reconLeads = Array.isArray(payload.leads) ? payload.leads : [];
-    reconProfiles = (Array.isArray(payload.results) ? payload.results : []).filter((row) => String(row?.status || '').trim() === 'present');
-    reconPersonDataProfile = payload?.person_data_profile && typeof payload.person_data_profile === 'object'
-      ? payload.person_data_profile
-      : {};
-    reconPersonDataProfiles = Array.isArray(payload?.person_data_profiles) ? payload.person_data_profiles : [];
-    reconOsintProfiles = Array.isArray(payload?.osint_profiles) ? payload.osint_profiles : [];
-    reconNumverifyProfiles = Array.isArray(payload?.numverify_profiles) ? payload.numverify_profiles : [];
-    notifyReconApiModules(payload);
-    renderReconResults(payload);
-    renderReconResults(payload, footprintReconResults);
-    renderLeadsList();
-    renderLocationMap(latestPosts);
-    renderPatternOfLife(latestPosts);
+    latestReconPayload = payload;
+    setReconSnapshotFromPayload(payload);
+    applyReconPayload(payload, { statusPrefix: 'Recon complete' });
     if (reconTargets.length > 0) {
       useReconTargetsBtn.classList.remove('hidden');
       useReconTargetsBtn.disabled = false;
@@ -6146,10 +8756,6 @@ async function runRecon(event) {
     }
     goReconAssessmentBtn?.classList.remove('hidden');
     if (goReconAssessmentBtn instanceof HTMLButtonElement) goReconAssessmentBtn.disabled = false;
-    reconStatus.textContent = `Recon complete: ${payload.present_count || 0} account match(es) found across ${payload.checked || 0} checks.`;
-    if (footprintReconStatus) {
-      footprintReconStatus.textContent = `Recon complete: ${payload.present_count || 0} account match(es) found across ${payload.checked || 0} checks.`;
-    }
   } catch (error) {
     console.error(error);
     useReconTargetsBtn.classList.add('hidden');
@@ -6158,10 +8764,8 @@ async function runRecon(event) {
     if (goReconAssessmentBtn instanceof HTMLButtonElement) goReconAssessmentBtn.disabled = true;
     footprintUseTargetsBtn?.classList.add('hidden');
     if (footprintUseTargetsBtn instanceof HTMLButtonElement) footprintUseTargetsBtn.disabled = true;
-    reconPersonDataProfiles = [];
-    reconPersonDataProfile = {};
-    reconOsintProfiles = [];
-    reconNumverifyProfiles = [];
+    latestReconPayload = emptyReconPayload();
+    applyReconPayload(latestReconPayload, { statusPrefix: 'Recon failed' });
     reconStatus.textContent = `Recon failed: ${error.message || 'unknown error'}`;
     if (footprintReconStatus) footprintReconStatus.textContent = `Recon failed: ${error.message || 'unknown error'}`;
   } finally {
@@ -6192,44 +8796,48 @@ async function runFootprintRecon(event) {
     if (footprintReconStatus) footprintReconStatus.textContent = 'Enter at least one valid selector value.';
     return;
   }
+  const archivedRestored = await maybeRestoreArchivedCaseForSelectors(selectorsFromReconForKnownEntities(selectors));
+  if (archivedRestored) {
+    if (footprintReconStatus) footprintReconStatus.textContent = 'Known entity case restored from archive.';
+    return;
+  }
 
   setFootprintBusy(true);
+  toggleFootprintPivotProgress(false);
+  activeFootprintSourceSelectorKey = 'all';
   if (footprintReconStatus) footprintReconStatus.textContent = `Running reconnaissance for ${selectors.length} selector(s)...`;
   footprintReconResults?.classList.add('hidden');
   footprintUseTargetsBtn?.classList.add('hidden');
   if (footprintUseTargetsBtn instanceof HTMLButtonElement) footprintUseTargetsBtn.disabled = true;
-  reconTargets = [];
-  reconProfiles = [];
-  reconPersonDataProfile = {};
-  reconPersonDataProfiles = [];
-  reconOsintProfiles = [];
-  reconNumverifyProfiles = [];
+  clearHiddenReconEntities();
 
   try {
-    const response = await fetch('/api/recon', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ selectors }),
+    let aggregate = emptyReconPayload();
+    await consumeReconStream(selectors, {
+      onStart: (event) => {
+        const total = Number(event?.selectors_total) || selectors.length;
+        if (footprintReconStatus) footprintReconStatus.textContent = `Recon stream started for ${total} selector(s)...`;
+      },
+      onProgress: (event) => {
+        const idx = Number(event?.selector_index) || 1;
+        const total = Number(event?.selectors_total) || selectors.length;
+        const type = String(event?.selector_type || '').trim();
+        const value = String(event?.selector_value || '').trim();
+        if (footprintReconStatus) footprintReconStatus.textContent = `Recon in progress (${idx}/${total}): ${formatSelectorLabel(type, value)}`;
+      },
+      onChunk: (chunkPayload, event) => {
+        aggregate = mergeReconPayloads(aggregate, chunkPayload);
+        latestReconPayload = aggregate;
+        setReconSnapshotFromPayload(aggregate);
+        const idx = Number(event?.selector_index) || selectors.length;
+        const total = Number(event?.selectors_total) || selectors.length;
+        applyReconPayload(aggregate, { statusPrefix: `Recon streaming (${idx}/${total})`, footprintOnly: true });
+      },
+      onDone: () => {},
     });
-    if (!response.ok) {
-      const message = await parseErrorResponse(response);
-      throw new Error(message);
-    }
-    const payload = await response.json();
-    reconTargets = Array.isArray(payload.collection_targets) ? payload.collection_targets : [];
-    reconLeads = Array.isArray(payload.leads) ? payload.leads : [];
-    reconProfiles = (Array.isArray(payload.results) ? payload.results : []).filter((row) => String(row?.status || '').trim() === 'present');
-    reconPersonDataProfile = payload?.person_data_profile && typeof payload.person_data_profile === 'object'
-      ? payload.person_data_profile
-      : {};
-    reconPersonDataProfiles = Array.isArray(payload?.person_data_profiles) ? payload.person_data_profiles : [];
-    reconOsintProfiles = Array.isArray(payload?.osint_profiles) ? payload.osint_profiles : [];
-    reconNumverifyProfiles = Array.isArray(payload?.numverify_profiles) ? payload.numverify_profiles : [];
-    notifyReconApiModules(payload);
-    renderReconResults(payload, footprintReconResults);
-    renderReconResults(payload);
-    renderLeadsList();
-    renderPatternOfLife(latestPosts);
+    latestReconPayload = aggregate;
+    setReconSnapshotFromPayload(aggregate);
+    applyReconPayload(aggregate, { statusPrefix: 'Recon complete', footprintOnly: true });
     if (reconTargets.length > 0) {
       footprintUseTargetsBtn?.classList.remove('hidden');
       if (footprintUseTargetsBtn instanceof HTMLButtonElement) footprintUseTargetsBtn.disabled = false;
@@ -6237,19 +8845,76 @@ async function runFootprintRecon(event) {
       footprintUseTargetsBtn?.classList.add('hidden');
       if (footprintUseTargetsBtn instanceof HTMLButtonElement) footprintUseTargetsBtn.disabled = true;
     }
-    if (footprintReconStatus) {
-      footprintReconStatus.textContent = `Recon complete: ${payload.present_count || 0} account match(es) found across ${payload.checked || 0} checks.`;
-    }
   } catch (error) {
     console.error(error);
     footprintUseTargetsBtn?.classList.add('hidden');
     if (footprintUseTargetsBtn instanceof HTMLButtonElement) footprintUseTargetsBtn.disabled = true;
-    reconPersonDataProfiles = [];
-    reconPersonDataProfile = {};
-    reconOsintProfiles = [];
-    reconNumverifyProfiles = [];
+    latestReconPayload = emptyReconPayload();
+    applyReconPayload(latestReconPayload, { statusPrefix: 'Recon failed', footprintOnly: true });
     if (footprintReconStatus) footprintReconStatus.textContent = `Recon failed: ${error.message || 'unknown error'}`;
   } finally {
+    setFootprintBusy(false);
+  }
+}
+
+async function pivotKnownSelector(selectorType, selectorValue) {
+  const type = String(selectorType || '').trim().toLowerCase();
+  let value = String(selectorValue || '').trim();
+  if (!KNOWN_SELECTOR_GROUPS.includes(type) || !value) return;
+  if (type === 'email') value = value.toLowerCase();
+  if (type === 'phone') value = value.replace(/[^\d+]/g, '');
+  if (type === 'username') value = value.replace(/^@+/, '');
+  const pivotType = type === 'location' ? 'name' : type;
+  const pivotLabel = formatSelectorLabel(type, value);
+  const confirmed = window.confirm(`Run recon?\n${pivotLabel}`);
+  if (!confirmed) {
+    if (footprintReconStatus) footprintReconStatus.textContent = `Pivot canceled for ${pivotLabel}.`;
+    return;
+  }
+
+  const selectors = [{ type: pivotType, value }];
+  setFootprintBusy(true);
+  toggleFootprintPivotProgress(true, `Pivot recon: ${pivotType}`);
+  if (footprintReconStatus) footprintReconStatus.textContent = `Pivoting on ${pivotLabel}...`;
+  if (footprintSelectorsList instanceof HTMLElement) {
+    const existing = parseReconSelectorsFromRows(footprintSelectorsList);
+    const exists = existing.some((row) => String(row?.type || '').toLowerCase() === pivotType && String(row?.value || '').toLowerCase() === value.toLowerCase());
+    if (!exists) addReconSelectorRow(footprintSelectorsList, pivotType, value);
+  }
+  try {
+    let aggregate = latestReconPayload && typeof latestReconPayload === 'object' ? latestReconPayload : emptyReconPayload();
+    await consumeReconStream(selectors, {
+      onProgress: (event) => {
+        const idx = Number(event?.selector_index) || 1;
+        const total = Number(event?.selectors_total) || 1;
+        const type = String(event?.selector_type || '').trim();
+        const value = String(event?.selector_value || '').trim();
+        if (footprintReconStatus) footprintReconStatus.textContent = `Pivot recon running (${idx}/${total}): ${formatSelectorLabel(type, value)}`;
+      },
+      onChunk: (chunkPayload, event) => {
+        aggregate = mergeReconPayloads(aggregate, chunkPayload);
+        activeFootprintSourceSelectorKey = 'all';
+        latestReconPayload = aggregate;
+        setReconSnapshotFromPayload(aggregate);
+        const idx = Number(event?.selector_index) || 1;
+        const total = Number(event?.selectors_total) || 1;
+        applyReconPayload(aggregate, { statusPrefix: `Pivot appended (${idx}/${total})`, footprintOnly: true });
+      },
+      onDone: () => {},
+    });
+    activeFootprintSourceSelectorKey = 'all';
+    latestReconPayload = aggregate;
+    setReconSnapshotFromPayload(aggregate);
+    applyReconPayload(aggregate, { statusPrefix: 'Pivot appended', footprintOnly: true });
+    if (reconTargets.length > 0) {
+      footprintUseTargetsBtn?.classList.remove('hidden');
+      if (footprintUseTargetsBtn instanceof HTMLButtonElement) footprintUseTargetsBtn.disabled = false;
+    }
+  } catch (error) {
+    console.error(error);
+    if (footprintReconStatus) footprintReconStatus.textContent = `Pivot failed: ${error.message || 'unknown error'}`;
+  } finally {
+    toggleFootprintPivotProgress(false);
     setFootprintBusy(false);
   }
 }
@@ -6263,6 +8928,31 @@ async function startBackgroundCollection(targets, startDate, endDate, options = 
     appendResults = false,
     resetStreamState = true,
   } = options;
+
+  const requiresApifyPlatforms = ['twitter', 'tiktok', 'instagram'];
+  const requestedPlatforms = new Set((Array.isArray(targets) ? targets : []).map((item) => normalizePlatformName(item?.platform)));
+  const apifyNeeded = requiresApifyPlatforms.filter((platform) => requestedPlatforms.has(platform));
+  if (apifyNeeded.length) {
+    try {
+      const configResponse = await fetch('/api/config');
+      if (configResponse.ok) {
+        const configPayload = await configResponse.json();
+        const apifyConfigured = Boolean(configPayload?.apify_api_token_configured);
+        if (!apifyConfigured) {
+          const platformLabel = apifyNeeded.map((item) => platformDisplayName(item)).join(', ');
+          const warning = `Apify API token is required before collecting ${platformLabel}. Open Config to add token.`;
+          setupStatus.textContent = warning;
+          collectionProgressStatus = 'collection blocked: missing apify token';
+          updateStatusLine();
+          showNotification(warning, 'warn');
+          return false;
+        }
+      }
+    } catch (_error) {
+      // Backend validation will still block unsupported runs if config check fails.
+    }
+  }
+
   collectionLoadedAnyData = false;
   lockModalUntilCollectionData = Boolean(lockModal);
   lastCollectionPhase = '';
@@ -6352,6 +9042,11 @@ async function collectAndOpen(event) {
   }
   if (endDate < startDate) {
     setupStatus.textContent = 'End date must be on or after start date.';
+    return;
+  }
+  const archivedRestored = await maybeRestoreArchivedCaseForSelectors(selectorsFromTargetsForKnownEntities(targets));
+  if (archivedRestored) {
+    setupStatus.textContent = 'Known entity case restored from archive.';
     return;
   }
 
@@ -6528,7 +9223,8 @@ resultsEl?.addEventListener('input', (event) => {
   const next = Number(target.value);
   activeFaceMinConfidence = Number.isFinite(next) ? Math.max(0, Math.min(1, next)) : 0;
   renderFaceRecognitionFilters();
-  renderPosts(latestPosts);
+  _dashboardFilterCache = { rows: null, key: '', output: [] };
+  rerenderFromCurrentFilters();
 });
 caseSearchInput?.addEventListener('input', renderCases);
 caseStatusFilter?.addEventListener('change', renderCases);
@@ -6581,6 +9277,7 @@ viewPostsBtn?.addEventListener('click', () => setResultsView('posts'));
 viewMediaBtn?.addEventListener('click', () => setResultsView('media'));
 viewFootprintBtn?.addEventListener('click', () => setResultsView('footprint'));
 viewPatternLifeBtn?.addEventListener('click', () => setResultsView('pattern'));
+viewTimelineBtn?.addEventListener('click', () => setResultsView('timeline'));
 sortSelect.addEventListener('change', queueRefresh);
 setupForm.addEventListener('submit', collectAndOpen);
 reconForm.addEventListener('submit', runRecon);
@@ -6589,11 +9286,99 @@ runAiThreatAssessmentBtn?.addEventListener('click', runAiThreatAssessment);
 attachReconPreviewHandlers(reconResults);
 attachReconPreviewHandlers(footprintReconResults);
 attachReconPreviewHandlers(leadsList);
+footprintReconResults?.addEventListener('click', (event) => {
+  const target = event.target;
+  if (!(target instanceof Element)) return;
+  const clearSelectorBtn = target.closest('[data-footprint-source-clear]');
+  if (clearSelectorBtn instanceof Element) {
+    const key = String(clearSelectorBtn.getAttribute('data-footprint-source-clear') || '').trim().toLowerCase();
+    if (!key) return;
+    hideResultsForSelector(key);
+    if (activeFootprintSourceSelectorKey === key) activeFootprintSourceSelectorKey = 'all';
+    applyReconPayload(latestReconPayload || emptyReconPayload(), { statusPrefix: 'Selector records cleared', footprintOnly: true });
+    return;
+  }
+  const reconRemoveBtn = target.closest('[data-recon-remove]');
+  if (reconRemoveBtn instanceof Element) {
+    const key = String(reconRemoveBtn.getAttribute('data-recon-remove') || '').trim().toLowerCase();
+    if (!key) return;
+    hiddenReconRowKeys.add(key);
+    const rows = Array.isArray(latestReconPayload?.results) ? latestReconPayload.results : [];
+    const row = rows.find((item) => reconRowVisibilityKey(item) === key);
+    if (row) {
+      const source = String(row?.source || '').trim().toLowerCase();
+      if (source === 'osint_industries' && row?.osint_profile) {
+        hiddenOsintTileKeys.add(osintTileVisibilityKey(row.osint_profile));
+      }
+      if (source === 'pdl') {
+        const urlKey = String(row?.profile_url || '').trim().toLowerCase();
+        if (urlKey) hiddenPdlProfileUrlKeys.add(urlKey);
+        const queryType = String(row?.selector_type || '').trim().toLowerCase();
+        const queryValue = String(row?.selector || '').trim().toLowerCase();
+        const pdlProfiles = Array.isArray(latestReconPayload?.person_data_profiles) ? latestReconPayload.person_data_profiles : [];
+        for (const profile of pdlProfiles) {
+          if (String(profile?.query_type || '').trim().toLowerCase() !== queryType) continue;
+          if (String(profile?.query_value || '').trim().toLowerCase() !== queryValue) continue;
+          hiddenPdlProfileKeys.add(pdlProfileVisibilityKey(profile));
+        }
+      }
+    }
+    applyReconPayload(latestReconPayload || emptyReconPayload(), { statusPrefix: 'Result removed', footprintOnly: true });
+    return;
+  }
+  const osintRemoveBtn = target.closest('[data-osint-remove]');
+  if (osintRemoveBtn instanceof Element) {
+    const key = String(osintRemoveBtn.getAttribute('data-osint-remove') || '').trim().toLowerCase();
+    if (!key) return;
+    hiddenOsintTileKeys.add(key);
+    applyReconPayload(latestReconPayload || emptyReconPayload(), { statusPrefix: 'OSINT tile removed', footprintOnly: true });
+    return;
+  }
+  const pdlProfileRemoveBtn = target.closest('[data-pdl-profile-remove]');
+  if (pdlProfileRemoveBtn instanceof Element) {
+    const key = String(pdlProfileRemoveBtn.getAttribute('data-pdl-profile-remove') || '').trim().toLowerCase();
+    if (!key) return;
+    hiddenPdlProfileKeys.add(key);
+    applyReconPayload(latestReconPayload || emptyReconPayload(), { statusPrefix: 'Person Data Profile removed', footprintOnly: true });
+    return;
+  }
+  const pdlContactRemoveBtn = target.closest('[data-pdl-contact-remove]');
+  if (pdlContactRemoveBtn instanceof Element) {
+    const key = String(pdlContactRemoveBtn.getAttribute('data-pdl-contact-remove') || '').trim().toLowerCase();
+    if (!key) return;
+    hiddenPdlContactValueKeys.add(key);
+    applyReconPayload(latestReconPayload || emptyReconPayload(), { statusPrefix: 'PDL value removed', footprintOnly: true });
+    return;
+  }
+  const pdlUrlRemoveBtn = target.closest('[data-pdl-url-remove]');
+  if (pdlUrlRemoveBtn instanceof Element) {
+    const key = String(pdlUrlRemoveBtn.getAttribute('data-pdl-url-remove') || '').trim().toLowerCase();
+    if (!key) return;
+    hiddenPdlProfileUrlKeys.add(key);
+    applyReconPayload(latestReconPayload || emptyReconPayload(), { statusPrefix: 'Profile URL removed', footprintOnly: true });
+    return;
+  }
+  const pivotBtn = target.closest('[data-recon-pivot-type][data-recon-pivot-value]');
+  if (pivotBtn instanceof Element) {
+    const type = String(pivotBtn.getAttribute('data-recon-pivot-type') || '').trim().toLowerCase();
+    const value = String(pivotBtn.getAttribute('data-recon-pivot-value') || '').trim();
+    if (!type || !value) return;
+    pivotKnownSelector(type, value);
+    return;
+  }
+  const filterBtn = target.closest('[data-footprint-source-selector]');
+  if (!(filterBtn instanceof Element)) return;
+  const key = String(filterBtn.getAttribute('data-footprint-source-selector') || '').trim().toLowerCase();
+  if (!key) return;
+  activeFootprintSourceSelectorKey = key;
+  renderReconResults(latestReconPayload || emptyReconPayload(), footprintReconResults);
+});
 for (const el of [filterTwitter, filterReddit, filterTiktok, filterBluesky, filterInstagram, filterYoutube, filterPost, filterRepost, filterReply, filterQuote, filterComment, filterSelectors, filterIdeologicalIndicators, filterThreatSignals, filterLLMPrimary, filterLLMSecondary]) {
   if (!el) continue;
   el.addEventListener('change', () => {
     updateFilterToggleLabel();
-    queueRefresh();
+    _dashboardFilterCache = { rows: null, key: '', output: [] };
+    rerenderFromCurrentFilters();
   });
 }
 faceRecognitionFilterList?.addEventListener('click', (event) => {
@@ -6610,7 +9395,14 @@ faceRecognitionFilterList?.addEventListener('click', (event) => {
   }
   renderFaceRecognitionFilters();
   updateFilterToggleLabel();
-  queueRefresh();
+  const needsFaceRefresh = activeFaceFilters.size > 0
+    && !latestFetchedPosts.some((post) => Array.isArray(post?.metadata?.face_recognition) && post.metadata.face_recognition.length > 0);
+  if (needsFaceRefresh) {
+    refreshPosts();
+    return;
+  }
+  _dashboardFilterCache = { rows: null, key: '', output: [] };
+  rerenderFromCurrentFilters();
 });
 runFaceRecognitionBtn?.addEventListener('click', async () => {
   if (!(runFaceRecognitionBtn instanceof HTMLButtonElement)) return;
@@ -6628,7 +9420,8 @@ faceConfidenceRange?.addEventListener('input', () => {
   const next = Number(faceConfidenceRange.value);
   activeFaceMinConfidence = Number.isFinite(next) ? Math.max(0, Math.min(1, next)) : 0;
   renderFaceRecognitionFilters();
-  renderPosts(latestPosts);
+  _dashboardFilterCache = { rows: null, key: '', output: [] };
+  rerenderFromCurrentFilters();
 });
 entityMix?.addEventListener('click', (event) => {
   const target = event.target;
@@ -6644,7 +9437,8 @@ entityMix?.addEventListener('click', (event) => {
   }
   renderEntityMix(latestPosts);
   updateFilterToggleLabel();
-  queueRefresh();
+  _dashboardFilterCache = { rows: null, key: '', output: [] };
+  rerenderFromCurrentFilters();
 });
 typeMix?.addEventListener('click', (event) => {
   const target = event.target;
@@ -6660,7 +9454,8 @@ typeMix?.addEventListener('click', (event) => {
   }
   renderTypeMix(latestPosts);
   updateFilterToggleLabel();
-  queueRefresh();
+  _dashboardFilterCache = { rows: null, key: '', output: [] };
+  rerenderFromCurrentFilters();
 });
 function handleSignalRowFilterClick(event) {
   const target = event.target;
@@ -6677,7 +9472,8 @@ function handleSignalRowFilterClick(event) {
     activeSignalFilters.add(token);
   }
   updateFilterToggleLabel();
-  queueRefresh();
+  _dashboardFilterCache = { rows: null, key: '', output: [] };
+  rerenderFromCurrentFilters();
   return true;
 }
 
@@ -6698,7 +9494,8 @@ customKeywordMix?.addEventListener('click', (event) => {
   }
   renderCustomKeywordMix(latestPosts);
   updateFilterToggleLabel();
-  queueRefresh();
+  _dashboardFilterCache = { rows: null, key: '', output: [] };
+  rerenderFromCurrentFilters();
 });
 llmPrimaryMix?.addEventListener('click', handleSignalRowFilterClick);
 llmSecondaryMix?.addEventListener('click', handleSignalRowFilterClick);
@@ -6710,6 +9507,84 @@ llmThemeMix?.addEventListener('click', (event) => {
   const postIndex = Number(row.getAttribute('data-post-index'));
   if (!Number.isFinite(postIndex) || postIndex < 0) return;
   scrollToPost(postIndex);
+});
+patternLifePlatformFilters?.addEventListener('click', (event) => {
+  const target = event.target;
+  if (!(target instanceof HTMLElement)) return;
+  const btn = target.closest('[data-pattern-platform]');
+  if (!(btn instanceof HTMLElement)) return;
+  const platform = String(btn.getAttribute('data-pattern-platform') || '').trim().toLowerCase();
+  if (!platform || !SOURCE_ORDER.includes(platform)) return;
+  if (activePatternLifePlatforms.has(platform)) {
+    if (activePatternLifePlatforms.size <= 1) return;
+    activePatternLifePlatforms.delete(platform);
+  } else {
+    activePatternLifePlatforms.add(platform);
+  }
+  refreshPatternOfLifeEstimate();
+});
+patternLifeRefreshBtn?.addEventListener('click', () => {
+  refreshPatternOfLifeEstimate();
+  showNotification('Pattern-of-life timezone estimate refreshed.', 'info');
+});
+footprintTimelineEvents?.addEventListener('click', (event) => {
+  const target = event.target;
+  if (!(target instanceof HTMLElement)) return;
+  const sourceButton = target.closest('[data-timeline-source]');
+  if (sourceButton instanceof HTMLElement) {
+    const sourceName = String(sourceButton.getAttribute('data-timeline-source') || '').trim();
+    if (!sourceName) return;
+    if (activeTimelineSources.has(sourceName)) {
+      if (activeTimelineSources.size <= 1) return;
+      activeTimelineSources.delete(sourceName);
+    } else {
+      activeTimelineSources.add(sourceName);
+    }
+    renderFootprintTimeline();
+    return;
+  }
+  const actionButton = target.closest('[data-timeline-action]');
+  if (actionButton instanceof HTMLElement) {
+    const actionName = String(actionButton.getAttribute('data-timeline-action') || '').trim();
+    if (!actionName) return;
+    if (activeTimelineActions.has(actionName)) {
+      if (activeTimelineActions.size <= 1) return;
+      activeTimelineActions.delete(actionName);
+    } else {
+      activeTimelineActions.add(actionName);
+    }
+    renderFootprintTimeline();
+    return;
+  }
+  const resetButton = target.closest('[data-timeline-reset]');
+  if (!(resetButton instanceof HTMLElement)) return;
+  activeTimelineSources.clear();
+  activeTimelineActions.clear();
+  timelineSelectorQuery = '';
+  timelineShowOnlyLinked = false;
+  renderFootprintTimeline();
+});
+footprintTimelineEvents?.addEventListener('input', (event) => {
+  const target = event.target;
+  if (!(target instanceof HTMLElement)) return;
+  if (target.matches('[data-timeline-query]') && target instanceof HTMLInputElement) {
+    const nextSelectionStart = target.selectionStart;
+    const nextSelectionEnd = target.selectionEnd;
+    timelineSelectorQuery = target.value || '';
+    renderFootprintTimeline();
+    const replacement = footprintTimelineEvents.querySelector('[data-timeline-query]');
+    if (replacement instanceof HTMLInputElement) {
+      replacement.focus();
+      if (Number.isFinite(nextSelectionStart) && Number.isFinite(nextSelectionEnd)) {
+        replacement.setSelectionRange(nextSelectionStart, nextSelectionEnd);
+      }
+    }
+    return;
+  }
+  if (target.matches('[data-timeline-linked-only]') && target instanceof HTMLInputElement) {
+    timelineShowOnlyLinked = target.checked;
+    renderFootprintTimeline();
+  }
 });
 filterToggleBtn.addEventListener('click', () => {
   const isHidden = filterPanel.classList.toggle('hidden');
@@ -7025,6 +9900,8 @@ addFootprintSelectorBtn?.addEventListener('click', () => addReconSelectorRow(foo
 footprintUseTargetsBtn?.addEventListener('click', () => {
   if (!reconTargets.length) return;
   fillTargetsFromRecon(reconTargets);
+  setModalMode('collection');
+  setModalOpen(true);
   if (footprintReconStatus) footprintReconStatus.textContent = 'Loaded active recon profiles into collection targets.';
 });
 reconSelectorsList?.addEventListener('change', (event) => {
@@ -7069,6 +9946,40 @@ footprintSelectorsList?.addEventListener('click', (event) => {
   row.remove();
   ensureAtLeastOneReconSelectorRow(footprintSelectorsList);
 });
+footprintKnownSelectorsGroups?.addEventListener('click', async (event) => {
+  const target = event.target;
+  if (!(target instanceof Element)) return;
+  const removeBtn = target.closest('[data-known-remove]');
+  if (removeBtn instanceof Element) {
+    const key = String(removeBtn.getAttribute('data-known-remove') || '').trim().toLowerCase();
+    if (!key) return;
+    const cleared = hideResultsForSelector(key);
+    if (cleared) {
+      applyReconPayload(latestReconPayload || emptyReconPayload(), { statusPrefix: 'Selector records cleared', footprintOnly: true });
+    } else {
+      hiddenKnownSelectorKeys.add(key);
+      renderKnownSelectorsPanel(latestReconPayload || emptyReconPayload());
+    }
+    return;
+  }
+  const pivotBtn = target.closest('[data-known-pivot-type][data-known-pivot-value]');
+  if (!(pivotBtn instanceof Element)) return;
+  const type = String(pivotBtn.getAttribute('data-known-pivot-type') || '').trim().toLowerCase();
+  const value = String(pivotBtn.getAttribute('data-known-pivot-value') || '').trim();
+  if (!type || !value) return;
+  await pivotKnownSelector(type, value);
+});
+footprintKnownSelectorsGroups?.addEventListener('click', (event) => {
+  const target = event.target;
+  if (!(target instanceof Element)) return;
+  if (target.closest('[data-known-remove], [data-known-pivot-type], [data-known-pivot-value]')) return;
+  const pill = target.closest('[data-known-focus-key]');
+  if (!(pill instanceof Element)) return;
+  const key = String(pill.getAttribute('data-known-focus-key') || '').trim().toLowerCase();
+  if (!key) return;
+  setResultsView('footprint');
+  focusKnownSelectorInstances(key);
+});
 targetsList.addEventListener('click', (event) => {
   const target = event.target;
   if (!(target instanceof HTMLElement) || !target.classList.contains('target-remove')) return;
@@ -7078,40 +9989,57 @@ targetsList.addEventListener('click', (event) => {
   if (!targetsList.querySelector('.target-row')) addTargetRow('twitter', '');
 });
 quitBtn.addEventListener('click', async () => {
-  await quitPanoptoSession({ clearData: true });
+  openQuitOptionsModal();
 });
 quitSessionCaseBtn?.addEventListener('click', async () => {
-  await quitPanoptoSession({ clearData: true });
+  openQuitOptionsModal();
 });
-quitSaveBtn?.addEventListener('click', async () => {
-  await quitPanoptoSession({ clearData: false });
+quitOptionsCancelBtn?.addEventListener('click', closeQuitOptionsModal);
+quitOptionsQuitBtn?.addEventListener('click', async () => {
+  await quitPanoptoSession({ mode: 'quit' });
 });
-quitSaveSessionCaseBtn?.addEventListener('click', async () => {
-  await quitPanoptoSession({ clearData: false });
+quitOptionsWipeBtn?.addEventListener('click', async () => {
+  await quitPanoptoSession({ mode: 'wipe' });
+});
+quitOptionsSaveBtn?.addEventListener('click', async () => {
+  await quitPanoptoSession({ mode: 'save' });
 });
 
+function openQuitOptionsModal() {
+  quitOptionsModal?.classList.remove('hidden');
+  syncModalActiveState();
+}
+
+function closeQuitOptionsModal() {
+  quitOptionsModal?.classList.add('hidden');
+  syncModalActiveState();
+}
+
 async function quitPanoptoSession(options = {}) {
-  const clearData = options?.clearData !== false;
-  const ok = clearData
-    ? window.confirm('Quit PANOPTO and wipe collected session data?')
-    : window.confirm('Quit PANOPTO and keep collected results for next demo session?');
-  if (!ok) return;
+  const mode = String(options?.mode || 'quit').toLowerCase();
+  const clearData = mode === 'wipe';
+  const clearConfig = mode === 'wipe';
   if (!confirmUnsavedCaseExit('quit PANOPTO')) return;
+  closeQuitOptionsModal();
   if (quitBtn) {
     quitBtn.disabled = true;
     quitBtn.textContent = 'Quitting...';
-  }
-  if (quitSaveBtn) {
-    quitSaveBtn.disabled = true;
-    quitSaveBtn.textContent = 'Quitting...';
   }
   if (quitSessionCaseBtn) {
     quitSessionCaseBtn.disabled = true;
     quitSessionCaseBtn.textContent = 'Quitting...';
   }
-  if (quitSaveSessionCaseBtn) {
-    quitSaveSessionCaseBtn.disabled = true;
-    quitSaveSessionCaseBtn.textContent = 'Quitting...';
+  if (quitOptionsQuitBtn) {
+    quitOptionsQuitBtn.disabled = true;
+    quitOptionsQuitBtn.textContent = 'Quitting...';
+  }
+  if (quitOptionsWipeBtn) {
+    quitOptionsWipeBtn.disabled = true;
+    quitOptionsWipeBtn.textContent = 'Quitting...';
+  }
+  if (quitOptionsSaveBtn) {
+    quitOptionsSaveBtn.disabled = true;
+    quitOptionsSaveBtn.textContent = 'Quitting...';
   }
   try {
     await discardUnsavedActiveCase();
@@ -7124,15 +10052,19 @@ async function quitPanoptoSession(options = {}) {
     await fetch('/api/session/end', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ shutdown: true, clear_data: clearData }),
+      body: JSON.stringify({ shutdown: true, clear_data: clearData, clear_config: clearConfig }),
       keepalive: true,
     });
-    statusEl.textContent = clearData
-      ? 'Session ended. Database wiped.'
-      : 'Session ended. Results were preserved for later demos.';
-    resultsEl.innerHTML = clearData
-      ? '<div class="empty">PANOPTO session ended. Restart server to collect again.</div>'
-      : '<div class="empty">PANOPTO session ended. Restart server to continue with saved results.</div>';
+    if (mode === 'wipe') {
+      statusEl.textContent = 'Session ended. Wiped API keys, cases, and collected data.';
+      resultsEl.innerHTML = '<div class="empty">PANOPTO session ended. Restart server to begin fresh.</div>';
+    } else if (mode === 'save') {
+      statusEl.textContent = 'Session ended. API keys, cases, and associated data were saved.';
+      resultsEl.innerHTML = '<div class="empty">PANOPTO session ended. Restart server to continue with saved state.</div>';
+    } else {
+      statusEl.textContent = 'Session ended.';
+      resultsEl.innerHTML = '<div class="empty">PANOPTO session ended.</div>';
+    }
     // Attempt to close the PANOPTO tab after a successful shutdown.
     window.setTimeout(() => {
       try {
@@ -7157,19 +10089,23 @@ async function quitPanoptoSession(options = {}) {
   } finally {
     if (quitBtn) {
       quitBtn.disabled = false;
-      quitBtn.textContent = 'Quit Session';
-    }
-    if (quitSaveBtn) {
-      quitSaveBtn.disabled = false;
-      quitSaveBtn.textContent = 'Quit & Save Results';
+      quitBtn.textContent = 'Quit';
     }
     if (quitSessionCaseBtn) {
       quitSessionCaseBtn.disabled = false;
-      quitSessionCaseBtn.textContent = 'Quit Session';
+      quitSessionCaseBtn.textContent = 'Quit';
     }
-    if (quitSaveSessionCaseBtn) {
-      quitSaveSessionCaseBtn.disabled = false;
-      quitSaveSessionCaseBtn.textContent = 'Quit & Save Results';
+    if (quitOptionsQuitBtn) {
+      quitOptionsQuitBtn.disabled = false;
+      quitOptionsQuitBtn.textContent = 'Quit';
+    }
+    if (quitOptionsWipeBtn) {
+      quitOptionsWipeBtn.disabled = false;
+      quitOptionsWipeBtn.textContent = 'Quit and Wipe';
+    }
+    if (quitOptionsSaveBtn) {
+      quitOptionsSaveBtn.disabled = false;
+      quitOptionsSaveBtn.textContent = 'Quit and Save';
     }
   }
 }
@@ -7178,6 +10114,8 @@ addTargetRow('twitter', '');
 addReconSelectorRow(reconSelectorsList, 'username', '');
 addReconSelectorRow(footprintSelectorsList, 'username', '');
 renderLeadsList();
+renderFootprintTimeline();
+renderKnownSelectorsPanel(emptyReconPayload());
 renderCollectionStreams();
 applyResultsViewButtonState();
 setInsightsTab(activeInsightsTab);
@@ -7188,6 +10126,9 @@ applyResultsViewButtonState();
 renderCollectionContext();
 setModalMode('chooser');
 setModalOpen(false);
+if (caseEditRetentionSelect instanceof HTMLSelectElement) caseEditRetentionSelect.value = DEFAULT_DATA_RETENTION_PERIOD;
+if (caseSaveRetentionSelect instanceof HTMLSelectElement) caseSaveRetentionSelect.value = DEFAULT_DATA_RETENTION_PERIOD;
+if (configDefaultRetentionSelect instanceof HTMLSelectElement) configDefaultRetentionSelect.value = DEFAULT_DATA_RETENTION_PERIOD;
 setWatchlistCadenceVisibility(caseEditStatusSelect, caseEditCadenceField, caseEditCadenceSelect);
 setWatchlistCadenceVisibility(caseSaveStatusSelect, caseSaveCadenceField, caseSaveCadenceSelect);
 showCaseWorkspace();

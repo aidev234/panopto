@@ -7,6 +7,7 @@ filters results to a configurable collection window.
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import os
 import re
 import time
 from dataclasses import dataclass
@@ -20,7 +21,13 @@ from urllib.parse import quote, urljoin
 import requests
 from bs4 import BeautifulSoup
 
-from panopto.errors import SourceUnavailableError, UsernameNotFoundError
+from panopto.collectors.apify import (
+    ApifyActorInputError,
+    ApifyConfigurationError,
+    ApifyRequestError,
+    run_actor_sync_get_items,
+)
+from panopto.errors import SourceUnavailableError
 
 
 DEFAULT_HEADERS = {
@@ -29,6 +36,11 @@ DEFAULT_HEADERS = {
         "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
     )
 }
+
+DEFAULT_APIFY_TWITTER_ACTOR_ID = "apidojo/tweet-scraper"
+APIFY_TWITTER_ACTOR_ENV = "PANOPTO_APIFY_TWITTER_ACTOR_ID"
+APIFY_TWITTER_MAX_SEARCH_TERMS = 8
+APIFY_TWITTER_RESULTS_LIMIT_MAX = 100
 
 
 @dataclass
@@ -71,11 +83,24 @@ def _parse_collection_window(collection_window: str) -> timedelta:
     )
 
 
-def _parse_datetime(raw_value: str | None) -> datetime | None:
-    if not raw_value:
+def _parse_datetime(raw_value: Any) -> datetime | None:
+    if raw_value is None:
         return None
 
-    text = raw_value.strip()
+    if isinstance(raw_value, (int, float)):
+        stamp = float(raw_value)
+        if stamp > 10_000_000_000:
+            stamp /= 1000.0
+        try:
+            return datetime.fromtimestamp(stamp, tz=timezone.utc)
+        except (OverflowError, OSError, ValueError):
+            return None
+
+    text = str(raw_value).strip()
+    if not text:
+        return None
+    if text.isdigit():
+        return _parse_datetime(int(text))
 
     for fmt in (
         "%Y-%m-%d %H:%M:%S",
@@ -517,6 +542,361 @@ def _extract_posts_from_embedded_data(username: str, html: str) -> list[TwitterP
     return posts
 
 
+def _get_actor_id() -> str:
+    return str(os.environ.get(APIFY_TWITTER_ACTOR_ENV) or DEFAULT_APIFY_TWITTER_ACTOR_ID).strip()
+
+
+def _build_apify_search_terms(
+    *,
+    username: str,
+    cutoff: datetime,
+    now_utc: datetime,
+) -> list[str]:
+    normalized_username = str(username or "").strip().lstrip("@").lower()
+    if not normalized_username:
+        return []
+
+    ranges: list[str] = []
+    start = cutoff.date()
+    end = now_utc.date()
+    cursor = start
+
+    while cursor < end and len(ranges) < APIFY_TWITTER_MAX_SEARCH_TERMS:
+        until = min(end, cursor + timedelta(days=180))
+        ranges.append(f"from:{normalized_username} since:{cursor.isoformat()} until:{until.isoformat()}")
+        cursor = until
+
+    if not ranges:
+        return [f"from:{normalized_username}"]
+    return [f"from:{normalized_username}", *ranges]
+
+
+def _safe_int(raw: Any) -> int | None:
+    if raw is None:
+        return None
+    if isinstance(raw, bool):
+        return int(raw)
+    if isinstance(raw, int):
+        return raw
+    if isinstance(raw, float):
+        return int(raw)
+    text = str(raw).strip()
+    if not text:
+        return None
+    compact = re.match(r"^([\d.]+)\s*([kKmMbB])$", text)
+    if compact:
+        value = float(compact.group(1))
+        suffix = compact.group(2).lower()
+        multiplier = {"k": 1_000, "m": 1_000_000, "b": 1_000_000_000}[suffix]
+        return int(value * multiplier)
+    digits = re.sub(r"[^\d]", "", text)
+    return int(digits) if digits else None
+
+
+def _safe_dict(raw: Any) -> dict[str, Any]:
+    return raw if isinstance(raw, dict) else {}
+
+
+def _safe_list(raw: Any) -> list[Any]:
+    return raw if isinstance(raw, list) else []
+
+
+def _extract_username(raw: Any) -> str:
+    if not isinstance(raw, dict):
+        return ""
+    return str(
+        raw.get("userName")
+        or raw.get("username")
+        or raw.get("screen_name")
+        or raw.get("handle")
+        or raw.get("name")
+        or ""
+    ).strip().lstrip("@").lower()
+
+
+def _extract_twitter_media_metadata(item: dict[str, Any]) -> dict[str, Any]:
+    image_urls: list[str] = []
+    video_urls: list[str] = []
+    thumbnail_url = ""
+
+    def _add_image(raw_url: Any) -> None:
+        normalized = _normalize_media_url(str(raw_url or "").strip())
+        if normalized and _is_image_url(normalized) and not _is_non_post_image(normalized):
+            image_urls.append(normalized)
+
+    def _add_video(raw_url: Any) -> None:
+        normalized = _normalize_media_url(str(raw_url or "").strip())
+        if normalized and _is_video_url(normalized):
+            video_urls.append(normalized)
+
+    for key in ("photos", "images", "imageUrls", "image_urls"):
+        for entry in _safe_list(item.get(key)):
+            if isinstance(entry, str):
+                _add_image(entry)
+            elif isinstance(entry, dict):
+                _add_image(
+                    entry.get("url")
+                    or entry.get("media_url")
+                    or entry.get("media_url_https")
+                    or entry.get("expanded_url")
+                )
+
+    for key in ("videos", "videoUrls", "video_urls"):
+        for entry in _safe_list(item.get(key)):
+            if isinstance(entry, str):
+                _add_video(entry)
+            elif isinstance(entry, dict):
+                _add_video(entry.get("url") or entry.get("videoUrl") or entry.get("playbackUrl"))
+                thumb = _normalize_media_url(
+                    entry.get("thumbnailUrl")
+                    or entry.get("thumbnail")
+                    or entry.get("poster")
+                )
+                if thumb and not thumbnail_url:
+                    thumbnail_url = thumb
+
+    entities = _safe_dict(item.get("entities"))
+    extended = _safe_dict(item.get("extendedEntities") or item.get("extended_entities"))
+    for container in (entities, extended):
+        for media_item in _safe_list(container.get("media")):
+            media_obj = _safe_dict(media_item)
+            _add_image(media_obj.get("media_url_https") or media_obj.get("media_url"))
+            _add_image(media_obj.get("url") or media_obj.get("expanded_url"))
+            _add_video(media_obj.get("video_url"))
+            _add_video(media_obj.get("videoUrl"))
+            if not thumbnail_url:
+                thumb = _normalize_media_url(media_obj.get("media_url_https") or media_obj.get("media_url"))
+                if thumb and _is_image_url(thumb):
+                    thumbnail_url = thumb
+            video_info = _safe_dict(media_obj.get("video_info"))
+            for variant in _safe_list(video_info.get("variants")):
+                _add_video(_safe_dict(variant).get("url"))
+
+    _add_video(item.get("videoUrl") or item.get("video_url") or item.get("playUrl"))
+    candidate_thumb = _normalize_media_url(
+        item.get("thumbnail")
+        or item.get("thumbnailUrl")
+        or item.get("thumbnail_url")
+        or item.get("previewImageUrl")
+    )
+    if candidate_thumb and not thumbnail_url:
+        thumbnail_url = candidate_thumb
+
+    image_urls = _dedupe_preserve_order(image_urls)
+    video_urls = _dedupe_preserve_order(video_urls)
+    video_url = video_urls[0] if video_urls else ""
+    if not thumbnail_url and image_urls:
+        thumbnail_url = image_urls[0]
+
+    media: list[dict[str, str]] = []
+    if video_url:
+        video_item: dict[str, str] = {"type": "video", "url": video_url}
+        if thumbnail_url:
+            video_item["thumbnail_url"] = thumbnail_url
+        media.append(video_item)
+    media.extend({"type": "image", "url": image_url} for image_url in image_urls)
+
+    metadata: dict[str, Any] = {}
+    if media:
+        metadata["media"] = media
+    if image_urls:
+        metadata["image_urls"] = image_urls
+    if video_url:
+        metadata["video_url"] = video_url
+    if thumbnail_url:
+        metadata["thumbnail_url"] = thumbnail_url
+    return metadata
+
+
+def _iter_apify_tweet_records(dataset_items: list[dict[str, Any]]) -> Iterable[dict[str, Any]]:
+    nested_keys = ("tweets", "posts", "results", "items", "data")
+    for item in dataset_items:
+        if not isinstance(item, dict):
+            continue
+        if item.get("noResults") is True:
+            continue
+        if str(item.get("error") or "").strip():
+            continue
+
+        yielded_nested = False
+        for key in nested_keys:
+            nested = item.get(key)
+            if not isinstance(nested, list):
+                continue
+            for candidate in nested:
+                if isinstance(candidate, dict):
+                    yield candidate
+            yielded_nested = True
+        if not yielded_nested:
+            yield item
+
+
+def _apify_item_to_post(item: dict[str, Any], *, fallback_username: str) -> TwitterPost | None:
+    item_type = str(item.get("type") or "").strip().lower()
+    if item_type and item_type not in {"tweet", "post", "status"}:
+        return None
+
+    post_id = str(item.get("id") or item.get("tweetId") or "").strip() or None
+    source_url = str(item.get("url") or item.get("twitterUrl") or item.get("tweetUrl") or "").strip() or None
+    text = str(item.get("text") or item.get("fullText") or "").strip()
+    if not text and not post_id and not source_url:
+        return None
+
+    author = _safe_dict(item.get("author"))
+    username = str(
+        author.get("userName")
+        or author.get("username")
+        or item.get("userName")
+        or item.get("username")
+        or fallback_username
+    ).strip().lstrip("@").lower()
+    if not username:
+        username = fallback_username
+
+    created_raw = item.get("createdAt") or item.get("created_at") or item.get("timestamp") or item.get("time")
+    timestamp = _parse_datetime(created_raw)
+    likes = _safe_int(item.get("likeCount"))
+    retweets = _safe_int(item.get("retweetCount"))
+    replies = _safe_int(item.get("replyCount"))
+
+    quoted = _safe_dict(
+        item.get("quotedTweet")
+        or item.get("quotedStatus")
+        or item.get("quoted_status")
+        or item.get("quotedPost")
+        or item.get("quoted")
+        or item.get("quote")
+    )
+    quote_author = _safe_dict(quoted.get("author"))
+    quote_username = _extract_username(quote_author) or _extract_username(quoted.get("user"))
+
+    is_retweet = bool(item.get("isRetweet"))
+    is_reply = bool(item.get("isReply"))
+    is_quote = bool(item.get("isQuote") or quoted)
+    post_type = "post"
+    if is_retweet:
+        post_type = "repost"
+    elif is_reply:
+        post_type = "reply"
+    elif is_quote:
+        post_type = "quote"
+
+    profile_image_url = str(author.get("profilePicture") or author.get("profileImageUrl") or "").strip() or None
+    media_metadata = _extract_twitter_media_metadata(item)
+
+    quote_id = str(
+        item.get("quoteId")
+        or quoted.get("id")
+        or quoted.get("tweetId")
+        or ""
+    ).strip() or None
+    quote_text = str(quoted.get("text") or quoted.get("fullText") or item.get("quotedText") or "").strip() or None
+    quote_url = str(
+        item.get("quoteUrl")
+        or quoted.get("url")
+        or quoted.get("twitterUrl")
+        or quoted.get("tweetUrl")
+        or ""
+    ).strip() or None
+    if not quote_url and quote_id and quote_username:
+        quote_url = f"https://x.com/{quote_username}/status/{quote_id}"
+    referenced_username = None
+    if is_reply:
+        referenced_username = str(
+            item.get("inReplyToUser")
+            or item.get("inReplyToUsername")
+            or item.get("inReplyToScreenName")
+            or ""
+        ).strip().lstrip("@").lower() or None
+    elif is_quote:
+        referenced_username = quote_username or None
+
+    if not source_url and post_id:
+        source_url = f"https://x.com/{username}/status/{post_id}"
+
+    return TwitterPost(
+        post_id=post_id,
+        username=username,
+        content=text or "(tweet)",
+        timestamp=timestamp,
+        likes=likes,
+        retweets=retweets,
+        replies=replies,
+        source_url=source_url,
+        post_type=post_type,
+        referenced_username=referenced_username,
+        raw_metadata={
+            "raw_timestamp": str(created_raw or "").strip() or None,
+            "profile_image_url": profile_image_url,
+            "quote_id": quote_id,
+            "quote_text": quote_text,
+            "quote_url": quote_url,
+            "quote_username": quote_username or None,
+            "quote_count": _safe_int(item.get("quoteCount")),
+            "bookmark_count": _safe_int(item.get("bookmarkCount")),
+            "lang": str(item.get("lang") or "").strip() or None,
+            "author": author,
+            "source": str(item.get("source:") or item.get("source") or "").strip() or None,
+            **media_metadata,
+            "raw": item,
+        },
+    )
+
+
+def _collect_from_apify(
+    *,
+    normalized_username: str,
+    cutoff: datetime,
+    now_utc: datetime,
+    timeout: int,
+    max_pages: int,
+) -> list[TwitterPost]:
+    actor_id = _get_actor_id()
+    search_terms = _build_apify_search_terms(
+        username=normalized_username,
+        cutoff=cutoff,
+        now_utc=now_utc,
+    )
+    if not search_terms:
+        return []
+
+    max_items = min(APIFY_TWITTER_RESULTS_LIMIT_MAX, max(20, max_pages * 35))
+    actor_input_candidates = [
+        {"searchTerms": [f"from:{normalized_username}"], "sort": "Latest", "maxItems": max_items},
+        {"searchTerms": search_terms, "sort": "Latest", "maxItems": max_items},
+        {"searchTerms": [f"from:{normalized_username}"], "sort": "Latest"},
+        {"searchTerms": search_terms, "sort": "Latest"},
+    ]
+
+    dataset_items: list[dict[str, Any]] = []
+    last_input_error = ""
+    for actor_input in actor_input_candidates:
+        try:
+            dataset_items = run_actor_sync_get_items(
+                actor_id=actor_id,
+                actor_input=actor_input,
+                timeout_seconds=max(timeout, 60),
+            )
+            if dataset_items:
+                break
+        except ApifyActorInputError as exc:
+            last_input_error = str(exc)
+            continue
+
+    if not dataset_items and last_input_error:
+        raise ApifyActorInputError(last_input_error)
+
+    posts: list[TwitterPost] = []
+    for item in _iter_apify_tweet_records(dataset_items):
+        normalized = _apify_item_to_post(item, fallback_username=normalized_username)
+        if normalized is None:
+            continue
+        if normalized.timestamp and normalized.timestamp < cutoff:
+            continue
+        posts.append(normalized)
+    return posts
+
+
 def _source_hosts() -> list[str]:
     env_raw = str(getenv("TWITTER_SOURCE_HOSTS", "")).strip()
     if env_raw:
@@ -949,7 +1329,7 @@ def collect_twitter_posts(
     browser_fallback: bool = True,
     browser_enrich_existing: bool = False,
 ) -> list[dict[str, Any]]:
-    """Collect posts from `twitterwebviewer.com` for a user.
+    """Collect posts from Apify actor output for a user.
 
     Args:
         username: Twitter username (without @).
@@ -979,68 +1359,31 @@ def collect_twitter_posts(
     now = datetime.now(timezone.utc)
     cutoff = now - window
 
-    collected: list[TwitterPost] = []
-    user_missing_signal = False
+    try:
+        collected = _collect_from_apify(
+            normalized_username=normalized_username,
+            cutoff=cutoff,
+            now_utc=now,
+            timeout=timeout,
+            max_pages=max_pages,
+        )
+    except ApifyConfigurationError as exc:
+        raise SourceUnavailableError(
+            platform="twitter",
+            username=normalized_username,
+            reason=str(exc),
+        ) from exc
+    except (ApifyActorInputError, ApifyRequestError) as exc:
+        raise SourceUnavailableError(
+            platform="twitter",
+            username=normalized_username,
+            reason=str(exc),
+        ) from exc
+
     profile_image_url = ""
-
-    with requests.Session() as session:
-        session.headers.update(DEFAULT_HEADERS)
-        if proxies:
-            session.proxies.update(proxies)
-
-        effective_render_proxy = render_proxy_template or getenv("TWITTER_RENDER_PROXY_TEMPLATE")
-        empty_request_pages = 0
-
-        for html in _iter_pages(
-            username=normalized_username,
-            session=session,
-            max_pages=max_pages,
-            delay_seconds=request_delay_seconds,
-            timeout=timeout,
-            render_proxy_template=effective_render_proxy,
-        ):
-            if not profile_image_url:
-                profile_image_url = _extract_profile_image_from_html(html)
-            page_posts = _extract_posts_from_html(username=normalized_username, html=html)
-            if not page_posts and _page_indicates_missing_user(html):
-                user_missing_signal = True
-            if not page_posts:
-                empty_request_pages += 1
-                if empty_request_pages >= 2:
-                    break
-                continue
-            empty_request_pages = 0
-            collected.extend(page_posts)
-
-        if not collected:
-            collected.extend(
-                _iter_rss_posts(
-                    username=normalized_username,
-                    session=session,
-                    timeout=timeout,
-                )
-            )
-
-    should_use_browser = browser_fallback and (not collected or browser_enrich_existing)
-    if should_use_browser:
-        effective_browser_proxy = browser_proxy or getenv("TWITTER_BROWSER_PROXY")
-        for rendered_html in _iter_rendered_pages(
-            username=normalized_username,
-            max_pages=max_pages,
-            timeout=timeout,
-            browser_proxy=effective_browser_proxy,
-        ):
-            if not profile_image_url:
-                profile_image_url = _extract_profile_image_from_html(rendered_html)
-            page_posts = _extract_posts_from_html(username=normalized_username, html=rendered_html)
-            if not page_posts and _page_indicates_missing_user(rendered_html):
-                user_missing_signal = True
-            if not page_posts:
-                continue
-            collected.extend(page_posts)
-
-    if not collected and user_missing_signal:
-        raise UsernameNotFoundError(platform="twitter", username=normalized_username)
+    for post in collected:
+        if not profile_image_url:
+            profile_image_url = str((post.raw_metadata or {}).get("profile_image_url") or "").strip()
 
     filtered: list[dict[str, Any]] = []
     seen_keys: set[tuple[str, str, str | None]] = set()

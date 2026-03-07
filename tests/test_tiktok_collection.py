@@ -4,8 +4,8 @@ from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
 import panopto.collectors.tiktok as tiktok_collection
-from panopto.errors import SourceAccessBlockedError
-from requests import RequestException
+from panopto.collectors.apify import ApifyRequestError
+from panopto.errors import SourceUnavailableError
 
 
 def test_extract_posts_from_html_includes_video_urls_and_stats():
@@ -39,37 +39,19 @@ def test_collect_tiktok_posts_filters_by_window_and_dedupes():
     now = datetime.now(timezone.utc)
     recent_iso = (now - timedelta(days=1)).isoformat()
     old_iso = (now - timedelta(days=20)).isoformat()
+    dataset = [
+        {"id": "same", "text": "Short", "createTimeISO": recent_iso, "webVideoUrl": "https://www.tiktok.com/@aoc/video/same"},
+        {"id": "same", "text": "Longer canonical caption", "createTimeISO": recent_iso, "webVideoUrl": "https://www.tiktok.com/@aoc/video/same"},
+        {"id": "old", "text": "Old clip", "createTimeISO": old_iso, "webVideoUrl": "https://www.tiktok.com/@aoc/video/old"},
+    ]
 
-    html = f"""
-    <article data-video-id="same">
-      <div class="caption">Short</div>
-      <time datetime="{recent_iso}"></time>
-      <a href="/profile/aoc/video/same"></a>
-      <video><source src="/v/same.mp4" /></video>
-    </article>
-    <article data-video-id="same">
-      <div class="caption">Longer canonical caption</div>
-      <time datetime="{recent_iso}"></time>
-      <a href="/profile/aoc/video/same"></a>
-      <video><source src="/v/same.mp4" /></video>
-    </article>
-    <article data-video-id="old">
-      <div class="caption">Old clip</div>
-      <time datetime="{old_iso}"></time>
-      <a href="/profile/aoc/video/old"></a>
-      <video><source src="/v/old.mp4" /></video>
-    </article>
-    """
-
-    with patch("panopto.collectors.tiktok._iter_pages", return_value=[html]):
-        rows = tiktok_collection.collect_tiktok_posts(
-            "aoc", "1 week", max_pages=2, request_delay_seconds=0
-        )
+    with patch("panopto.collectors.tiktok.run_actor_sync_get_items", return_value=dataset):
+        rows = tiktok_collection.collect_tiktok_posts("aoc", "1 week", max_pages=2, request_delay_seconds=0)
 
     assert len(rows) == 1
     assert rows[0]["post_id"] == "same"
     assert rows[0]["content"] == "Longer canonical caption"
-    assert rows[0]["metadata"]["video_url"] == "https://www.tikvib.com/v/same.mp4"
+    assert rows[0]["source_url"] == "https://www.tiktok.com/@aoc/video/same"
 
 
 def test_parse_collection_window_rejects_invalid_format():
@@ -81,57 +63,33 @@ def test_parse_collection_window_rejects_invalid_format():
         raise AssertionError("expected ValueError")
 
 
-def test_collect_tiktok_posts_uses_rendered_fallback_when_request_pages_empty():
+def test_collect_tiktok_posts_returns_rows_from_apify_dataset():
     now = datetime.now(timezone.utc)
-    recent_iso = (now - timedelta(days=1)).isoformat()
-    rendered_html = f"""
-    <article data-video-id="fallback123">
-      <div class="caption">Recovered from rendered page</div>
-      <time datetime="{recent_iso}"></time>
-      <a href="/profile/aoc/video/fallback123"></a>
-      <video><source src="/v/fallback123.mp4" /></video>
-    </article>
-    """
-
-    with patch("panopto.collectors.tiktok._iter_pages", return_value=["<html><body>no static posts</body></html>"]):
-        with patch("panopto.collectors.tiktok._iter_rendered_pages", return_value=[rendered_html]):
-            rows = tiktok_collection.collect_tiktok_posts(
-                "aoc",
-                "1 week",
-                max_pages=1,
-                request_delay_seconds=0,
-                browser_fallback=True,
-            )
+    dataset = [
+        {
+            "id": "fallback123",
+            "text": "Recovered from actor output",
+            "createTimeISO": (now - timedelta(days=1)).isoformat(),
+            "webVideoUrl": "https://www.tiktok.com/@aoc/video/fallback123",
+        }
+    ]
+    with patch("panopto.collectors.tiktok.run_actor_sync_get_items", return_value=dataset):
+        rows = tiktok_collection.collect_tiktok_posts("aoc", "1 week", max_pages=1, request_delay_seconds=0, browser_fallback=True)
 
     assert len(rows) == 1
     assert rows[0]["post_id"] == "fallback123"
-    assert rows[0]["content"] == "Recovered from rendered page"
+    assert rows[0]["content"] == "Recovered from actor output"
 
 
-def test_collect_tiktok_posts_uses_rendered_fallback_when_static_fetch_raises():
-    now = datetime.now(timezone.utc)
-    recent_iso = (now - timedelta(days=1)).isoformat()
-    rendered_html = f"""
-    <article data-video-id="fallback999">
-      <div class="caption">Recovered after static fetch error</div>
-      <time datetime="{recent_iso}"></time>
-      <a href="/profile/aoc/video/fallback999"></a>
-      <video><source src="/v/fallback999.mp4" /></video>
-    </article>
-    """
-
-    with patch("panopto.collectors.tiktok._iter_pages", side_effect=RequestException("blocked")):
-        with patch("panopto.collectors.tiktok._iter_rendered_pages", return_value=[rendered_html]):
-            rows = tiktok_collection.collect_tiktok_posts(
-                "aoc",
-                "1 week",
-                max_pages=1,
-                request_delay_seconds=0,
-                browser_fallback=True,
-            )
-
-    assert len(rows) == 1
-    assert rows[0]["post_id"] == "fallback999"
+def test_collect_tiktok_posts_surfaces_apify_request_errors():
+    with patch("panopto.collectors.tiktok.run_actor_sync_get_items", side_effect=ApifyRequestError("blocked")):
+        try:
+            tiktok_collection.collect_tiktok_posts("aoc", "1 week", max_pages=1, request_delay_seconds=0, browser_fallback=True)
+        except SourceUnavailableError as exc:
+            assert exc.platform == "tiktok"
+            assert "blocked" in str(exc)
+        else:
+            raise AssertionError("Expected SourceUnavailableError")
 
 
 def test_extract_posts_from_html_accepts_absolute_tiktok_links_and_link_only_posts():
@@ -153,55 +111,35 @@ def test_extract_posts_from_html_accepts_absolute_tiktok_links_and_link_only_pos
 
 
 def test_collect_tiktok_posts_does_not_raise_not_found_from_html_marker_only():
-    html = "<html><body>user not found</body></html>"
-    with patch("panopto.collectors.tiktok._iter_pages", return_value=[html]):
-        rows = tiktok_collection.collect_tiktok_posts(
-            "aoc",
-            "1 week",
-            max_pages=1,
-            request_delay_seconds=0,
-            browser_fallback=False,
-        )
+    with patch("panopto.collectors.tiktok.run_actor_sync_get_items", return_value=[]):
+        rows = tiktok_collection.collect_tiktok_posts("aoc", "1 week", max_pages=1, request_delay_seconds=0, browser_fallback=False)
     assert rows == []
 
 
-def test_collect_tiktok_posts_uses_official_fallback_when_aggregator_paths_empty():
-    html = """
-    <article>
-      <a href="https://www.tiktok.com/@aoc/video/123456">Open</a>
-      <img src="https://cdn.example.com/thumb.jpg" />
-    </article>
-    """
-    with patch("panopto.collectors.tiktok._iter_pages", return_value=[]):
-        with patch("panopto.collectors.tiktok._iter_rendered_pages", return_value=[]):
-            with patch("panopto.collectors.tiktok._iter_official_rendered_pages", return_value=[html]):
-                rows = tiktok_collection.collect_tiktok_posts(
-                    "aoc",
-                    "30 days",
-                    max_pages=1,
-                    request_delay_seconds=0,
-                    browser_fallback=True,
-                )
+def test_collect_tiktok_posts_maps_direct_video_urls_from_apify():
+    dataset = [
+        {
+            "id": "123456",
+            "text": "(video)",
+            "createTimeISO": "2026-02-10T00:00:00+00:00",
+            "webVideoUrl": "https://www.tiktok.com/@aoc/video/123456",
+        }
+    ]
+    with patch("panopto.collectors.tiktok.run_actor_sync_get_items", return_value=dataset):
+        rows = tiktok_collection.collect_tiktok_posts("aoc", "30 days", max_pages=1, request_delay_seconds=0, browser_fallback=True)
     assert len(rows) == 1
     assert rows[0]["post_id"] == "123456"
 
 
-def test_collect_tiktok_posts_raises_blocked_error_on_challenge_pages():
-    blocked_html = "<html><body>Just a moment... captcha cloudflare</body></html>"
-    with patch("panopto.collectors.tiktok._iter_pages", return_value=[blocked_html]):
+def test_collect_tiktok_posts_raises_unavailable_when_apify_not_configured():
+    with patch("panopto.collectors.tiktok.run_actor_sync_get_items", side_effect=tiktok_collection.ApifyConfigurationError("missing token")):
         try:
-            tiktok_collection.collect_tiktok_posts(
-                "aoc",
-                "30 days",
-                max_pages=1,
-                request_delay_seconds=0,
-                browser_fallback=False,
-            )
-        except SourceAccessBlockedError as exc:
+            tiktok_collection.collect_tiktok_posts("aoc", "30 days", max_pages=1, request_delay_seconds=0, browser_fallback=False)
+        except SourceUnavailableError as exc:
             assert exc.platform == "tiktok"
             assert exc.username == "aoc"
         else:
-            raise AssertionError("Expected SourceAccessBlockedError on challenge page")
+            raise AssertionError("Expected SourceUnavailableError when Apify is not configured")
 
 
 def test_extract_posts_from_html_fallback_reads_links_from_script_payload():
@@ -264,3 +202,148 @@ def test_iter_pages_tries_profile_url_variants():
 
     assert pages == ["<html>ok</html>"]
     assert any("/profile/@aoc" in call for call in session.calls)
+
+
+def test_collect_tiktok_posts_uses_apify_actor_and_maps_rich_video_fields():
+    dataset = [
+        {
+            "id": "7361111111111111111",
+            "text": "Clip caption",
+            "createTimeISO": "2026-02-20T12:10:00+00:00",
+            "webVideoUrl": "https://www.tiktok.com/@aoc/video/7361111111111111111",
+            "diggCount": 77,
+            "commentCount": 12,
+            "playCount": 987,
+            "shareCount": 15,
+            "collectCount": 4,
+            "locationCreated": "US",
+            "isAd": True,
+            "musicMeta": {"musicName": "Track 1", "musicAuthor": "Artist 1"},
+            "videoMeta": {"height": 1920, "width": 1080, "duration": 19},
+            "video": {"downloadAddr": "https://v16.tiktokcdn.com/clip.mp4", "cover": "https://p16.tiktokcdn.com/cover.jpg"},
+            "authorMeta.name": "aoc",
+            "authorMeta.nickName": "AOC",
+            "authorMeta.verified": True,
+            "authorMeta.bioLink.link": "https://example.org",
+            "authorMeta.fans": 1010,
+            "authorMeta.heart": 2020,
+            "authorMeta.video": 303,
+            "authorMeta.digg": 4040,
+        }
+    ]
+    with patch("panopto.collectors.tiktok.run_actor_sync_get_items", return_value=dataset):
+        rows = tiktok_collection.collect_tiktok_posts("aoc", "30 days", browser_fallback=False)
+
+    assert len(rows) == 1
+    row = rows[0]
+    assert row["post_id"] == "7361111111111111111"
+    assert row["content"] == "Clip caption"
+    assert row["likes"] == 77
+    assert row["replies"] == 12
+    assert row["source_url"] == "https://www.tiktok.com/@aoc/video/7361111111111111111"
+    assert row["metadata"]["country_of_creation"] == "US"
+    assert row["metadata"]["is_ad"] is True
+    assert row["metadata"]["plays"] == 987
+    assert row["metadata"]["shares"] == 15
+    assert row["metadata"]["saves"] == 4
+    assert row["metadata"]["video_url"] == "https://v16.tiktokcdn.com/clip.mp4"
+    assert row["metadata"]["media"][0]["type"] == "video"
+    assert row["metadata"]["media"][0]["url"] == "https://v16.tiktokcdn.com/clip.mp4"
+    assert row["metadata"]["media"][0]["thumbnail_url"] == "https://p16.tiktokcdn.com/cover.jpg"
+    assert row["metadata"]["image_urls"] == ["https://p16.tiktokcdn.com/cover.jpg"]
+    assert row["metadata"]["video_format"]["duration"] == 19
+    assert row["metadata"]["music"]["musicName"] == "Track 1"
+    assert row["metadata"]["author_name"] == "aoc"
+    assert row["metadata"]["author_nickname"] == "AOC"
+    assert row["metadata"]["author_verified"] is True
+    assert row["metadata"]["link_in_bio"] == "https://example.org"
+    assert row["metadata"]["author_fans"] == 1010
+    assert row["metadata"]["author_hearts"] == 2020
+    assert row["metadata"]["author_videos"] == 303
+    assert row["metadata"]["author_likes"] == 4040
+
+
+def test_collect_tiktok_posts_raises_unavailable_when_apify_fails():
+    with patch("panopto.collectors.tiktok.run_actor_sync_get_items", side_effect=ApifyRequestError("boom")):
+        try:
+            tiktok_collection.collect_tiktok_posts("aoc", "30 days", request_delay_seconds=0, browser_fallback=False)
+        except SourceUnavailableError as exc:
+            assert exc.platform == "tiktok"
+            assert "boom" in str(exc)
+        else:
+            raise AssertionError("Expected SourceUnavailableError")
+
+
+def test_collect_tiktok_posts_maps_apify_profile_with_nested_videos():
+    dataset = [
+        {
+            "authorMeta.name": "aoc",
+            "authorMeta.nickName": "AOC",
+            "authorMeta.verified": True,
+            "authorMeta.bioLink.link": "https://example.org",
+            "authorMeta.fans": 1010,
+            "authorMeta.heart": 2020,
+            "authorMeta.video": 303,
+            "authorMeta.digg": 4040,
+            "videos": [
+                {
+                    "id": "7362222222222222222",
+                    "text": "Nested clip",
+                    "createTimeISO": "2026-02-22T02:10:00+00:00",
+                    "webVideoUrl": "https://www.tiktok.com/@aoc/video/7362222222222222222",
+                    "playCount": 200,
+                    "diggCount": 20,
+                    "commentCount": 2,
+                }
+            ],
+        }
+    ]
+    with patch("panopto.collectors.tiktok.run_actor_sync_get_items", return_value=dataset):
+        rows = tiktok_collection.collect_tiktok_posts("aoc", "30 days", browser_fallback=False)
+
+    assert len(rows) == 1
+    assert rows[0]["post_id"] == "7362222222222222222"
+    assert rows[0]["content"] == "Nested clip"
+    assert rows[0]["metadata"]["author_name"] == "aoc"
+
+
+def test_collect_tiktok_posts_maps_apify_item_list_shape():
+    dataset = [
+        {
+            "authorMeta.name": "aoc",
+            "itemList": [
+                {
+                    "id": "7363333333333333333",
+                    "text": "ItemList clip",
+                    "createTime": 1769451494,
+                    "webVideoUrl": "https://www.tiktok.com/@aoc/video/7363333333333333333",
+                }
+            ],
+        }
+    ]
+    with patch("panopto.collectors.tiktok.run_actor_sync_get_items", return_value=dataset):
+        rows = tiktok_collection.collect_tiktok_posts("aoc", "365 days", browser_fallback=False)
+
+    assert len(rows) == 1
+    assert rows[0]["post_id"] == "7363333333333333333"
+    assert rows[0]["content"] == "ItemList clip"
+
+
+def test_collect_tiktok_posts_does_not_fallback_when_apify_configured_and_empty():
+    with patch("panopto.collectors.tiktok.run_actor_sync_get_items", return_value=[]):
+        with patch("panopto.collectors.tiktok._iter_pages") as iter_pages_mock:
+            rows = tiktok_collection.collect_tiktok_posts("aoc", "30 days", browser_fallback=True)
+
+    assert rows == []
+    iter_pages_mock.assert_not_called()
+
+
+def test_collect_tiktok_posts_surfaces_apify_errors_when_configured():
+    with patch("panopto.collectors.tiktok.run_actor_sync_get_items", side_effect=ApifyRequestError("boom")):
+        try:
+            tiktok_collection.collect_tiktok_posts("aoc", "30 days", browser_fallback=True)
+        except SourceUnavailableError as exc:
+            assert exc.platform == "tiktok"
+            assert "boom" in str(exc)
+        else:
+            raise AssertionError("expected SourceUnavailableError")

@@ -24,6 +24,7 @@ def init_db(db_path: str = "osint_data.db") -> None:
                 case_name TEXT NOT NULL,
                 status TEXT NOT NULL,
                 threat_level TEXT NOT NULL,
+                data_retention_period TEXT NOT NULL DEFAULT '3 months',
                 known_location TEXT,
                 poi_image_url TEXT,
                 case_notes TEXT NOT NULL DEFAULT '{}',
@@ -75,6 +76,8 @@ def init_db(db_path: str = "osint_data.db") -> None:
             conn.execute("ALTER TABLE cases ADD COLUMN poi_image_url TEXT")
         if "case_notes" not in case_columns:
             conn.execute("ALTER TABLE cases ADD COLUMN case_notes TEXT NOT NULL DEFAULT '{}'")
+        if "data_retention_period" not in case_columns:
+            conn.execute("ALTER TABLE cases ADD COLUMN data_retention_period TEXT NOT NULL DEFAULT '3 months'")
         conn.commit()
 
 
@@ -111,6 +114,21 @@ def _valid_threat_level(value: str) -> str:
     }
     raw = str(value or "").strip()
     return allowed.get(raw, allowed.get(raw.lower(), "Low Threat"))
+
+
+def _valid_data_retention_period(value: str) -> str:
+    allowed = {
+        "24h": "24h",
+        "24 hours": "24h",
+        "1 week": "1 week",
+        "3 week": "3 week",
+        "3 weeks": "3 week",
+        "6 weeks": "6 weeks",
+        "3 months": "3 months",
+        "1 year": "1 year",
+    }
+    raw = str(value or "").strip()
+    return allowed.get(raw, allowed.get(raw.lower(), "3 months"))
 
 
 def _normalize_metadata_tags(raw: Any) -> list[str]:
@@ -153,6 +171,7 @@ def create_case(
     case_name: str,
     status: str = "Open",
     threat_level: str = "Low Threat",
+    data_retention_period: str = "3 months",
     known_location: str = "",
     poi_image_url: str = "",
     case_notes: dict[str, Any] | None = None,
@@ -166,6 +185,7 @@ def create_case(
         "case_name": str(case_name or "").strip() or "Untitled Case",
         "status": _valid_status(status),
         "threat_level": _valid_threat_level(threat_level),
+        "data_retention_period": _valid_data_retention_period(data_retention_period),
         "known_location": str(known_location or "").strip(),
         "poi_image_url": _normalize_poi_image_url(poi_image_url),
         "case_notes": _normalize_case_notes(case_notes or {}),
@@ -176,14 +196,15 @@ def create_case(
     with sqlite3.connect(db_path) as conn:
         conn.execute(
             """
-            INSERT INTO cases (case_id, case_name, status, threat_level, known_location, poi_image_url, case_notes, metadata_tags, opened_at, last_edited_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO cases (case_id, case_name, status, threat_level, data_retention_period, known_location, poi_image_url, case_notes, metadata_tags, opened_at, last_edited_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 row["case_id"],
                 row["case_name"],
                 row["status"],
                 row["threat_level"],
+                row["data_retention_period"],
                 row["known_location"],
                 row["poi_image_url"],
                 json.dumps(row["case_notes"], ensure_ascii=True),
@@ -207,6 +228,7 @@ def list_cases(db_path: str = "osint_data.db") -> list[dict[str, Any]]:
                 c.case_name,
                 c.status,
                 c.threat_level,
+                c.data_retention_period,
                 c.known_location,
                 c.poi_image_url,
                 c.case_notes,
@@ -216,13 +238,14 @@ def list_cases(db_path: str = "osint_data.db") -> list[dict[str, Any]]:
                 COUNT(p.id) AS post_count
             FROM cases c
             LEFT JOIN twitter_posts p ON p.case_id = c.case_id
-            GROUP BY c.case_id, c.case_name, c.status, c.threat_level, c.known_location, c.poi_image_url, c.case_notes, c.metadata_tags, c.opened_at, c.last_edited_at
+            GROUP BY c.case_id, c.case_name, c.status, c.threat_level, c.data_retention_period, c.known_location, c.poi_image_url, c.case_notes, c.metadata_tags, c.opened_at, c.last_edited_at
             ORDER BY c.last_edited_at DESC
             """
         ).fetchall()
     output: list[dict[str, Any]] = []
     for row in rows:
         item = dict(row)
+        item["data_retention_period"] = _valid_data_retention_period(item.get("data_retention_period"))
         try:
             parsed = json.loads(str(item.get("metadata_tags") or "[]"))
             item["metadata_tags"] = [str(tag) for tag in parsed if str(tag).strip()] if isinstance(parsed, list) else []
@@ -243,6 +266,7 @@ def update_case(
     case_name: str | None = None,
     status: str | None = None,
     threat_level: str | None = None,
+    data_retention_period: str | None = None,
     known_location: str | None = None,
     poi_image_url: str | None = None,
     case_notes: dict[str, Any] | None = None,
@@ -261,6 +285,9 @@ def update_case(
     if threat_level is not None:
         updates.append("threat_level = ?")
         params.append(_valid_threat_level(threat_level))
+    if data_retention_period is not None:
+        updates.append("data_retention_period = ?")
+        params.append(_valid_data_retention_period(data_retention_period))
     if known_location is not None:
         updates.append("known_location = ?")
         params.append(str(known_location).strip())
@@ -287,7 +314,7 @@ def update_case(
             return None
         row = conn.execute(
             """
-            SELECT case_id, case_name, status, threat_level, known_location, poi_image_url, case_notes, metadata_tags, opened_at, last_edited_at
+            SELECT case_id, case_name, status, threat_level, data_retention_period, known_location, poi_image_url, case_notes, metadata_tags, opened_at, last_edited_at
             FROM cases
             WHERE case_id = ?
             """,
@@ -297,14 +324,14 @@ def update_case(
             return None
     parsed_tags: list[str] = []
     try:
-        decoded = json.loads(str(row[7] or "[]"))
+        decoded = json.loads(str(row[8] or "[]"))
         if isinstance(decoded, list):
             parsed_tags = [str(tag) for tag in decoded if str(tag).strip()]
     except json.JSONDecodeError:
         parsed_tags = []
     parsed_notes: dict[str, Any] = {}
     try:
-        decoded_notes = json.loads(str(row[6] or "{}"))
+        decoded_notes = json.loads(str(row[7] or "{}"))
         parsed_notes = _normalize_case_notes(decoded_notes)
     except json.JSONDecodeError:
         parsed_notes = {}
@@ -313,12 +340,13 @@ def update_case(
         "case_name": row[1],
         "status": row[2],
         "threat_level": row[3],
-        "known_location": row[4],
-        "poi_image_url": str(row[5] or "").strip(),
+        "data_retention_period": _valid_data_retention_period(row[4]),
+        "known_location": row[5],
+        "poi_image_url": str(row[6] or "").strip(),
         "case_notes": parsed_notes,
         "metadata_tags": parsed_tags,
-        "opened_at": row[8],
-        "last_edited_at": row[9],
+        "opened_at": row[9],
+        "last_edited_at": row[10],
     }
 
 

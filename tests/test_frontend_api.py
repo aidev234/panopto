@@ -86,7 +86,7 @@ def test_query_posts_does_not_dedupe_across_platforms(tmp_path):
     assert sorted(post["platform"] for post in payload["posts"]) == ["Reddit", "Twitter"]
 
 
-def test_query_posts_excludes_unparseable_timestamps_when_date_filter_set(tmp_path):
+def test_query_posts_keeps_unparseable_timestamps_when_date_filter_set(tmp_path):
     db_path = tmp_path / "osint_data.db"
     with sqlite3.connect(db_path) as conn:
         conn.execute(
@@ -110,7 +110,8 @@ def test_query_posts_excludes_unparseable_timestamps_when_date_filter_set(tmp_pa
         conn.commit()
 
     payload = query_posts(db_path=db_path, start_date="2026-02-01", end_date="2026-02-28")
-    assert payload["count"] == 0
+    assert payload["count"] == 1
+    assert payload["posts"][0]["post_id"] == "bad-ts"
 
 
 def test_boolean_nested_search(tmp_path):
@@ -847,6 +848,52 @@ def test_session_end_can_shutdown_without_clearing_data():
     payload = json.loads(handler.wfile.getvalue().decode("utf-8"))
     assert payload["status"] == "ok"
     assert payload["cleared"] is False
+    assert payload["config_cleared"] is False
+    assert payload["shutdown"] is False
+
+
+def test_session_end_wipe_clears_data_and_config():
+    handler = PostExplorerHandler.__new__(PostExplorerHandler)
+    body = json.dumps({"shutdown": False, "clear_data": True, "clear_config": True}).encode("utf-8")
+    handler.path = "/api/session/end"
+    handler.headers = {"Content-Length": str(len(body))}
+    handler.rfile = BytesIO(body)
+    handler.wfile = BytesIO()
+    handler.client_address = ("127.0.0.1", 44444)
+
+    responses = []
+    handler.send_response = lambda code: responses.append(code)
+    handler.send_header = lambda *args, **kwargs: None
+    handler.end_headers = lambda *args, **kwargs: None
+
+    with (
+        patch("frontend.server.clear_posts") as clear_mock,
+        patch("frontend.server.clear_known_entities") as clear_known_entities_mock,
+        patch("frontend.server.save_config") as save_config_mock,
+    ):
+        handler.do_POST()
+
+    clear_mock.assert_called_once()
+    clear_args = clear_mock.call_args.args
+    clear_kwargs = clear_mock.call_args.kwargs
+    assert clear_args
+    assert str(clear_args[0]).endswith("osint_data.db")
+    assert clear_kwargs == {"clear_cases": True}
+    clear_known_entities_mock.assert_called_once()
+    save_config_mock.assert_called_once()
+    kwargs = save_config_mock.call_args.kwargs
+    assert kwargs["custom_keyword_list"] == []
+    assert kwargs["clear_pdl_api_key"] is True
+    assert kwargs["clear_osint_industries_api_key"] is True
+    assert kwargs["clear_numverify_api_key"] is True
+    assert kwargs["clear_openai_api_key"] is True
+    assert kwargs["clear_apify_api_token"] is True
+
+    assert responses and responses[0] == 200
+    payload = json.loads(handler.wfile.getvalue().decode("utf-8"))
+    assert payload["status"] == "ok"
+    assert payload["cleared"] is True
+    assert payload["config_cleared"] is True
     assert payload["shutdown"] is False
 
 
@@ -1100,6 +1147,97 @@ def test_cases_api_create_list_delete(tmp_path):
         assert delete_codes and delete_codes[0] == 200
 
 
+def test_known_entities_archive_match_and_restore_case(tmp_path):
+    db_path = tmp_path / "osint_data.db"
+
+    with patch("frontend.server.DEFAULT_DB_PATH", db_path):
+        create_handler = PostExplorerHandler.__new__(PostExplorerHandler)
+        create_body = json.dumps(
+            {
+                "case_name": "POI Archive Alpha",
+                "status": "Open",
+                "threat_level": "Moderate Threat",
+                "known_location": "Boston",
+                "case_notes": {
+                    "known_profiles": [
+                        {"site": "Twitter/X / @archive_alpha", "url": "https://x.com/archive_alpha"},
+                    ],
+                    "akas": "@archive_alpha, alias one",
+                },
+            }
+        ).encode("utf-8")
+        create_handler.path = "/api/cases"
+        create_handler.headers = {"Content-Length": str(len(create_body))}
+        create_handler.rfile = BytesIO(create_body)
+        create_handler.wfile = BytesIO()
+        create_codes = []
+        create_handler.send_response = lambda code: create_codes.append(code)
+        create_handler.send_header = lambda *args, **kwargs: None
+        create_handler.end_headers = lambda *args, **kwargs: None
+        create_handler.do_POST()
+        assert create_codes and create_codes[0] == 201
+        created = json.loads(create_handler.wfile.getvalue().decode("utf-8"))
+        case_id = str(created["case_id"])
+
+        archive_handler = PostExplorerHandler.__new__(PostExplorerHandler)
+        archive_body = json.dumps({"case_id": case_id}).encode("utf-8")
+        archive_handler.path = "/api/known-entities/archive-case"
+        archive_handler.headers = {"Content-Length": str(len(archive_body))}
+        archive_handler.rfile = BytesIO(archive_body)
+        archive_handler.wfile = BytesIO()
+        archive_codes = []
+        archive_handler.send_response = lambda code: archive_codes.append(code)
+        archive_handler.send_header = lambda *args, **kwargs: None
+        archive_handler.end_headers = lambda *args, **kwargs: None
+        archive_handler.do_POST()
+        assert archive_codes and archive_codes[0] == 201
+        archived = json.loads(archive_handler.wfile.getvalue().decode("utf-8"))
+        archive_id = str(archived["archive_id"])
+        assert archive_id
+        assert int(archived["selector_count"]) >= 1
+
+        delete_handler = PostExplorerHandler.__new__(PostExplorerHandler)
+        delete_handler.path = f"/api/cases/{case_id}"
+        delete_handler.headers = {}
+        delete_handler.wfile = BytesIO()
+        delete_codes = []
+        delete_handler.send_response = lambda code: delete_codes.append(code)
+        delete_handler.send_header = lambda *args, **kwargs: None
+        delete_handler.end_headers = lambda *args, **kwargs: None
+        delete_handler.do_DELETE()
+        assert delete_codes and delete_codes[0] == 200
+
+        match_handler = PostExplorerHandler.__new__(PostExplorerHandler)
+        match_body = json.dumps({"selectors": [{"type": "username", "value": "archive_alpha"}]}).encode("utf-8")
+        match_handler.path = "/api/known-entities/match"
+        match_handler.headers = {"Content-Length": str(len(match_body))}
+        match_handler.rfile = BytesIO(match_body)
+        match_handler.wfile = BytesIO()
+        match_codes = []
+        match_handler.send_response = lambda code: match_codes.append(code)
+        match_handler.send_header = lambda *args, **kwargs: None
+        match_handler.end_headers = lambda *args, **kwargs: None
+        match_handler.do_POST()
+        assert match_codes and match_codes[0] == 200
+        matched = json.loads(match_handler.wfile.getvalue().decode("utf-8"))
+        assert matched["matches"]
+        assert matched["matches"][0]["archive_id"] == archive_id
+
+        restore_handler = PostExplorerHandler.__new__(PostExplorerHandler)
+        restore_body = json.dumps({"archive_id": archive_id}).encode("utf-8")
+        restore_handler.path = "/api/known-entities/restore"
+        restore_handler.headers = {"Content-Length": str(len(restore_body))}
+        restore_handler.rfile = BytesIO(restore_body)
+        restore_handler.wfile = BytesIO()
+        restore_codes = []
+        restore_handler.send_response = lambda code: restore_codes.append(code)
+        restore_handler.send_header = lambda *args, **kwargs: None
+        restore_handler.end_headers = lambda *args, **kwargs: None
+        restore_handler.do_POST()
+        assert restore_codes and restore_codes[0] == 201
+        restored = json.loads(restore_handler.wfile.getvalue().decode("utf-8"))
+        assert restored["case"]["case_name"] == "POI Archive Alpha"
+
 def test_cases_demo_endpoint_creates_case_and_posts(tmp_path):
     db_path = tmp_path / "osint_data.db"
 
@@ -1221,7 +1359,7 @@ def test_collect_start_endpoint_returns_job_id():
     handler.send_header = lambda *args, **kwargs: None
     handler.end_headers = lambda *args, **kwargs: None
 
-    with patch(
+    with patch("frontend.server.load_config", return_value={"apify_api_token": "test-token"}), patch(
         "frontend.server.start_collection_job",
         return_value={
             "job_id": "job123",
@@ -1243,6 +1381,34 @@ def test_collect_start_endpoint_returns_job_id():
     payload = json.loads(handler.wfile.getvalue().decode("utf-8"))
     assert payload["job_id"] == "job123"
     assert payload["status"] == "queued"
+
+
+def test_collect_start_requires_apify_token_for_apify_platforms():
+    handler = PostExplorerHandler.__new__(PostExplorerHandler)
+    body = json.dumps(
+        {
+            "targets": [{"platform": "twitter", "username": "aoc"}],
+            "start_date": "2026-01-08",
+            "end_date": "2026-02-15",
+        }
+    ).encode("utf-8")
+    handler.path = "/api/collect/start"
+    handler.headers = {"Content-Length": str(len(body))}
+    handler.rfile = BytesIO(body)
+    handler.wfile = BytesIO()
+
+    responses = []
+    handler.send_response = lambda code: responses.append(code)
+    handler.send_header = lambda *args, **kwargs: None
+    handler.end_headers = lambda *args, **kwargs: None
+
+    with patch("frontend.server.load_config", return_value={"apify_api_token": ""}):
+        handler.do_POST()
+
+    assert responses and responses[0] == 400
+    payload = json.loads(handler.wfile.getvalue().decode("utf-8"))
+    assert payload["error"]["code"] == "apify_token_required"
+    assert "twitter" in payload["error"]["platforms"]
 
 
 def test_collect_status_endpoint_returns_not_found():
@@ -1363,7 +1529,6 @@ def test_config_endpoint_get_returns_config():
         return_value={
             "pdl_api_key_configured": True,
             "osint_industries_api_key_configured": True,
-            "osint_industries_use_premium": True,
             "numverify_api_key_configured": True,
             "openai_api_key_configured": True,
             "secret_storage_mode": "encrypted_file",
@@ -1375,7 +1540,6 @@ def test_config_endpoint_get_returns_config():
     payload = json.loads(handler.wfile.getvalue().decode("utf-8"))
     assert payload["pdl_api_key_configured"] is True
     assert payload["osint_industries_api_key_configured"] is True
-    assert payload["osint_industries_use_premium"] is True
     assert payload["numverify_api_key_configured"] is True
     assert payload["openai_api_key_configured"] is True
     assert payload["secret_storage_mode"] == "encrypted_file"
@@ -1387,7 +1551,6 @@ def test_config_endpoint_post_saves_config():
         {
             "pdl_api_key": "pdl_live_key",
             "osint_industries_api_key": "oi_live_key",
-            "osint_industries_use_premium": True,
             "numverify_api_key": "numverify_live_key",
             "openai_api_key": "sk-test-live-key",
         }
@@ -1411,7 +1574,6 @@ def test_config_endpoint_post_saves_config():
             return_value={
                 "pdl_api_key_configured": True,
                 "osint_industries_api_key_configured": True,
-                "osint_industries_use_premium": True,
                 "numverify_api_key_configured": True,
                 "openai_api_key_configured": True,
                 "secret_storage_mode": "encrypted_file",
@@ -1425,7 +1587,6 @@ def test_config_endpoint_post_saves_config():
     payload = json.loads(handler.wfile.getvalue().decode("utf-8"))
     assert payload["pdl_api_key_configured"] is True
     assert payload["osint_industries_api_key_configured"] is True
-    assert payload["osint_industries_use_premium"] is True
     assert payload["numverify_api_key_configured"] is True
     assert payload["openai_api_key_configured"] is True
 

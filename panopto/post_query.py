@@ -385,7 +385,9 @@ def query_posts(
         if not _matches_tags(post, include_tags=include_tags, exclude_tags=exclude_tags):
             continue
         post_dt = _parse_timestamp(post.get("timestamp", ""))
+        # Keep undated rows visible; dropping them hides valid Apify items that omit timestamps.
         if (start_dt or end_dt) and post_dt is None:
+            posts.append(post)
             continue
         if start_dt and post_dt and post_dt < start_dt:
             continue

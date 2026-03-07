@@ -68,3 +68,43 @@ def test_collect_for_targets_marks_source_unavailable_as_failure(monkeypatch, tm
     ]
     assert payload["errors"]
     assert payload["errors"][0]["code"] == "source_unavailable"
+
+
+def test_collect_for_targets_emits_progress_snapshot_as_targets_finish(monkeypatch, tmp_path: Path):
+    def _collect_ok(**_kwargs):
+        return [
+            {
+                "post_id": "tw-1",
+                "platform": "Twitter",
+                "username": "aoc",
+                "content": "x post",
+                "timestamp": "2026-02-18T00:00:00+00:00",
+                "post_type": "post",
+                "metadata": {},
+            }
+        ]
+
+    monkeypatch.setattr(collection_service, "collect_twitter_posts", _collect_ok)
+    monkeypatch.setattr(collection_service, "save_posts", lambda posts, **_kwargs: len(posts))
+    monkeypatch.setattr(
+        collection_service,
+        "query_posts",
+        lambda **_kwargs: {"count": 1, "posts": [{"post_id": "tw-1", "platform": "Twitter"}]},
+    )
+
+    snapshots = []
+    payload = collection_service.collect_for_targets(
+        targets=[{"platform": "twitter", "username": "aoc"}],
+        start_date="2026-02-01",
+        end_date="2026-02-18",
+        db_path=tmp_path / "osint_data.db",
+        fail_on_total_failure=False,
+        on_progress=lambda snap: snapshots.append(snap),
+    )
+
+    assert payload["collected"] == 1
+    assert payload["inserted"] == 1
+    assert snapshots
+    assert snapshots[-1]["collected"] == 1
+    assert snapshots[-1]["count"] == 1
+    assert snapshots[-1]["per_target"][0]["status"] == "ok"
