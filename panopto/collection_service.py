@@ -6,7 +6,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from pathlib import Path
 import re
-from typing import Any
+from typing import Any, Callable
 from urllib.parse import unquote
 
 from panopto.collectors.bluesky import collect_bluesky_posts, normalize_bluesky_username
@@ -130,6 +130,7 @@ def collect_for_targets(
     db_path: Path,
     case_id: str | None = None,
     fail_on_total_failure: bool = True,
+    on_progress: Callable[[dict[str, Any]], None] | None = None,
 ) -> dict[str, Any]:
     if not targets:
         raise InvalidRequestError("at least one target is required")
@@ -232,8 +233,40 @@ def collect_for_targets(
         return target, posts
 
     posts: list[dict[str, Any]] = []
+    inserted_total = 0
     per_target: list[dict[str, Any]] = []
     failures: list[dict[str, Any]] = []
+
+    def _emit_progress_snapshot() -> None:
+        if on_progress is None:
+            return
+        payload = query_posts(
+            query="",
+            sort_order="newest",
+            db_path=db_path,
+            case_id=case_id or "",
+            start_date=start_date,
+            end_date=end_date,
+            include_tags={target["platform"] for target in targets},
+        )
+        snapshot = {
+            "collected": len(posts),
+            "inserted": inserted_total,
+            "count": payload["count"],
+            "posts": payload["posts"],
+            "targets": targets,
+            "per_target": list(per_target),
+            "errors": list(failures),
+            "start_date": start_date,
+            "end_date": end_date,
+            "case_id": case_id or "",
+        }
+        try:
+            on_progress(snapshot)
+        except Exception:
+            # Progress updates must not interrupt collection execution.
+            return
+
     with ThreadPoolExecutor(max_workers=min(4, len(targets))) as executor:
         futures = {executor.submit(_collect_target, target): target for target in targets}
         for future in as_completed(futures):
@@ -241,6 +274,11 @@ def collect_for_targets(
             try:
                 target, collected_posts = future.result()
                 posts.extend(collected_posts)
+                if collected_posts:
+                    if case_id:
+                        inserted_total += save_posts(collected_posts, db_path=str(db_path), case_id=case_id)
+                    else:
+                        inserted_total += save_posts(collected_posts, db_path=str(db_path))
                 per_target.append(
                     {
                         "platform": target["platform"],
@@ -317,6 +355,8 @@ def collect_for_targets(
                         "message": str(exc),
                     }
                 )
+            finally:
+                _emit_progress_snapshot()
 
     if not posts and failures and fail_on_total_failure:
         first = failures[0]
@@ -325,11 +365,7 @@ def collect_for_targets(
         raise InvalidRequestError(f"collection failed: {first['message']}")
 
     # LLM threat assessment is intentionally manual to prevent uncontrolled API spend.
-    enriched_posts = posts
-    if case_id:
-        inserted = save_posts(enriched_posts, db_path=str(db_path), case_id=case_id)
-    else:
-        inserted = save_posts(enriched_posts, db_path=str(db_path))
+    inserted = inserted_total
     payload = query_posts(
         query="",
         sort_order="newest",

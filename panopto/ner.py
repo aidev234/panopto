@@ -7,6 +7,11 @@ from typing import Any
 
 _LOCATION_GAZETTEER: dict[str, tuple[str, float, float]] = {
     "new york": ("New York", 40.7128, -74.0060),
+    "united states of america": ("United States", 39.8283, -98.5795),
+    "united states": ("United States", 39.8283, -98.5795),
+    "usa": ("United States", 39.8283, -98.5795),
+    "u.s.": ("United States", 39.8283, -98.5795),
+    "canada": ("Canada", 56.1304, -106.3468),
     "washington dc": ("Washington DC", 38.9072, -77.0369),
     "washington, dc": ("Washington DC", 38.9072, -77.0369),
     "washington d.c.": ("Washington DC", 38.9072, -77.0369),

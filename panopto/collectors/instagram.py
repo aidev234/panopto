@@ -1,32 +1,24 @@
-"""Instagram collection helpers for local OSINT workflows via byviewer.com."""
+"""Instagram collection via Apify actor."""
 
 from __future__ import annotations
 
-import re
-import time
 from datetime import datetime, timedelta, timezone
+import os
+import re
 from typing import Any, Iterable
-from urllib.parse import quote, urljoin
+from urllib.parse import quote
 
-import requests
-from bs4 import BeautifulSoup
-
-from panopto.errors import SourceAccessBlockedError, UsernameNotFoundError
-
-DEFAULT_HEADERS = {
-    "User-Agent": (
-        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
-        "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
-    )
-}
-
-BLOCK_PAGE_MARKERS = (
-    "just a moment",
-    "verify you are human",
-    "attention required",
-    "cloudflare",
-    "captcha",
+from panopto.collectors.apify import (
+    ApifyActorInputError,
+    ApifyConfigurationError,
+    ApifyRequestError,
+    run_actor_sync_get_items,
 )
+from panopto.errors import SourceUnavailableError
+
+DEFAULT_APIFY_INSTAGRAM_ACTOR_ID = "apify/instagram-scraper"
+APIFY_INSTAGRAM_ACTOR_ENV = "PANOPTO_APIFY_INSTAGRAM_ACTOR_ID"
+APIFY_INSTAGRAM_RESULTS_LIMIT_MAX = 100
 
 
 def normalize_instagram_username(raw: Any) -> str:
@@ -57,29 +49,29 @@ def _parse_collection_window(collection_window: str) -> timedelta:
     )
 
 
-def _parse_datetime(raw_value: str | None, *, now_utc: datetime) -> datetime | None:
-    if not raw_value:
+def _get_actor_id() -> str:
+    return str(os.environ.get(APIFY_INSTAGRAM_ACTOR_ENV) or DEFAULT_APIFY_INSTAGRAM_ACTOR_ID).strip()
+
+
+def _parse_datetime(raw_value: Any) -> datetime | None:
+    if raw_value is None:
         return None
+
+    if isinstance(raw_value, (int, float)):
+        stamp = float(raw_value)
+        if stamp > 10_000_000_000:
+            stamp /= 1000.0
+        try:
+            return datetime.fromtimestamp(stamp, tz=timezone.utc)
+        except (OverflowError, OSError, ValueError):
+            return None
+
     text = str(raw_value).strip()
     if not text:
         return None
-    relative = re.match(
-        r"^(\d+)\s*(s|sec|secs|second|seconds|m|min|mins|minute|minutes|h|hr|hrs|hour|hours|d|day|days|w|week|weeks)\s*ago?$",
-        text.lower(),
-    )
-    if relative:
-        amount = int(relative.group(1))
-        unit = relative.group(2)
-        if unit.startswith(("s", "sec")):
-            return now_utc - timedelta(seconds=amount)
-        if unit.startswith(("m", "min")):
-            return now_utc - timedelta(minutes=amount)
-        if unit.startswith(("h", "hr")):
-            return now_utc - timedelta(hours=amount)
-        if unit.startswith("d"):
-            return now_utc - timedelta(days=amount)
-        if unit.startswith("w"):
-            return now_utc - timedelta(weeks=amount)
+
+    if text.isdigit():
+        return _parse_datetime(int(text))
 
     for fmt in (
         "%Y-%m-%d %H:%M:%S",
@@ -103,492 +95,296 @@ def _parse_datetime(raw_value: str | None, *, now_utc: datetime) -> datetime | N
     return parsed.astimezone(timezone.utc)
 
 
-def _page_indicates_missing_user(html: str) -> bool:
-    lowered = html.lower()
-    signals = [
-        "user not found",
-        "profile not found",
-        "this account doesn't exist",
-        "this account does not exist",
-        "no user found",
-        "not available",
-    ]
-    return any(signal in lowered for signal in signals)
+def _safe_int(raw: Any) -> int | None:
+    if raw is None:
+        return None
+    if isinstance(raw, bool):
+        return int(raw)
+    if isinstance(raw, int):
+        return raw
+    if isinstance(raw, float):
+        return int(raw)
+    text = str(raw).strip()
+    if not text:
+        return None
+    compact = re.match(r"^([\d.]+)\s*([kKmM])$", text)
+    if compact:
+        value = float(compact.group(1))
+        suffix = compact.group(2).lower()
+        return int(value * (1_000 if suffix == "k" else 1_000_000))
+    digits = re.sub(r"\D", "", text)
+    return int(digits) if digits else None
 
 
-def _extract_posts_from_html(username: str, html: str, *, now_utc: datetime) -> list[dict[str, Any]]:
-    soup = BeautifulSoup(html, "html.parser")
-    posts: list[dict[str, Any]] = []
-    candidates = soup.select("article, .post, .item, .card, [data-post-id], [data-shortcode]")
-    if not candidates:
-        candidates = [
-            link.parent
-            for link in soup.select("a[href*='instagram.com/p/'], a[href*='instagram.com/reel/'], a[href^='/p/'], a[href^='/reel/']")
-            if link.parent
-        ]
-
-    for item in candidates:
-        post_link = item.select_one("a[href*='instagram.com/p/'], a[href*='instagram.com/reel/'], a[href^='/p/'], a[href^='/reel/']")
-        href = str(post_link.get("href") or "").strip() if post_link else ""
-        if href and href.startswith("/"):
-            href = urljoin("https://www.instagram.com", href)
-        if href and "instagram.com/" not in href.lower():
-            href = ""
-
-        shortcode = item.get("data-shortcode") or ""
-        if not shortcode and href:
-            match = re.search(r"/(?:p|reel)/([^/?#]+)/?", href)
-            if match:
-                shortcode = match.group(1).strip()
-
-        text_node = item.select_one(".caption, .desc, .content, p")
-        content = text_node.get_text(" ", strip=True) if text_node else ""
-        if not content:
-            content = item.get_text(" ", strip=True)
-        content = re.sub(r"\s+", " ", content).strip()
-
-        time_node = item.select_one("time") or item.find(attrs={"datetime": True}) or item.select_one(".time, .date")
-        raw_time = None
-        if time_node:
-            raw_time = time_node.get("datetime") or time_node.get("data-time") or time_node.get_text(strip=True)
-        timestamp = _parse_datetime(raw_time, now_utc=now_utc)
-
-        image_candidates: list[str] = []
-        video_candidates: list[str] = []
-        thumbnail = ""
-        for img in item.select("img"):
-            src = str(img.get("src") or img.get("data-src") or "").strip()
-            if src.startswith("//"):
-                src = f"https:{src}"
-            if src.lower().startswith(("http://", "https://")):
-                image_candidates.append(src)
-                if not thumbnail:
-                    thumbnail = src
-        for video in item.select("video"):
-            src = str(video.get("src") or "").strip()
-            if src.lower().startswith(("http://", "https://")):
-                video_candidates.append(src)
-            poster = str(video.get("poster") or "").strip()
-            if poster.lower().startswith(("http://", "https://")) and not thumbnail:
-                thumbnail = poster
-        media: list[dict[str, str]] = []
-        if video_candidates:
-            first_video = video_candidates[0]
-            entry: dict[str, str] = {"type": "video", "url": first_video}
-            if thumbnail:
-                entry["thumbnail_url"] = thumbnail
-            media.append(entry)
-        for image_url in image_candidates:
-            media.append({"type": "image", "url": image_url})
-
-        if not shortcode and not href and not content:
-            continue
-        posts.append(
-            {
-                "post_id": shortcode or None,
-                "platform": "Instagram",
-                "username": username,
-                "content": content or "(no text content)",
-                "timestamp": timestamp.isoformat() if timestamp else None,
-                "likes": None,
-                "retweets": None,
-                "replies": None,
-                "source_url": href or (f"https://www.instagram.com/{username}/" if username else None),
-                "post_type": "post",
-                "referenced_username": None,
-                "metadata": {
-                    "media": media,
-                    "image_urls": image_candidates,
-                    "video_url": video_candidates[0] if video_candidates else "",
-                    "thumbnail_url": thumbnail,
-                    "raw_timestamp": raw_time,
-                },
-            }
-        )
-    if posts:
-        return posts
-
-    # Fallback for script-heavy pages where post links are embedded in JSON blobs.
-    normalized_html = html.replace("\\/", "/").replace("\\u002F", "/")
-    link_pattern = re.compile(
-        r"(https?://(?:www\.)?instagram\.com/(?:p|reel)/[A-Za-z0-9_-]+/?|/(?:p|reel)/[A-Za-z0-9_-]+/?)"
-    )
-    for match in link_pattern.findall(normalized_html):
-        href = str(match).strip()
-        source_url = href if href.startswith("http") else urljoin("https://www.instagram.com", href)
-        shortcode_match = re.search(r"/(?:p|reel)/([A-Za-z0-9_-]+)/?", source_url)
-        shortcode = shortcode_match.group(1) if shortcode_match else None
-        posts.append(
-            {
-                "post_id": shortcode,
-                "platform": "Instagram",
-                "username": username,
-                "content": "(no text content)",
-                "timestamp": None,
-                "likes": None,
-                "retweets": None,
-                "replies": None,
-                "source_url": source_url,
-                "post_type": "post",
-                "referenced_username": None,
-                "metadata": {
-                    "media": [],
-                    "image_urls": [],
-                    "video_url": "",
-                    "thumbnail_url": "",
-                    "raw_timestamp": None,
-                    "fallback_source": "regex_link",
-                },
-            }
-        )
-    if posts:
-        return posts
-
-    # Final fallback for payloads that only expose shortcodes without direct links.
-    shortcode_pattern = re.compile(r'"shortcode"\s*:\s*"([A-Za-z0-9_-]+)"')
-    for shortcode in shortcode_pattern.findall(normalized_html):
-        posts.append(
-            {
-                "post_id": shortcode,
-                "platform": "Instagram",
-                "username": username,
-                "content": "(no text content)",
-                "timestamp": None,
-                "likes": None,
-                "retweets": None,
-                "replies": None,
-                "source_url": f"https://www.instagram.com/p/{shortcode}/",
-                "post_type": "post",
-                "referenced_username": None,
-                "metadata": {
-                    "media": [],
-                    "image_urls": [],
-                    "video_url": "",
-                    "thumbnail_url": "",
-                    "raw_timestamp": None,
-                    "fallback_source": "shortcode_payload",
-                },
-            }
-        )
-    return posts
-
-
-def _iter_pages(
-    session: requests.Session,
-    username: str,
-    max_pages: int,
-    request_delay_seconds: float,
-    timeout: int,
-) -> Iterable[str]:
-    safe_username = quote(username, safe="")
-    for page in range(1, max_pages + 1):
-        url_variants = [
-            f"https://www.byviewer.com/detail/?username={safe_username}",
-            f"https://www.byviewer.com/detail?username={safe_username}",
-        ]
-        if page > 1:
-            url_variants = [f"{url}&page={page}" for url in url_variants]
-        page_html = ""
-        for url in url_variants:
-            try:
-                response = session.get(url, timeout=timeout)
-            except requests.RequestException:
-                continue
-            if response.status_code == 404:
-                continue
-            if response.status_code >= 400:
-                continue
-            html = response.text.strip()
-            if html:
-                page_html = html
-                break
-        if not page_html:
-            break
-        yield page_html
-        if request_delay_seconds > 0 and page < max_pages:
-            time.sleep(request_delay_seconds)
-
-
-def _looks_like_block_page(html: str) -> bool:
-    lower = str(html or "").lower()
-    return any(marker in lower for marker in BLOCK_PAGE_MARKERS)
-
-
-def _extract_profile_image_from_html(html: str) -> str:
-    soup = BeautifulSoup(str(html or ""), "html.parser")
-    selectors = [
-        "meta[property='og:image']",
-        "meta[name='twitter:image']",
-        "img[src*='profile']",
-        "img[data-src*='profile']",
-        "img[src*='avatar']",
-        "img[data-src*='avatar']",
-    ]
-    fallback: list[str] = []
-    for selector in selectors:
-        for node in soup.select(selector):
-            raw = node.get("content") or node.get("src") or node.get("data-src")
-            value = str(raw or "").strip()
-            if not value:
-                continue
-            if value.startswith("//"):
-                value = f"https:{value}"
-            if value.startswith("/"):
-                value = urljoin("https://www.instagram.com", value)
-            if not re.match(r"^https?://", value, flags=re.IGNORECASE):
-                continue
-            lowered = value.lower()
-            if "profile" in lowered or "avatar" in lowered:
-                return value
-            fallback.append(value)
-    return fallback[0] if fallback else ""
-
-
-def _attach_profile_image(rows: list[dict[str, Any]], profile_image_url: str) -> None:
-    if not profile_image_url:
-        return
-    for row in rows:
-        metadata = row.get("metadata")
-        if not isinstance(metadata, dict):
-            metadata = {}
-            row["metadata"] = metadata
-        if not str(metadata.get("profile_image_url") or "").strip():
-            metadata["profile_image_url"] = profile_image_url
-
-
-def _dismiss_browser_overlays(page: Any) -> None:
-    try:
-        page.evaluate(
-            """
-            () => {
-              const closeTokens = [
-                'close', 'dismiss', 'cancel', 'not now', 'not now.', 'later', 'skip',
-                'accept', 'allow', 'agree', 'ok', 'x', 'log in', 'login'
-              ];
-              const nodes = Array.from(
-                document.querySelectorAll(
-                  "button, [role='button'], a[role='button'], .close, .modal-close, [aria-label]"
-                )
-              );
-              for (const node of nodes) {
-                const text = ((node.textContent || '') + ' ' + (node.getAttribute('aria-label') || '')).toLowerCase();
-                const cls = String(node.className || '').toLowerCase();
-                if (!text.trim() && !cls.trim()) continue;
-                if (closeTokens.some((token) => text.includes(token) || cls.includes(token))) {
-                  node.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
-                }
-              }
-
-              // Remove simple full-screen overlays that block scroll/click.
-              const blockers = Array.from(document.querySelectorAll("div, section, aside"));
-              for (const el of blockers) {
-                const style = window.getComputedStyle(el);
-                if (style.position === 'fixed' && (style.zIndex || '0') !== 'auto') {
-                  const z = Number(style.zIndex || 0);
-                  const rect = el.getBoundingClientRect();
-                  if (z >= 100 && rect.width >= window.innerWidth * 0.9 && rect.height >= window.innerHeight * 0.4) {
-                    el.style.display = 'none';
-                  }
-                }
-              }
-              if (document.body) document.body.style.overflow = 'auto';
-              if (document.documentElement) document.documentElement.style.overflow = 'auto';
-            }
-            """
-        )
-    except Exception:
-        pass
-    try:
-        page.keyboard.press("Escape")
-    except Exception:
-        pass
-
-
-def _safe_page_content(page: Any, *, attempts: int = 3, wait_ms: int = 250) -> str:
-    for _ in range(max(1, attempts)):
-        try:
-            return str(page.content() or "")
-        except Exception:
-            try:
-                page.wait_for_timeout(wait_ms)
-            except Exception:
-                pass
+def _first_non_empty(mapping: dict[str, Any], *keys: str) -> str:
+    for key in keys:
+        value = str(mapping.get(key) or "").strip()
+        if value:
+            return value
     return ""
 
 
-def _safe_scroll_height(page: Any, *, attempts: int = 2, wait_ms: int = 200) -> int:
-    for _ in range(max(1, attempts)):
-        try:
-            return int(page.evaluate("() => document.body ? document.body.scrollHeight : 0"))
-        except Exception:
-            try:
-                page.wait_for_timeout(wait_ms)
-            except Exception:
-                pass
-    return 0
+def _first_http_url(mapping: dict[str, Any], *keys: str) -> str:
+    for key in keys:
+        value = str(mapping.get(key) or "").strip()
+        if value.lower().startswith(("http://", "https://")):
+            return value
+    return ""
 
 
-def _safe_scroll_to_bottom(page: Any, *, attempts: int = 2, wait_ms: int = 200) -> None:
-    for _ in range(max(1, attempts)):
-        try:
-            page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+def _extract_text_field(raw: Any) -> str:
+    if isinstance(raw, str):
+        return raw.strip()
+    if isinstance(raw, dict):
+        for key in ("text", "caption", "value"):
+            value = str(raw.get(key) or "").strip()
+            if value:
+                return value
+    if isinstance(raw, list):
+        parts = [_extract_text_field(item) for item in raw]
+        joined = "\n".join(part for part in parts if part)
+        return joined.strip()
+    return str(raw or "").strip()
+
+
+def _iter_post_records(dataset_items: list[dict[str, Any]]) -> Iterable[dict[str, Any]]:
+    for item in dataset_items:
+        if not isinstance(item, dict):
+            continue
+        if isinstance(item.get("latestPosts"), list):
+            owner = item if isinstance(item, dict) else {}
+            for post in item.get("latestPosts") or []:
+                if isinstance(post, dict):
+                    merged = dict(post)
+                    merged.setdefault("ownerUsername", _first_non_empty(owner, "username", "userName", "ownerUsername"))
+                    yield merged
+            continue
+        if isinstance(item.get("posts"), list):
+            for post in item.get("posts") or []:
+                if isinstance(post, dict):
+                    yield post
+            continue
+        for list_key in ("items", "results", "datasetItems", "data"):
+            nested = item.get(list_key)
+            if not isinstance(nested, list):
+                continue
+            for post in nested:
+                if isinstance(post, dict):
+                    yield post
+            break
+        else:
+            yield item
+
+
+def _extract_actor_error_message(dataset_items: list[dict[str, Any]]) -> str:
+    for item in dataset_items:
+        if not isinstance(item, dict):
+            continue
+        error = str(item.get("error") or "").strip()
+        description = str(item.get("errorDescription") or item.get("message") or "").strip()
+        if error and description:
+            return f"{error}: {description}"
+        if error:
+            return error
+        if description:
+            return description
+        if item.get("noResults") is True:
+            return "apify actor returned no results"
+    return ""
+
+
+def _looks_like_post_record(record: dict[str, Any]) -> bool:
+    if not isinstance(record, dict):
+        return False
+
+    if _first_non_empty(record, "shortCode", "shortcode", "code"):
+        return True
+
+    url = _first_http_url(record, "url", "postUrl", "link", "permalink")
+    if re.search(r"/(?:p|reel)/[A-Za-z0-9_-]+/?", url):
+        return True
+
+    if _extract_text_field(record.get("caption")):
+        return True
+
+    if (
+        record.get("timestamp")
+        or record.get("takenAtTimestamp")
+        or record.get("taken_at_timestamp")
+        or record.get("createdAt")
+        or record.get("created_time")
+        or record.get("time")
+    ):
+        return True
+
+    if _first_http_url(record, "displayUrl", "imageUrl", "thumbnailSrc", "thumbnail_url", "videoUrl", "video_url"):
+        return True
+
+    if isinstance(record.get("images"), list) and len(record.get("images") or []) > 0:
+        return True
+    if isinstance(record.get("childPosts"), list) and len(record.get("childPosts") or []) > 0:
+        return True
+
+    return False
+
+
+def _extract_shortcode(record: dict[str, Any]) -> str:
+    direct = _first_non_empty(record, "shortCode", "shortcode", "code")
+    if direct and re.match(r"^[A-Za-z0-9_-]{5,}$", direct):
+        return direct
+    url = _first_non_empty(record, "url", "postUrl", "link")
+    match = re.search(r"/(?:p|reel)/([A-Za-z0-9_-]+)/?", url)
+    return match.group(1) if match else ""
+
+
+def _extract_source_url(record: dict[str, Any], username: str, shortcode: str) -> str:
+    direct = _first_http_url(record, "url", "postUrl", "link", "permalink")
+    if direct:
+        return direct
+    if shortcode:
+        return f"https://www.instagram.com/p/{shortcode}/"
+    return f"https://www.instagram.com/{quote(username, safe='')}/"
+
+
+def _extract_media(record: dict[str, Any]) -> tuple[list[dict[str, str]], list[str], str, str]:
+    image_urls: list[str] = []
+    video_url = ""
+    thumbnail_url = ""
+    seen_images: set[str] = set()
+
+    def _add_image(url: str) -> None:
+        clean = str(url or "").strip()
+        if not clean.lower().startswith(("http://", "https://")):
             return
-        except Exception:
-            try:
-                page.wait_for_timeout(wait_ms)
-            except Exception:
-                pass
+        if clean in seen_images:
+            return
+        seen_images.add(clean)
+        image_urls.append(clean)
+
+    for key in ("displayUrl", "imageUrl", "thumbnailSrc", "thumbnail_url"):
+        value = str(record.get(key) or "").strip()
+        if value and value.lower().startswith(("http://", "https://")):
+            _add_image(value)
+            if not thumbnail_url:
+                thumbnail_url = value
+    if isinstance(record.get("images"), list):
+        for image in record.get("images") or []:
+            if isinstance(image, str):
+                _add_image(image)
+            elif isinstance(image, dict):
+                _add_image(_first_http_url(image, "url", "displayUrl", "imageUrl"))
+
+    if isinstance(record.get("childPosts"), list):
+        for child in record.get("childPosts") or []:
+            if not isinstance(child, dict):
+                continue
+            _add_image(_first_http_url(child, "displayUrl", "imageUrl", "thumbnailSrc"))
+            if not video_url:
+                child_video = _first_http_url(child, "videoUrl", "video_url")
+                if child_video:
+                    video_url = child_video
+
+    candidate_video = _first_http_url(record, "videoUrl", "video_url")
+    if candidate_video:
+        video_url = candidate_video
+
+    # Keep only the primary image to avoid noisy carousel expansion in post cards.
+    if len(image_urls) > 1:
+        image_urls = image_urls[:1]
+
+    media: list[dict[str, str]] = []
+    if video_url:
+        entry: dict[str, str] = {"type": "video", "url": video_url}
+        if thumbnail_url:
+            entry["thumbnail_url"] = thumbnail_url
+        media.append(entry)
+    for image_url in image_urls:
+        media.append({"type": "image", "url": image_url})
+
+    return media, image_urls, video_url, thumbnail_url
 
 
-def _iter_rendered_pages(
-    username: str,
-    max_pages: int,
-    timeout: int,
-) -> Iterable[str]:
-    try:
-        from playwright.sync_api import sync_playwright  # type: ignore
-    except ImportError:
-        return []
-
-    url = f"https://www.byviewer.com/detail?username={quote(username, safe='')}"
-    with sync_playwright() as playwright:
-        browser = playwright.chromium.launch(headless=True)
-        context = browser.new_context(
-            user_agent=DEFAULT_HEADERS["User-Agent"],
-            locale="en-US",
-            timezone_id="UTC",
-            viewport={"width": 1360, "height": 900},
-            extra_http_headers={"Accept-Language": "en-US,en;q=0.9"},
+def _extract_profile_image_url(record: dict[str, Any], normalized_username: str) -> str:
+    direct = _first_http_url(
+        record,
+        "ownerProfilePicUrl",
+        "ownerProfilePicURL",
+        "owner_profile_pic_url",
+        "profilePicUrl",
+        "profile_pic_url",
+    )
+    if direct:
+        return direct
+    owner = record.get("owner")
+    if isinstance(owner, dict):
+        owner_direct = _first_http_url(
+            owner,
+            "profile_pic_url",
+            "profilePicUrl",
+            "profile_pic_url_hd",
+            "avatar_url",
+            "avatar",
+            "image_url",
         )
-        context.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined});")
-        page = context.new_page()
-        try:
-            page.goto(url, wait_until="domcontentloaded", timeout=timeout * 1000)
-            page.wait_for_timeout(1500)
-            html_snapshots: list[str] = []
-            previous_height = 0
-            stagnant_rounds = 0
-            for _ in range(max(4, max_pages * 4)):
-                _dismiss_browser_overlays(page)
-
-                html = _safe_page_content(page)
-                if html:
-                    html_snapshots.append(html)
-                current_height = _safe_scroll_height(page)
-                if current_height <= previous_height:
-                    stagnant_rounds += 1
-                else:
-                    stagnant_rounds = 0
-                previous_height = current_height
-                if stagnant_rounds >= 2:
-                    try:
-                        clicked = bool(
-                            page.evaluate(
-                                """
-                                () => {
-                                  const labels = ['load more', 'show more', 'more'];
-                                  const nodes = Array.from(document.querySelectorAll('button, a, [role="button"]'));
-                                  for (const node of nodes) {
-                                    const text = (node.textContent || '').toLowerCase().trim();
-                                    if (!text) continue;
-                                    if (labels.some((label) => text.includes(label))) {
-                                      node.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
-                                      return true;
-                                    }
-                                  }
-                                  return false;
-                                }
-                                """
-                            )
-                        )
-                    except Exception:
-                        clicked = False
-                    if not clicked:
-                        break
-                    stagnant_rounds = 0
-                    page.wait_for_timeout(1300)
-                    continue
-                _safe_scroll_to_bottom(page)
-                page.wait_for_timeout(1300)
-            return html_snapshots
-        finally:
-            context.close()
-            browser.close()
-
-
-def _iter_official_rendered_pages(
-    username: str,
-    max_pages: int,
-    timeout: int,
-) -> Iterable[str]:
-    try:
-        from playwright.sync_api import sync_playwright  # type: ignore
-    except ImportError:
-        return []
-
-    url = f"https://www.instagram.com/{quote(username, safe='')}/"
-    with sync_playwright() as playwright:
-        browser = playwright.chromium.launch(headless=True)
-        context = browser.new_context(
-            user_agent=DEFAULT_HEADERS["User-Agent"],
-            locale="en-US",
-            timezone_id="UTC",
-            viewport={"width": 1360, "height": 900},
-            extra_http_headers={"Accept-Language": "en-US,en;q=0.9"},
+        if owner_direct:
+            return owner_direct
+    user = record.get("user")
+    if isinstance(user, dict):
+        user_direct = _first_http_url(
+            user,
+            "profile_pic_url",
+            "profilePicUrl",
+            "profile_pic_url_hd",
+            "avatar_url",
+            "avatar",
+            "image_url",
         )
-        context.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined});")
-        page = context.new_page()
-        try:
-            page.goto(url, wait_until="domcontentloaded", timeout=timeout * 1000)
-            page.wait_for_timeout(1800)
-            snapshots: list[str] = []
-            previous_height = 0
-            stagnant_rounds = 0
-            for _ in range(max(3, max_pages * 3)):
-                _dismiss_browser_overlays(page)
-                html = _safe_page_content(page)
-                if html:
-                    snapshots.append(html)
-                current_height = _safe_scroll_height(page)
-                if current_height <= previous_height:
-                    stagnant_rounds += 1
-                else:
-                    stagnant_rounds = 0
-                previous_height = current_height
-                if stagnant_rounds >= 2:
-                    try:
-                        clicked = bool(
-                            page.evaluate(
-                                """
-                                () => {
-                                  const labels = ['more posts', 'load more', 'show more', 'more'];
-                                  const nodes = Array.from(document.querySelectorAll('button, a, [role="button"]'));
-                                  for (const node of nodes) {
-                                    const text = (node.textContent || '').toLowerCase().trim();
-                                    if (!text) continue;
-                                    if (labels.some((label) => text.includes(label))) {
-                                      node.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
-                                      return true;
-                                    }
-                                  }
-                                  return false;
-                                }
-                                """
-                            )
-                        )
-                    except Exception:
-                        clicked = False
-                    if not clicked:
-                        break
-                    stagnant_rounds = 0
-                    page.wait_for_timeout(1200)
-                    continue
-                _safe_scroll_to_bottom(page)
-                page.wait_for_timeout(1300)
-            return snapshots
-        finally:
-            context.close()
-            browser.close()
+        if user_direct:
+            return user_direct
+    return ""
+
+
+def _extract_owner_username(record: dict[str, Any]) -> str:
+    owner = record.get("owner")
+    if isinstance(owner, dict):
+        nested = _first_non_empty(owner, "username", "userName", "ownerUsername")
+        if nested:
+            return nested.strip().lstrip("@").lower()
+    user = record.get("user")
+    if isinstance(user, dict):
+        nested = _first_non_empty(user, "username", "userName", "ownerUsername")
+        if nested:
+            return nested.strip().lstrip("@").lower()
+    direct = _first_non_empty(record, "ownerUsername", "username", "userName")
+    return direct.strip().lstrip("@").lower() if direct else ""
+
+
+def _belongs_to_target_owner(record: dict[str, Any], normalized_username: str) -> bool:
+    target = normalized_username.strip().lstrip("@").lower()
+    if not target:
+        return False
+    owner_username = _extract_owner_username(record)
+    if owner_username:
+        return owner_username == target
+    return True
+
+
+def _build_actor_input_candidates(username: str, max_items: int) -> list[dict[str, Any]]:
+    profile_url = f"https://www.instagram.com/{quote(username, safe='')}/"
+    return [
+        {
+            "username": [username],
+            "resultsLimit": max_items,
+        },
+        {
+            "directUrls": [profile_url],
+            "resultsType": "posts",
+            "resultsLimit": max_items,
+            "searchType": "user",
+            "searchLimit": 1,
+            "addParentData": False,
+        },
+    ]
 
 
 def collect_instagram_posts(
@@ -601,91 +397,127 @@ def collect_instagram_posts(
     proxies: dict[str, str] | None = None,
     browser_fallback: bool = True,
 ) -> list[dict[str, Any]]:
-    """Collect Instagram posts for a user via byviewer detail page."""
+    """Collect Instagram posts for a user via Apify actor output."""
+    _ = request_delay_seconds
+    _ = proxies
+    _ = browser_fallback
+
     normalized_username = normalize_instagram_username(username)
     if not normalized_username:
         raise ValueError("username must be a non-empty string")
 
     cutoff = datetime.now(timezone.utc) - _parse_collection_window(collection_window)
-    now_utc = datetime.now(timezone.utc)
-    rows: list[dict[str, Any]] = []
-    browser_rows: list[dict[str, Any]] = []
-    blocked_detected = False
-    profile_image_url = ""
+    actor_id = _get_actor_id()
+    max_items = min(APIFY_INSTAGRAM_RESULTS_LIMIT_MAX, max(10, max_pages * 35))
 
-    with requests.Session() as session:
-        session.headers.update(DEFAULT_HEADERS)
-        if proxies:
-            session.proxies.update(proxies)
-        probe_url = f"https://www.byviewer.com/detail?username={quote(normalized_username, safe='')}"
+    last_input_error: str = ""
+    last_actor_error: str = ""
+    dataset_items: list[dict[str, Any]] = []
+    for actor_input in _build_actor_input_candidates(normalized_username, max_items):
         try:
-            probe_response = session.get(probe_url, timeout=timeout)
-            if probe_response.status_code in {403, 429}:
-                blocked_detected = True
-            if _looks_like_block_page(probe_response.text):
-                blocked_detected = True
-        except requests.RequestException:
-            pass
-        for html in _iter_pages(
-            session=session,
-            username=normalized_username,
-            max_pages=max_pages,
-            request_delay_seconds=request_delay_seconds,
-            timeout=timeout,
-        ):
-            if not profile_image_url:
-                profile_image_url = _extract_profile_image_from_html(html)
-            if _looks_like_block_page(html):
-                blocked_detected = True
-                continue
-            page_rows = _extract_posts_from_html(normalized_username, html, now_utc=now_utc)
-            _attach_profile_image(page_rows, profile_image_url)
-            rows.extend(page_rows)
+            candidate_items = run_actor_sync_get_items(
+                actor_id=actor_id,
+                actor_input=actor_input,
+                timeout_seconds=max(timeout, 180),
+            )
+            if candidate_items:
+                post_like_items: list[dict[str, Any]] = []
+                for record in _iter_post_records(candidate_items):
+                    if _looks_like_post_record(record):
+                        post_like_items.append(record)
+                if post_like_items:
+                    dataset_items = post_like_items
+                    break
+                actor_error = _extract_actor_error_message(candidate_items)
+                if actor_error:
+                    last_actor_error = actor_error
+            # Try alternate input variants when a run is accepted but returns no items.
+            continue
+        except ApifyActorInputError as exc:
+            last_input_error = str(exc)
+            continue
+        except ApifyConfigurationError as exc:
+            raise SourceUnavailableError(
+                platform="instagram",
+                username=normalized_username,
+                reason=str(exc),
+            ) from exc
+        except ApifyRequestError as exc:
+            raise SourceUnavailableError(
+                platform="instagram",
+                username=normalized_username,
+                reason=str(exc),
+            ) from exc
 
-    needs_browser_backfill = False
-    if rows:
-        has_recent = False
-        for row in rows:
-            raw_ts = row.get("timestamp")
-            if not raw_ts:
-                continue
-            parsed = _parse_datetime(str(raw_ts), now_utc=now_utc)
-            if parsed and parsed >= cutoff:
-                has_recent = True
-                break
-        needs_browser_backfill = not has_recent
-
-    if browser_fallback and (not rows or needs_browser_backfill):
-        for html in _iter_rendered_pages(
+    if not dataset_items and last_input_error:
+        raise SourceUnavailableError(
+            platform="instagram",
             username=normalized_username,
-            max_pages=max_pages,
-            timeout=max(timeout, 40),
-        ):
-            if not profile_image_url:
-                profile_image_url = _extract_profile_image_from_html(html)
-            if _looks_like_block_page(html):
-                blocked_detected = True
-                continue
-            page_rows = _extract_posts_from_html(normalized_username, html, now_utc=now_utc)
-            _attach_profile_image(page_rows, profile_image_url)
-            browser_rows.extend(page_rows)
-    if browser_rows:
-        rows.extend(browser_rows)
-
-    if browser_fallback and not rows:
-        for html in _iter_official_rendered_pages(
+            reason=f"apify actor input rejected: {last_input_error[:160]}",
+        )
+    if not dataset_items and last_actor_error:
+        raise SourceUnavailableError(
+            platform="instagram",
             username=normalized_username,
-            max_pages=max_pages,
-            timeout=max(timeout, 45),
-        ):
-            if not profile_image_url:
-                profile_image_url = _extract_profile_image_from_html(html)
-            if _looks_like_block_page(html):
-                blocked_detected = True
-                continue
-            page_rows = _extract_posts_from_html(normalized_username, html, now_utc=now_utc)
-            _attach_profile_image(page_rows, profile_image_url)
-            rows.extend(page_rows)
+            reason=last_actor_error[:200],
+        )
+
+    rows: list[dict[str, Any]] = []
+    for record in _iter_post_records(dataset_items):
+        if not isinstance(record, dict):
+            continue
+        if not _belongs_to_target_owner(record, normalized_username):
+            continue
+
+        row_username = _extract_owner_username(record) or normalized_username
+        shortcode = _extract_shortcode(record)
+        source_url = _extract_source_url(record, row_username, shortcode)
+        timestamp_dt = _parse_datetime(
+            record.get("timestamp")
+            or record.get("takenAtTimestamp")
+            or record.get("taken_at_timestamp")
+            or record.get("createdAt")
+            or record.get("created_time")
+            or record.get("time")
+        )
+        if timestamp_dt and timestamp_dt < cutoff:
+            continue
+
+        media, image_urls, video_url, thumbnail_url = _extract_media(record)
+        content = (
+            _extract_text_field(record.get("caption"))
+            or _extract_text_field(record.get("captionText"))
+            or _extract_text_field(record.get("text"))
+            or _extract_text_field(record.get("description"))
+            or "(no text content)"
+        )
+        likes = _safe_int(record.get("likesCount") or record.get("likes"))
+        comments = _safe_int(record.get("commentsCount") or record.get("comments") or record.get("commentCount"))
+        profile_image_url = _extract_profile_image_url(record, normalized_username)
+
+        rows.append(
+            {
+                "post_id": shortcode or None,
+                "platform": "Instagram",
+                "username": row_username,
+                "content": content,
+                "timestamp": timestamp_dt.isoformat() if timestamp_dt else None,
+                "likes": likes,
+                "retweets": None,
+                "replies": comments,
+                "source_url": source_url,
+                "post_type": "post",
+                "referenced_username": None,
+                "metadata": {
+                    "media": media,
+                    "image_urls": image_urls,
+                    "video_url": video_url,
+                    "thumbnail_url": thumbnail_url,
+                    "profile_image_url": profile_image_url,
+                    "apify_actor_id": actor_id,
+                },
+            }
+        )
 
     deduped: dict[str, dict[str, Any]] = {}
     for row in rows:
@@ -694,14 +526,5 @@ def collect_instagram_posts(
         if existing is None or len(str(row.get("content") or "")) > len(str(existing.get("content") or "")):
             deduped[key] = row
 
-    filtered: list[dict[str, Any]] = []
-    for row in deduped.values():
-        raw_ts = row.get("timestamp")
-        post_ts = _parse_datetime(str(raw_ts), now_utc=now_utc) if raw_ts else None
-        if post_ts and post_ts < cutoff:
-            continue
-        filtered.append(row)
-    if not filtered and blocked_detected:
-        raise SourceAccessBlockedError(platform="instagram", username=normalized_username)
-    filtered.sort(key=lambda item: str(item.get("timestamp") or ""), reverse=True)
+    filtered = sorted(deduped.values(), key=lambda item: str(item.get("timestamp") or ""), reverse=True)
     return filtered

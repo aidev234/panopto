@@ -45,12 +45,6 @@ def _osint_industries_api_key() -> str:
     config = load_config()
     return str(config.get("osint_industries_api_key") or "").strip()
 
-
-def _osint_industries_use_premium() -> bool:
-    config = load_config()
-    return bool(config.get("osint_industries_use_premium"))
-
-
 def _numverify_api_key() -> str:
     config = load_config()
     return str(config.get("numverify_api_key") or "").strip()
@@ -823,6 +817,62 @@ def _looks_like_direct_profile_url(url: str, selector_value: str) -> bool:
     return False
 
 
+_GENERIC_NON_PROFILE_PATH_SEGMENTS = {
+    "about",
+    "account",
+    "accounts",
+    "app",
+    "apps",
+    "blog",
+    "careers",
+    "company",
+    "contact",
+    "dashboard",
+    "developers",
+    "discover",
+    "docs",
+    "download",
+    "explore",
+    "features",
+    "help",
+    "home",
+    "jobs",
+    "join",
+    "legal",
+    "login",
+    "pricing",
+    "privacy",
+    "products",
+    "search",
+    "settings",
+    "signup",
+    "support",
+    "terms",
+}
+
+
+def _is_probable_profile_url(url: str) -> bool:
+    value = str(url or "").strip()
+    if not re.match(r"^https?://", value, flags=re.IGNORECASE):
+        return False
+    try:
+        parsed = urlparse(value)
+    except Exception:
+        return False
+    host = str(parsed.hostname or "").strip().lower()
+    if not host or "." not in host:
+        return False
+    segments = [part for part in str(parsed.path or "").split("/") if part]
+    if not segments:
+        return False
+    first = segments[0].lower()
+    if first in _GENERIC_NON_PROFILE_PATH_SEGMENTS:
+        return False
+    if len(segments) == 1 and first in {"www", "m"}:
+        return False
+    return True
+
+
 def _normalize_collection_username(platform: str, value: str) -> str:
     if platform == "reddit":
         return _clean_reddit_username(value)
@@ -1234,12 +1284,21 @@ def _parse_osint_spec_item(spec_item: dict[str, Any]) -> tuple[dict[str, Any], d
             continue
         if key_name == "platform_variables":
             continue
-        if not isinstance(raw_value, dict):
+        if isinstance(raw_value, dict):
+            proper_key = str(raw_value.get("proper_key") or key_name.replace("_", " ").title()).strip()
+            value = raw_value.get("value")
+            if value is None and any(field in raw_value for field in ("url", "href", "value")):
+                value = raw_value.get("url") or raw_value.get("href") or raw_value.get("value")
+            if value is None and len(raw_value) == 1:
+                value = next(iter(raw_value.values()))
+            if value is None:
+                value = raw_value
+            parsed_values[proper_key] = value
+            parsed_by_key[key_name] = value
             continue
-        proper_key = str(raw_value.get("proper_key") or key_name.replace("_", " ").title()).strip()
-        value = raw_value.get("value")
-        parsed_values[proper_key] = value
-        parsed_by_key[key_name] = value
+        proper_key = key_name.replace("_", " ").title().strip()
+        parsed_values[proper_key] = raw_value
+        parsed_by_key[key_name] = raw_value
 
     platform_variables = spec_item.get("platform_variables")
     if isinstance(platform_variables, list):
@@ -1261,6 +1320,365 @@ def _parse_osint_spec_item(spec_item: dict[str, Any]) -> tuple[dict[str, Any], d
     return parsed_values, parsed_by_key
 
 
+def _iter_osint_spec_items(item: dict[str, Any]) -> list[dict[str, Any]]:
+    candidates: list[dict[str, Any]] = []
+    seen: set[str] = set()
+
+    def _append_candidate(raw: Any) -> None:
+        if not isinstance(raw, dict):
+            return
+        try:
+            key = json.dumps(raw, ensure_ascii=True, sort_keys=True)
+        except Exception:
+            key = str(raw)
+        if key in seen:
+            return
+        seen.add(key)
+        candidates.append(raw)
+
+    spec_format = item.get("spec_format")
+    if isinstance(spec_format, list):
+        for spec_item in spec_format:
+            _append_candidate(spec_item)
+    elif isinstance(spec_format, dict):
+        _append_candidate(spec_format)
+
+    for key in ("data", "result", "profile", "account"):
+        nested = item.get(key)
+        if isinstance(nested, dict):
+            _append_candidate(nested)
+        elif isinstance(nested, list):
+            for row in nested:
+                _append_candidate(row)
+
+    nested_results = item.get("results")
+    if isinstance(nested_results, list):
+        for row in nested_results:
+            _append_candidate(row)
+
+    nested_profiles = item.get("profiles")
+    if isinstance(nested_profiles, list):
+        for row in nested_profiles:
+            _append_candidate(row)
+
+    if not candidates:
+        _append_candidate(item)
+    return candidates
+
+
+def _osint_float(value: Any) -> float | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        parsed = float(value)
+        if parsed != parsed:  # NaN
+            return None
+        return parsed
+    raw = str(value or "").strip()
+    if not raw:
+        return None
+    try:
+        parsed = float(raw)
+    except ValueError:
+        return None
+    if parsed != parsed:  # NaN
+        return None
+    return parsed
+
+
+def _osint_lat_key(value: str) -> bool:
+    key = str(value or "").strip().lower()
+    return key in {"lat", "latitude"} or key.endswith("_lat") or key.endswith("_latitude") or "latitude" in key
+
+
+def _osint_lon_key(value: str) -> bool:
+    key = str(value or "").strip().lower()
+    return (
+        key in {"lon", "lng", "longitude", "long"}
+        or key.endswith("_lon")
+        or key.endswith("_lng")
+        or key.endswith("_longitude")
+        or "longitude" in key
+    )
+
+
+def _osint_lat_lon_from_mapping(value: dict[str, Any]) -> tuple[float, float] | None:
+    if not isinstance(value, dict):
+        return None
+    lowered_map: dict[str, Any] = {str(key).strip().lower(): raw for key, raw in value.items()}
+    lat_candidates = [key for key in lowered_map if _osint_lat_key(key)]
+    lon_candidates = [key for key in lowered_map if _osint_lon_key(key)]
+    for lat_key in lat_candidates:
+        lat_value = _osint_float(lowered_map.get(lat_key))
+        if lat_value is None:
+            continue
+        for lon_key in lon_candidates:
+            lon_value = _osint_float(lowered_map.get(lon_key))
+            if lon_value is None:
+                continue
+            if -90 <= lat_value <= 90 and -180 <= lon_value <= 180:
+                return (lat_value, lon_value)
+            if -90 <= lon_value <= 90 and -180 <= lat_value <= 180:
+                # Some providers invert latitude/longitude in loose schemas.
+                return (lon_value, lat_value)
+    return None
+
+
+def _osint_coordinate_pair(value: Any) -> tuple[float, float] | None:
+    if isinstance(value, dict):
+        return _osint_lat_lon_from_mapping(value)
+    if isinstance(value, (list, tuple)) and len(value) >= 2:
+        lat = _osint_float(value[0])
+        lon = _osint_float(value[1])
+        if lat is None or lon is None:
+            return None
+        if -90 <= lat <= 90 and -180 <= lon <= 180:
+            return (lat, lon)
+        if -90 <= lon <= 90 and -180 <= lat <= 180:
+            return (lon, lat)
+    return None
+
+
+def _iter_osint_nodes(value: Any, path: tuple[str, ...] = (), *, depth: int = 0, max_depth: int = 7):
+    yield (path, value)
+    if depth >= max_depth:
+        return
+    if isinstance(value, dict):
+        for key, nested in value.items():
+            key_name = str(key or "").strip()
+            if not key_name:
+                continue
+            yield from _iter_osint_nodes(nested, path + (key_name,), depth=depth + 1, max_depth=max_depth)
+        return
+    if isinstance(value, list):
+        for index, nested in enumerate(value[:220]):
+            yield from _iter_osint_nodes(nested, path + (f"[{index}]",), depth=depth + 1, max_depth=max_depth)
+
+
+def _decode_google_polyline(encoded: str, *, max_points: int = 1800) -> list[dict[str, float]]:
+    text = str(encoded or "").strip()
+    if not text:
+        return []
+    points: list[dict[str, float]] = []
+    index = 0
+    lat = 0
+    lon = 0
+    length = len(text)
+    try:
+        while index < length and len(points) < max_points:
+            result = 1
+            shift = 0
+            while True:
+                byte = ord(text[index]) - 63 - 1
+                index += 1
+                result += byte << shift
+                shift += 5
+                if byte < 0x1F:
+                    break
+            dlat = ~(result >> 1) if result & 1 else (result >> 1)
+            lat += dlat
+
+            result = 1
+            shift = 0
+            while True:
+                byte = ord(text[index]) - 63 - 1
+                index += 1
+                result += byte << shift
+                shift += 5
+                if byte < 0x1F:
+                    break
+            dlon = ~(result >> 1) if result & 1 else (result >> 1)
+            lon += dlon
+
+            lat_value = lat * 1e-5
+            lon_value = lon * 1e-5
+            if -90 <= lat_value <= 90 and -180 <= lon_value <= 180:
+                points.append({"lat": round(lat_value, 6), "lon": round(lon_value, 6)})
+    except Exception:
+        return []
+    return points
+
+
+def _osint_route_hint(path: tuple[str, ...]) -> bool:
+    joined = " ".join(path).lower()
+    return any(token in joined for token in ("route", "polyline", "path", "track", "segment", "geometry", "line"))
+
+
+def _osint_signal_text(value: Any) -> str:
+    if isinstance(value, str):
+        return value.strip()
+    if isinstance(value, (int, float)):
+        return str(value)
+    return ""
+
+
+def _osint_extract_detail(value: Any) -> str:
+    if not isinstance(value, dict):
+        return _osint_signal_text(value)[:220]
+    preferred_keys = (
+        "review",
+        "review_text",
+        "comment",
+        "description",
+        "bio",
+        "caption",
+        "summary",
+        "body",
+        "text",
+        "title",
+        "name",
+        "address",
+        "location",
+    )
+    for key in preferred_keys:
+        if key not in value:
+            continue
+        clean = _osint_signal_text(value.get(key))
+        if clean:
+            return clean[:220]
+    return ""
+
+
+def _osint_extract_timestamp(value: Any) -> str:
+    if not isinstance(value, dict):
+        return ""
+    keys = (
+        "timestamp",
+        "datetime",
+        "date",
+        "created_at",
+        "updated_at",
+        "time",
+        "activity_date",
+        "start_date",
+        "end_date",
+        "last_seen",
+    )
+    for key in keys:
+        if key not in value:
+            continue
+        raw = _osint_signal_text(value.get(key))
+        if raw:
+            return raw[:64]
+    return ""
+
+
+def _normalize_route_coordinates(value: Any, *, max_points: int = 800) -> list[dict[str, float]]:
+    coords: list[dict[str, float]] = []
+    if not isinstance(value, list):
+        return coords
+    for item in value:
+        pair = _osint_coordinate_pair(item)
+        if not pair:
+            continue
+        coords.append({"lat": round(float(pair[0]), 6), "lon": round(float(pair[1]), 6)})
+        if len(coords) >= max_points:
+            break
+    return coords
+
+
+def _extract_osint_geo_signals(
+    *,
+    module_name: str,
+    profile_title: str,
+    profile_url: str,
+    spec_item: dict[str, Any] | None,
+    parsed_by_key: dict[str, Any],
+    front_schema: dict[str, Any] | None,
+) -> list[dict[str, Any]]:
+    roots: list[Any] = []
+    if isinstance(spec_item, dict):
+        roots.append(spec_item)
+    if isinstance(parsed_by_key, dict):
+        roots.append(parsed_by_key)
+    if isinstance(front_schema, dict):
+        roots.append(front_schema)
+
+    signals: list[dict[str, Any]] = []
+    seen_points: set[str] = set()
+    seen_routes: set[str] = set()
+
+    for root in roots:
+        for path, node in _iter_osint_nodes(root):
+            if isinstance(node, dict):
+                pair = _osint_lat_lon_from_mapping(node)
+                if pair:
+                    lat, lon = pair
+                    point_key = f"{lat:.6f}|{lon:.6f}"
+                    if point_key not in seen_points:
+                        seen_points.add(point_key)
+                        path_label = ".".join(path) if path else "location"
+                        signals.append(
+                            {
+                                "kind": "point",
+                                "module": module_name,
+                                "profile_title": profile_title,
+                                "profile_url": profile_url,
+                                "path": path_label,
+                                "label": str(node.get("name") or node.get("title") or node.get("location") or "geo point").strip(),
+                                "detail": _osint_extract_detail(node),
+                                "timestamp": _osint_extract_timestamp(node),
+                                "lat": round(lat, 6),
+                                "lon": round(lon, 6),
+                            }
+                        )
+                continue
+
+            if isinstance(node, str):
+                if path and "polyline" in str(path[-1]).lower():
+                    route_points = _decode_google_polyline(node)
+                    if len(route_points) >= 2:
+                        route_key = f"polyline|{sha1(node.encode('utf-8')).hexdigest()}"
+                        if route_key in seen_routes:
+                            continue
+                        seen_routes.add(route_key)
+                        path_label = ".".join(path)
+                        signals.append(
+                            {
+                                "kind": "polyline",
+                                "module": module_name,
+                                "profile_title": profile_title,
+                                "profile_url": profile_url,
+                                "path": path_label,
+                                "label": "route",
+                                "detail": "",
+                                "coordinates": route_points[:800],
+                            }
+                        )
+                continue
+
+            if isinstance(node, list) and _osint_route_hint(path):
+                route_points = _normalize_route_coordinates(node)
+                if len(route_points) >= 2:
+                    route_key = "|".join(
+                        [
+                            "route",
+                            f"{route_points[0]['lat']:.6f}",
+                            f"{route_points[0]['lon']:.6f}",
+                            f"{route_points[-1]['lat']:.6f}",
+                            f"{route_points[-1]['lon']:.6f}",
+                            str(len(route_points)),
+                        ]
+                    )
+                    if route_key in seen_routes:
+                        continue
+                    seen_routes.add(route_key)
+                    path_label = ".".join(path) if path else "route"
+                    signals.append(
+                        {
+                            "kind": "polyline",
+                            "module": module_name,
+                            "profile_title": profile_title,
+                            "profile_url": profile_url,
+                            "path": path_label,
+                            "label": "route",
+                            "detail": "",
+                            "coordinates": route_points[:800],
+                        }
+                    )
+    return signals[:80]
+
+
 def _normalize_osint_profile(
     *,
     module_name: str,
@@ -1268,24 +1686,50 @@ def _normalize_osint_profile(
     reliable_source: bool,
     selector_type: str,
     selector_value: str,
+    spec_item: dict[str, Any] | None,
     parsed_by_key: dict[str, Any],
     front_schema: dict[str, Any] | None,
 ) -> dict[str, Any] | None:
+    def _first_text(*keys: str) -> str:
+        for key in keys:
+            clean = _osint_stringify_value(parsed_by_key.get(key))
+            if clean:
+                return clean
+        return ""
+
     first_name = _osint_stringify_value(parsed_by_key.get("first_name"))
     last_name = _osint_stringify_value(parsed_by_key.get("last_name"))
     full_name = _osint_stringify_value(parsed_by_key.get("name"))
     if not full_name:
         full_name = " ".join(part for part in [first_name, last_name] if part).strip()
 
-    profile_url = _osint_stringify_value(parsed_by_key.get("profile_url"))
+    raw_profile_url = _osint_stringify_value(parsed_by_key.get("profile_url"))
+    profile_url = raw_profile_url if _is_probable_profile_url(raw_profile_url) else ""
     website = _osint_stringify_value(parsed_by_key.get("website"))
+    if not website and raw_profile_url and not profile_url:
+        website = raw_profile_url
     username = _osint_stringify_value(parsed_by_key.get("username"))
     email = _osint_stringify_value(parsed_by_key.get("email"))
     phone = _osint_stringify_value(parsed_by_key.get("phone"))
 
     image_from_front_schema = ""
+    front_timeline: dict[str, Any] = {}
     if isinstance(front_schema, dict):
         image_from_front_schema = _osint_stringify_value(front_schema.get("image"))
+        timeline_value = front_schema.get("timeline")
+        if isinstance(timeline_value, dict):
+            front_timeline = timeline_value
+
+    creation_date = _osint_stringify_value(parsed_by_key.get("creation_date"))
+    if not creation_date:
+        creation_date = _osint_stringify_value(front_timeline.get("registered_date"))
+    last_seen = _osint_stringify_value(parsed_by_key.get("last_seen"))
+    if not last_seen:
+        last_seen = _osint_stringify_value(front_timeline.get("last_seen_date"))
+    biolocation = _first_text("biolocation", "bio_location", "bio-location")
+    location = _first_text("location", "location_name", "city")
+    if not location:
+        location = biolocation
 
     title = (
         full_name
@@ -1310,9 +1754,12 @@ def _normalize_osint_profile(
         "first_name": first_name,
         "last_name": last_name,
         "picture_url": _osint_stringify_value(parsed_by_key.get("picture_url")) or image_from_front_schema,
+        "banner_url": _osint_stringify_value(parsed_by_key.get("banner_url")),
         "gender": _osint_stringify_value(parsed_by_key.get("gender")),
         "age": _osint_stringify_value(parsed_by_key.get("age")),
-        "location": _osint_stringify_value(parsed_by_key.get("location")),
+        "language": _osint_stringify_value(parsed_by_key.get("language")),
+        "location": location,
+        "biolocation": biolocation,
         "username": username,
         "profile_url": profile_url,
         "email": email,
@@ -1321,7 +1768,27 @@ def _normalize_osint_profile(
         "phone_hint": _osint_stringify_value(parsed_by_key.get("phone_hint")),
         "website": website,
         "bio": _osint_stringify_value(parsed_by_key.get("bio")),
+        "registered": _osint_stringify_value(parsed_by_key.get("registered")),
+        "breach": _osint_stringify_value(parsed_by_key.get("breach")),
+        "id": _osint_stringify_value(parsed_by_key.get("id")),
+        "followers": _osint_stringify_value(parsed_by_key.get("followers")),
+        "following": _osint_stringify_value(parsed_by_key.get("following")),
+        "verified": _osint_stringify_value(parsed_by_key.get("verified")),
+        "premium": _osint_stringify_value(parsed_by_key.get("premium")),
+        "private": _osint_stringify_value(parsed_by_key.get("private")),
+        "last_seen": last_seen,
+        "creation_date": creation_date,
     }
+    geo_signals = _extract_osint_geo_signals(
+        module_name=module_name,
+        profile_title=title,
+        profile_url=profile_url or website,
+        spec_item=spec_item,
+        parsed_by_key=parsed_by_key,
+        front_schema=front_schema,
+    )
+    if geo_signals:
+        normalized["geo_signals"] = geo_signals
 
     has_primary = any(
         str(normalized.get(field) or "").strip()
@@ -1344,7 +1811,7 @@ def _normalize_osint_profile(
 
 
 def _fetch_osint_profiles(
-    *, selector_type: str, selector_value: str, api_key: str, premium: bool, timeout: int = 20
+    *, selector_type: str, selector_value: str, api_key: str, timeout: int = 20
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], bool]:
     method = _osint_selector_method(selector_type)
     if not method:
@@ -1357,86 +1824,90 @@ def _fetch_osint_profiles(
         "User-Agent": "panopto-osint-industries/1.0",
     }
 
-    response_payload: Any = None
+    clamped_timeout = max(5, min(int(timeout), 80))
     successful_query = False
-    # Primary path: documented non-premium GET endpoint.
+    streamed_payloads: list[Any] = []
+    pending_data_lines: list[str] = []
+
+    def _flush_pending() -> None:
+        nonlocal pending_data_lines
+        if not pending_data_lines:
+            return
+        joined = "\n".join(pending_data_lines).strip()
+        pending_data_lines = []
+        if not joined:
+            return
+        try:
+            streamed_payloads.append(json.loads(joined))
+        except ValueError:
+            pass
+
     try:
         response = requests.get(
-            f"{_OSINT_INDUSTRIES_BASE_URL}/v2/request",
-            params={"type": method, "query": selector_value, "timeout": timeout},
+            f"{_OSINT_INDUSTRIES_BASE_URL}/v2/request/stream",
+            params={
+                "type": method,
+                "query": selector_value,
+                "timeout": clamped_timeout,
+            },
             headers=headers,
-            timeout=timeout + 2,
+            timeout=timeout + 4,
+            stream=True,
         )
     except requests.RequestException:
         response = None
-    if response is not None and response.status_code < 400:
-        successful_query = True
+
+    if response is None:
+        return ([], [], False)
+    if response.status_code >= 400:
+        return ([], [], False)
+
+    successful_query = True
+    for raw_line in response.iter_lines(decode_unicode=True):
+        line = str(raw_line or "").strip()
+        if not line:
+            _flush_pending()
+            continue
+        if line.startswith("event:"):
+            continue
+        if line.startswith("data:"):
+            payload_text = line[5:].strip()
+            if payload_text == "[DONE]":
+                _flush_pending()
+                continue
+            pending_data_lines.append(payload_text)
+            continue
+        _flush_pending()
         try:
-            response_payload = response.json()
+            streamed_payloads.append(json.loads(line))
         except ValueError:
-            response_payload = None
+            continue
+    _flush_pending()
 
-    # Backward-compatible fallback for deployments still using POST.
-    if response_payload is None:
-        payload = {
-            "type": method,
-            "method": method,
-            "query": selector_value,
-            "value": selector_value,
-            "selector": method,
-            "selector_type": method,
-        }
-        if premium:
-            payload["premium"] = True
-        endpoint_paths = ["/v2/request/premium", "/v2/request"] if premium else ["/v2/request"]
-        for path in endpoint_paths:
-            try:
-                response = requests.post(
-                    f"{_OSINT_INDUSTRIES_BASE_URL}{path}",
-                    json=payload,
-                    headers=headers,
-                    timeout=timeout,
-                )
-            except requests.RequestException:
-                continue
-            if response.status_code in {404, 405}:
-                continue
-            if response.status_code < 400:
-                successful_query = True
-            try:
-                response_payload = response.json()
-            except ValueError:
-                continue
-            if isinstance(response_payload, dict):
-                if str(response_payload.get("error") or "").strip():
-                    continue
-            break
-
-    if response_payload is None:
+    if not streamed_payloads:
         return ([], [], successful_query)
-
-    if isinstance(response_payload, dict):
-        if str(response_payload.get("error") or "").strip():
-            return ([], [], successful_query)
-        ok_flag = response_payload.get("ok")
-        if ok_flag is False:
-            return ([], [], successful_query)
 
     profiles: list[dict[str, Any]] = []
     spec_rows: list[dict[str, Any]] = []
     seen: set[str] = set()
-    response_rows: list[Any]
-    if isinstance(response_payload, list):
-        response_rows = response_payload
-    elif isinstance(response_payload, dict):
-        if isinstance(response_payload.get("results"), list):
-            response_rows = response_payload.get("results")  # type: ignore[assignment]
-        elif isinstance(response_payload.get("data"), list):
-            response_rows = response_payload.get("data")  # type: ignore[assignment]
-        else:
-            response_rows = [response_payload]
-    else:
-        response_rows = []
+    response_rows: list[Any] = []
+    for payload in streamed_payloads:
+        if isinstance(payload, dict):
+            if str(payload.get("error") or "").strip():
+                continue
+            ok_flag = payload.get("ok")
+            if ok_flag is False:
+                continue
+            if isinstance(payload.get("results"), list):
+                response_rows.extend(payload.get("results") or [])
+                continue
+            if isinstance(payload.get("data"), list):
+                response_rows.extend(payload.get("data") or [])
+                continue
+            response_rows.append(payload)
+            continue
+        if isinstance(payload, list):
+            response_rows.extend(payload)
 
     for item in response_rows:
         if not isinstance(item, dict):
@@ -1446,12 +1917,7 @@ def _fetch_osint_profiles(
         reliable_source = bool(item.get("reliable_source"))
         front_schemas = item.get("front_schemas")
         front_schema = front_schemas[0] if isinstance(front_schemas, list) and front_schemas and isinstance(front_schemas[0], dict) else None
-        spec_format = item.get("spec_format")
-        if not isinstance(spec_format, list):
-            continue
-        for spec_item in spec_format:
-            if not isinstance(spec_item, dict):
-                continue
+        for spec_item in _iter_osint_spec_items(item):
             parsed_values, parsed_by_key = _parse_osint_spec_item(spec_item)
             normalized = _normalize_osint_profile(
                 module_name=module_name,
@@ -1459,6 +1925,7 @@ def _fetch_osint_profiles(
                 reliable_source=reliable_source,
                 selector_type=selector_type,
                 selector_value=selector_value,
+                spec_item=spec_item,
                 parsed_by_key=parsed_by_key,
                 front_schema=front_schema,
             )
@@ -1670,10 +2137,81 @@ def run_recon(selectors: list[dict[str, str]]) -> dict[str, Any]:
         if _rank(row) > _rank(existing):
             rows[existing_index] = row
 
-    for selector in normalized_selectors:
-        selector_type = selector["type"]
-        selector_value = selector["value"]
-        scan_rows = _run_user_scanner_selector(selector_type=selector_type, selector_value=selector_value)
+    api_modules_queried: list[dict[str, Any]] = []
+    osint_profiles: list[dict[str, Any]] = []
+    osint_spec_results: list[dict[str, Any]] = []
+    numverify_profiles: list[dict[str, Any]] = []
+
+    osint_api_key = _osint_industries_api_key()
+    numverify_key = _numverify_api_key()
+
+    def _task_scanner() -> list[tuple[str, str, list[dict[str, Any]]]]:
+        output: list[tuple[str, str, list[dict[str, Any]]]] = []
+        for selector in normalized_selectors:
+            selector_type = str(selector.get("type") or "").strip()
+            selector_value = str(selector.get("value") or "").strip()
+            if not selector_type or not selector_value:
+                continue
+            scan_rows = _run_user_scanner_selector(selector_type=selector_type, selector_value=selector_value)
+            output.append((selector_type, selector_value, scan_rows if isinstance(scan_rows, list) else []))
+        return output
+
+    def _task_osint() -> tuple[list[tuple[str, str, list[dict[str, Any]], list[dict[str, Any]]]], int]:
+        if not osint_api_key:
+            return ([], 0)
+        output: list[tuple[str, str, list[dict[str, Any]], list[dict[str, Any]]]] = []
+        query_success_count = 0
+        for selector in normalized_selectors:
+            selector_type = str(selector.get("type") or "").strip()
+            selector_value = str(selector.get("value") or "").strip()
+            if not selector_type or not selector_value:
+                continue
+            profiles, spec_rows, query_succeeded = _fetch_osint_profiles(
+                selector_type=selector_type,
+                selector_value=selector_value,
+                api_key=osint_api_key,
+            )
+            if query_succeeded:
+                query_success_count += 1
+            output.append((selector_type, selector_value, profiles, spec_rows))
+        return (output, query_success_count)
+
+    def _task_numverify() -> tuple[list[tuple[str, dict[str, Any]]], int]:
+        if not numverify_key:
+            return ([], 0)
+        output: list[tuple[str, dict[str, Any]]] = []
+        query_success_count = 0
+        for selector in normalized_selectors:
+            selector_type = str(selector.get("type") or "").strip().lower()
+            if selector_type != "phone":
+                continue
+            selector_value = str(selector.get("value") or "").strip()
+            if not selector_value:
+                continue
+            payload = _fetch_numverify_profile(phone=selector_value, api_key=numverify_key)
+            if not payload:
+                continue
+            query_success_count += 1
+            output.append((selector_value, _shape_numverify_profile(payload, query_value=selector_value)))
+        return (output, query_success_count)
+
+    scan_batches: list[tuple[str, str, list[dict[str, Any]]]] = []
+    osint_batches: list[tuple[str, str, list[dict[str, Any]], list[dict[str, Any]]]] = []
+    numverify_batches: list[tuple[str, dict[str, Any]]] = []
+    osint_query_success_count = 0
+    numverify_query_success_count = 0
+
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        # Start OSINT stream fetch first so streaming begins immediately.
+        future_osint = executor.submit(_task_osint)
+        future_scanner = executor.submit(_task_scanner)
+        future_numverify = executor.submit(_task_numverify)
+
+        scan_batches = future_scanner.result()
+        osint_batches, osint_query_success_count = future_osint.result()
+        numverify_batches, numverify_query_success_count = future_numverify.result()
+
+    for selector_type, selector_value, scan_rows in scan_batches:
         for item in scan_rows:
             if not isinstance(item, dict):
                 continue
@@ -1684,8 +2222,105 @@ def run_recon(selectors: list[dict[str, str]]) -> dict[str, Any]:
                 source="scanner",
             )
 
+    seen_osint: set[str] = set()
+    for selector_type, selector_value, profiles, spec_rows in osint_batches:
+        for item in profiles:
+            profile_url = str(item.get("profile_url") or "").strip()
+            website = str(item.get("website") or "").strip()
+            username = str(item.get("username") or "").strip()
+            row_url = profile_url
+            site_ref = row_url or website
+            site_key = _site_key_from_profile_url(site_ref) if site_ref else "osint"
+            site_label = site_key or "osint"
+            platform = _site_to_collection_platform(site_key)
+            supported_for_collection = bool(platform and row_url)
+            if row_url:
+                # If multiple OSINT modules return the same canonical URL, keep one row.
+                row_key = f"url|{site_key.lower()}|{row_url.lower()}"
+            else:
+                row_key = "|".join(
+                    [
+                        "identity",
+                        site_key.lower(),
+                        username.lower(),
+                        str(item.get("email") or "").strip().lower(),
+                        str(item.get("phone") or "").strip().lower(),
+                    ]
+                )
+            if row_key in seen_osint:
+                continue
+            seen_osint.add(row_key)
+            category = "known_without_url"
+            if row_url:
+                category = "supported_with_url" if supported_for_collection else "unsupported_with_url"
+            row = {
+                "selector_type": selector_type,
+                "selector": selector_value,
+                "site": site_label,
+                "site_key": site_key or "osint",
+                "platform": platform,
+                "supported_for_collection": supported_for_collection,
+                "status": "present",
+                "reason": "osint_industries",
+                "profile_url": row_url,
+                "site_url": site_ref,
+                "has_direct_profile_url": bool(row_url),
+                "category": category,
+                "source": "osint_industries",
+                "osint_profile": item,
+            }
+            rows.append(row)
+            osint_profiles.append(item)
+        for spec_row in spec_rows:
+            osint_spec_results.append(spec_row)
+
+    seen_numverify_numbers: set[str] = set()
+    for selector_value, shaped in numverify_batches:
+        dedupe_key = str(shaped.get("number") or selector_value).strip().lower()
+        if not dedupe_key or dedupe_key in seen_numverify_numbers:
+            continue
+        seen_numverify_numbers.add(dedupe_key)
+        numverify_profiles.append(shaped)
+
+        status = "present" if shaped.get("valid") is True else "absent"
+        rows.append(
+            {
+                "selector_type": "phone",
+                "selector": selector_value,
+                "site": "numverify",
+                "site_key": "numverify",
+                "platform": None,
+                "supported_for_collection": False,
+                "status": status,
+                "reason": "numverify_phone_lookup",
+                "profile_url": "",
+                "site_url": "",
+                "has_direct_profile_url": False,
+                "category": "known_without_url" if status == "present" else "",
+                "source": "numverify",
+                "numverify_profile": shaped,
+            }
+        )
+
+    if osint_query_success_count > 0:
+        api_modules_queried.append(
+            {
+                "module": "osint_industries",
+                "label": "OSINT Industries",
+                "query_success_count": osint_query_success_count,
+            }
+        )
+    if numverify_query_success_count > 0:
+        api_modules_queried.append(
+            {
+                "module": "numverify",
+                "label": "Numverify",
+                "query_success_count": numverify_query_success_count,
+            }
+        )
+
+    # Second-stage pivot after scanner + OSINT + numverify rows are known.
     pdl_payload = _run_pdl_enrichment(selectors=normalized_selectors, rows=rows)
-    api_modules_queried: list[dict[str, Any]] = []
     pdl_query_success_count = int(pdl_payload.get("query_success_count") or 0)
     if pdl_query_success_count > 0:
         api_modules_queried.append(
@@ -1734,130 +2369,6 @@ def run_recon(selectors: list[dict[str, str]]) -> dict[str, Any]:
                 continue
             existing_row_keys[row_key] = len(rows)
             rows.append(pdl_row)
-
-    osint_profiles: list[dict[str, Any]] = []
-    osint_spec_results: list[dict[str, Any]] = []
-    numverify_profiles: list[dict[str, Any]] = []
-    osint_api_key = _osint_industries_api_key()
-    osint_use_premium = _osint_industries_use_premium()
-    if osint_api_key:
-        seen_osint: set[str] = set()
-        osint_query_success_count = 0
-        for selector in normalized_selectors:
-            selector_type = str(selector.get("type") or "").strip()
-            selector_value = str(selector.get("value") or "").strip()
-            if not selector_type or not selector_value:
-                continue
-            profiles, spec_rows, query_succeeded = _fetch_osint_profiles(
-                selector_type=selector_type,
-                selector_value=selector_value,
-                api_key=osint_api_key,
-                premium=osint_use_premium,
-            )
-            if query_succeeded:
-                osint_query_success_count += 1
-            for item in profiles:
-                profile_url = str(item.get("profile_url") or "").strip()
-                website = str(item.get("website") or "").strip()
-                username = str(item.get("username") or "").strip()
-                row_url = profile_url or website
-                site_key = _site_key_from_profile_url(row_url) if row_url else "osint"
-                site_label = site_key or "osint"
-                platform = _site_to_collection_platform(site_key)
-                supported_for_collection = bool(platform and row_url)
-                row_key = "|".join(
-                    [
-                        site_key.lower(),
-                        row_url.lower(),
-                        username.lower(),
-                        str(item.get("email") or "").strip().lower(),
-                        str(item.get("phone") or "").strip().lower(),
-                    ]
-                )
-                if row_key in seen_osint:
-                    continue
-                seen_osint.add(row_key)
-                category = "known_without_url"
-                if row_url:
-                    category = "supported_with_url" if supported_for_collection else "unsupported_with_url"
-                row = {
-                    "selector_type": selector_type,
-                    "selector": selector_value,
-                    "site": site_label,
-                    "site_key": site_key or "osint",
-                    "platform": platform,
-                    "supported_for_collection": supported_for_collection,
-                    "status": "present",
-                    "reason": "osint_industries",
-                    "profile_url": row_url,
-                    "site_url": row_url,
-                    "has_direct_profile_url": bool(row_url),
-                    "category": category,
-                    "source": "osint_industries",
-                    "osint_profile": item,
-                }
-                rows.append(row)
-                osint_profiles.append(item)
-            for spec_row in spec_rows:
-                osint_spec_results.append(spec_row)
-        if osint_query_success_count > 0:
-            api_modules_queried.append(
-                {
-                    "module": "osint_industries",
-                    "label": "OSINT Industries",
-                    "query_success_count": osint_query_success_count,
-                }
-            )
-
-    numverify_key = _numverify_api_key()
-    if numverify_key:
-        seen_numverify_numbers: set[str] = set()
-        numverify_query_success_count = 0
-        for selector in normalized_selectors:
-            selector_type = str(selector.get("type") or "").strip().lower()
-            if selector_type != "phone":
-                continue
-            selector_value = str(selector.get("value") or "").strip()
-            if not selector_value:
-                continue
-            payload = _fetch_numverify_profile(phone=selector_value, api_key=numverify_key)
-            if not payload:
-                continue
-            numverify_query_success_count += 1
-            shaped = _shape_numverify_profile(payload, query_value=selector_value)
-            dedupe_key = str(shaped.get("number") or selector_value).strip().lower()
-            if not dedupe_key or dedupe_key in seen_numverify_numbers:
-                continue
-            seen_numverify_numbers.add(dedupe_key)
-            numverify_profiles.append(shaped)
-
-            status = "present" if shaped.get("valid") is True else "absent"
-            rows.append(
-                {
-                    "selector_type": "phone",
-                    "selector": selector_value,
-                    "site": "numverify",
-                    "site_key": "numverify",
-                    "platform": None,
-                    "supported_for_collection": False,
-                    "status": status,
-                    "reason": "numverify_phone_lookup",
-                    "profile_url": "",
-                    "site_url": "",
-                    "has_direct_profile_url": False,
-                    "category": "known_without_url" if status == "present" else "",
-                    "source": "numverify",
-                    "numverify_profile": shaped,
-                }
-            )
-        if numverify_query_success_count > 0:
-            api_modules_queried.append(
-                {
-                    "module": "numverify",
-                    "label": "Numverify",
-                    "query_success_count": numverify_query_success_count,
-                }
-            )
 
     # Best-effort screenshot capture for present rows that include a direct profile URL.
     screenshot_inputs = [

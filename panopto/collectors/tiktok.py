@@ -1,10 +1,11 @@
-"""TikTok collection helpers for local OSINT workflows via tikvib.com."""
+"""TikTok collection helpers for local OSINT workflows."""
 
 from __future__ import annotations
 
 import random
 import re
 import time
+import os
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
@@ -13,9 +14,14 @@ from urllib.parse import quote, urljoin
 
 import requests
 from bs4 import BeautifulSoup
-from requests import RequestException
 
-from panopto.errors import SourceAccessBlockedError, UsernameNotFoundError
+from panopto.collectors.apify import (
+    ApifyActorInputError,
+    ApifyConfigurationError,
+    ApifyRequestError,
+    run_actor_sync_get_items,
+)
+from panopto.errors import SourceUnavailableError
 
 DEFAULT_HEADERS = {
     "User-Agent": (
@@ -31,6 +37,10 @@ BLOCK_PAGE_MARKERS = (
     "cloudflare",
     "captcha",
 )
+
+DEFAULT_APIFY_TIKTOK_ACTOR_ID = "clockworks/tiktok-scraper"
+APIFY_TIKTOK_ACTOR_ENV = "PANOPTO_APIFY_TIKTOK_ACTOR_ID"
+APIFY_TIKTOK_RESULTS_LIMIT_MAX = 100
 
 
 @dataclass
@@ -66,6 +76,341 @@ def _parse_collection_window(collection_window: str) -> timedelta:
         "Unsupported collection_window format. "
         "Use values like '1 week', '3 days', '12 hours', or '30 minutes'."
     )
+
+
+def _get_actor_id() -> str:
+    return str(os.environ.get(APIFY_TIKTOK_ACTOR_ENV) or DEFAULT_APIFY_TIKTOK_ACTOR_ID).strip()
+
+
+def _deep_get(mapping: dict[str, Any], *paths: str) -> Any:
+    for path in paths:
+        if path in mapping:
+            value = mapping.get(path)
+            if value not in (None, "", []):
+                return value
+        current: Any = mapping
+        ok = True
+        for part in path.split("."):
+            if isinstance(current, dict) and part in current:
+                current = current.get(part)
+            else:
+                ok = False
+                break
+        if ok and current not in (None, "", []):
+            return current
+    return None
+
+
+def _safe_bool(raw: Any) -> bool | None:
+    if raw is None:
+        return None
+    if isinstance(raw, bool):
+        return raw
+    text = str(raw).strip().lower()
+    if not text:
+        return None
+    if text in {"1", "true", "yes", "y"}:
+        return True
+    if text in {"0", "false", "no", "n"}:
+        return False
+    return None
+
+
+def _safe_int(raw: Any) -> int | None:
+    if raw is None:
+        return None
+    if isinstance(raw, bool):
+        return int(raw)
+    if isinstance(raw, int):
+        return raw
+    if isinstance(raw, float):
+        return int(raw)
+    text = str(raw).strip()
+    if not text:
+        return None
+    compact = re.match(r"^([\d.]+)\s*([kKmMbB])$", text)
+    if compact:
+        value = float(compact.group(1))
+        suffix = compact.group(2).lower()
+        multiplier = {"k": 1_000, "m": 1_000_000, "b": 1_000_000_000}[suffix]
+        return int(value * multiplier)
+    digits = re.sub(r"[^\d]", "", text)
+    return int(digits) if digits else None
+
+
+def _first_non_empty_str(mapping: dict[str, Any], *paths: str) -> str:
+    value = _deep_get(mapping, *paths)
+    text = str(value or "").strip()
+    return text
+
+
+def _coerce_http_url(raw: Any) -> str:
+    value = str(raw or "").strip()
+    return value if re.match(r"^https?://", value, flags=re.IGNORECASE) else ""
+
+
+def _parse_datetime_apify(raw_value: Any, now_utc: datetime) -> datetime | None:
+    if raw_value is None:
+        return None
+    if isinstance(raw_value, (int, float)):
+        stamp = float(raw_value)
+        if stamp > 10_000_000_000:
+            stamp /= 1000.0
+        try:
+            return datetime.fromtimestamp(stamp, tz=timezone.utc)
+        except (OverflowError, OSError, ValueError):
+            return None
+    text = str(raw_value).strip()
+    if text.isdigit():
+        return _parse_datetime_apify(int(text), now_utc=now_utc)
+    return _parse_datetime(text, now_utc=now_utc)
+
+
+def _normalize_apify_video_item(record: dict[str, Any], *, normalized_username: str, actor_id: str, now_utc: datetime) -> TikTokPost | None:
+    post_id = _first_non_empty_str(record, "id", "aweme_id", "itemId", "video.id", "videoId")
+
+    source_url = _coerce_http_url(
+        _deep_get(
+            record,
+            "webVideoUrl",
+            "videoUrl",
+            "url",
+            "video.url",
+            "shareUrl",
+        )
+    )
+    if not source_url and post_id:
+        source_url = f"https://www.tiktok.com/@{quote(normalized_username, safe='')}/video/{post_id}"
+
+    caption = _first_non_empty_str(record, "text", "desc", "caption")
+    content = caption or "(video)"
+
+    timestamp = _parse_datetime_apify(
+        _deep_get(record, "createTimeISO", "createTime", "timestamp", "createdAt", "create_time"),
+        now_utc=now_utc,
+    )
+
+    likes = _safe_int(_deep_get(record, "diggCount", "likes", "stats.diggCount", "statistics.likes"))
+    comments = _safe_int(_deep_get(record, "commentCount", "comments", "stats.commentCount", "statistics.comments"))
+    plays = _safe_int(_deep_get(record, "playCount", "views", "stats.playCount", "statistics.views"))
+    shares = _safe_int(_deep_get(record, "shareCount", "stats.shareCount", "statistics.shares"))
+    saves = _safe_int(_deep_get(record, "collectCount", "saveCount", "stats.collectCount", "statistics.saves"))
+
+    video_url = _coerce_http_url(_deep_get(record, "video.downloadAddr", "video.playAddr", "video_url", "downloadAddr"))
+    thumbnail_url = _coerce_http_url(
+        _deep_get(
+            record,
+            "video.cover",
+            "video.dynamicCover",
+            "video.originCover",
+            "thumbnail",
+            "thumbnail_url",
+        )
+    )
+
+    if not post_id and not source_url and not video_url and not thumbnail_url:
+        return None
+
+    author_username = _first_non_empty_str(
+        record,
+        "authorMeta.name",
+        "author.uniqueId",
+        "author.nickname",
+        "author.username",
+        "authorName",
+    )
+    author_nickname = _first_non_empty_str(record, "authorMeta.nickName", "author.nickname", "author.nickName")
+    author_verified = _safe_bool(_deep_get(record, "authorMeta.verified", "author.verified"))
+    author_signature = _first_non_empty_str(record, "authorMeta.signature", "author.signature", "author.bio")
+    author_avatar = _coerce_http_url(
+        _deep_get(record, "authorMeta.avatar", "author.avatarLarger", "author.avatarMedium", "author.avatarThumb")
+    )
+    link_in_bio = _first_non_empty_str(
+        record,
+        "authorMeta.bioLink.link",
+        "author.bioLink.link",
+        "author.link",
+        "author.website",
+    )
+    fans = _safe_int(_deep_get(record, "authorMeta.fans", "authorStats.followerCount", "author.followerCount"))
+    hearts = _safe_int(_deep_get(record, "authorMeta.heart", "authorStats.heartCount", "author.heartCount"))
+    videos = _safe_int(_deep_get(record, "authorMeta.video", "authorStats.videoCount", "author.videoCount"))
+    author_likes = _safe_int(_deep_get(record, "authorMeta.digg", "authorStats.diggCount", "author.diggCount"))
+
+    music = _deep_get(record, "musicMeta", "music")
+    if not isinstance(music, dict):
+        music = {}
+    video_format = _deep_get(record, "videoMeta", "video")
+    if not isinstance(video_format, dict):
+        video_format = {}
+
+    metadata = {
+        "apify_actor_id": actor_id,
+        "caption": caption,
+        "country_of_creation": _first_non_empty_str(record, "locationCreated", "region", "country"),
+        "is_ad": _safe_bool(_deep_get(record, "isAd", "isSponsored")),
+        "music": music,
+        "video_format": video_format,
+        "video_url": video_url or None,
+        "thumbnail_url": thumbnail_url or None,
+        "media": (
+            [
+                {
+                    "type": "video",
+                    "url": video_url,
+                    **({"thumbnail_url": thumbnail_url} if thumbnail_url else {}),
+                }
+            ]
+            if video_url
+            else ([{"type": "image", "url": thumbnail_url}] if thumbnail_url else [])
+        ),
+        "image_urls": [thumbnail_url] if thumbnail_url else [],
+        "plays": plays,
+        "shares": shares,
+        "saves": saves,
+        "likes": likes,
+        "comments": comments,
+        "author_name": author_username or None,
+        "author_nickname": author_nickname or None,
+        "author_verified": author_verified,
+        "author_signature": author_signature or None,
+        "author_avatar_url": author_avatar or None,
+        "profile_image_url": author_avatar or None,
+        "link_in_bio": link_in_bio or None,
+        "author_fans": fans,
+        "author_hearts": hearts,
+        "author_videos": videos,
+        "author_likes": author_likes,
+        "author": {
+            "name": author_username or None,
+            "nickname": author_nickname or None,
+            "verified": author_verified,
+            "signature": author_signature or None,
+            "avatar_url": author_avatar or None,
+            "link_in_bio": link_in_bio or None,
+            "fans": fans,
+            "hearts": hearts,
+            "videos": videos,
+            "likes": author_likes,
+        },
+        "raw": record,
+    }
+
+    return TikTokPost(
+        post_id=post_id or None,
+        username=normalized_username,
+        content=content,
+        timestamp=timestamp,
+        likes=likes,
+        comments=comments,
+        views=plays,
+        source_url=source_url or None,
+        video_url=video_url or None,
+        thumbnail_url=thumbnail_url or None,
+        raw_metadata=metadata,
+    )
+
+
+def _iter_apify_video_records(dataset_items: list[dict[str, Any]]) -> Iterable[dict[str, Any]]:
+    for item in dataset_items:
+        if not isinstance(item, dict):
+            continue
+        if item.get("noResults") is True:
+            continue
+        if str(item.get("error") or "").strip():
+            continue
+
+        yielded_nested = False
+        for list_key in ("videos", "posts", "items", "latestPosts", "itemList", "aweme_list"):
+            nested = item.get(list_key)
+            if not isinstance(nested, list):
+                continue
+            for candidate in nested:
+                if not isinstance(candidate, dict):
+                    continue
+                merged = dict(item)
+                merged.update(candidate)
+                yield merged
+            yielded_nested = True
+
+        if not yielded_nested:
+            yield item
+
+
+def _collect_from_apify(
+    *,
+    normalized_username: str,
+    cutoff: datetime,
+    max_pages: int,
+    timeout: int,
+    now_utc: datetime,
+) -> list[dict[str, Any]]:
+    actor_id = _get_actor_id()
+    max_items = min(APIFY_TIKTOK_RESULTS_LIMIT_MAX, max(12, max_pages * 30))
+    actor_input = {
+        "profiles": [normalized_username],
+        "profileScrapeSections": ["videos"],
+        "resultsPerPage": max_items,
+        "excludePinnedPosts": False,
+        "profileSorting": "latest",
+    }
+    dataset_items = run_actor_sync_get_items(
+        actor_id=actor_id,
+        actor_input=actor_input,
+        timeout_seconds=max(timeout, 180),
+    )
+
+    posts: list[TikTokPost] = []
+    for item in _iter_apify_video_records(dataset_items):
+        normalized = _normalize_apify_video_item(
+            item,
+            normalized_username=normalized_username,
+            actor_id=actor_id,
+            now_utc=now_utc,
+        )
+        if normalized is None:
+            continue
+        if normalized.timestamp and normalized.timestamp < cutoff:
+            continue
+        posts.append(normalized)
+
+    best_by_post_id: dict[str, TikTokPost] = {}
+    posts_without_id: list[TikTokPost] = []
+    for post in posts:
+        if post.post_id:
+            existing = best_by_post_id.get(post.post_id)
+            if existing is None or len(post.content) > len(existing.content):
+                best_by_post_id[post.post_id] = post
+        else:
+            posts_without_id.append(post)
+    normalized_posts = list(best_by_post_id.values()) + posts_without_id
+    normalized_posts.sort(key=lambda post: post.timestamp.isoformat() if post.timestamp else "", reverse=True)
+
+    rows: list[dict[str, Any]] = []
+    seen: set[tuple[str, str, str | None]] = set()
+    for post in normalized_posts:
+        iso_ts = post.timestamp.isoformat() if post.timestamp else None
+        dedupe_key = ("id" if post.post_id else "body", post.post_id or post.content, iso_ts)
+        if dedupe_key in seen:
+            continue
+        seen.add(dedupe_key)
+        rows.append(
+            {
+                "post_id": post.post_id,
+                "platform": "TikTok",
+                "username": normalized_username,
+                "content": post.content,
+                "timestamp": iso_ts,
+                "likes": post.likes,
+                "retweets": None,
+                "replies": post.comments,
+                "source_url": post.source_url,
+                "post_type": "post",
+                "referenced_username": None,
+                "metadata": post.raw_metadata,
+            }
+        )
+    return rows
 
 
 def _extract_count(text: str) -> int | None:
@@ -512,132 +857,34 @@ def collect_tiktok_posts(
     proxies: dict[str, str] | None = None,
     browser_fallback: bool = True,
 ) -> list[dict[str, Any]]:
-    """Collect TikTok profile posts from tikvib.com."""
+    """Collect TikTok profile posts, preferring Apify actor output."""
     if not username or not username.strip():
         raise ValueError("username must be a non-empty string")
 
     normalized_username = username.strip().lstrip("@").lower()
     cutoff = datetime.now(timezone.utc) - _parse_collection_window(collection_window)
     now_utc = datetime.now(timezone.utc)
-    collected: list[TikTokPost] = []
-    blocked_detected = False
-    profile_image_url = ""
+    _ = request_delay_seconds
+    _ = proxies
+    _ = browser_fallback
 
-    static_fetch_failed = False
-    with requests.Session() as session:
-        session.headers.update(DEFAULT_HEADERS)
-        if proxies:
-            session.proxies.update(proxies)
-
-        try:
-            for html in _iter_pages(
-                session,
-                normalized_username,
-                max_pages=max_pages,
-                request_delay_seconds=request_delay_seconds,
-                timeout=timeout,
-            ):
-                if not profile_image_url:
-                    profile_image_url = _extract_profile_image_from_html(html)
-                if _looks_like_block_page(html):
-                    blocked_detected = True
-                    continue
-                page_posts = _extract_posts_from_html(normalized_username, html, now_utc=now_utc)
-                if not page_posts:
-                    continue
-                collected.extend(page_posts)
-        except RequestException as exc:
-            # Allow browser fallback to recover from transient block/rate-limit paths.
-            static_fetch_failed = True
-            response = getattr(exc, "response", None)
-            if response is not None and getattr(response, "status_code", 0) in {403, 429}:
-                blocked_detected = True
-
-    if browser_fallback and (not collected or static_fetch_failed):
-        for rendered_html in _iter_rendered_pages(
-            normalized_username,
+    try:
+        return _collect_from_apify(
+            normalized_username=normalized_username,
+            cutoff=cutoff,
             max_pages=max_pages,
-            timeout=max(timeout, 40),
-        ):
-            if not profile_image_url:
-                profile_image_url = _extract_profile_image_from_html(rendered_html)
-            page_posts = _extract_posts_from_html(normalized_username, rendered_html, now_utc=now_utc)
-            if _looks_like_block_page(rendered_html):
-                blocked_detected = True
-            if not page_posts and _looks_like_block_page(rendered_html):
-                continue
-            if not page_posts:
-                continue
-            collected.extend(page_posts)
-
-    if browser_fallback and not collected:
-        for rendered_html in _iter_official_rendered_pages(
-            normalized_username,
-            max_pages=max_pages,
-            timeout=max(timeout, 45),
-        ):
-            if not profile_image_url:
-                profile_image_url = _extract_profile_image_from_html(rendered_html)
-            page_posts = _extract_posts_from_html(normalized_username, rendered_html, now_utc=now_utc)
-            if _looks_like_block_page(rendered_html):
-                blocked_detected = True
-            if not page_posts and _looks_like_block_page(rendered_html):
-                continue
-            if not page_posts:
-                continue
-            collected.extend(page_posts)
-
-    best_by_post_id: dict[str, TikTokPost] = {}
-    posts_without_id: list[TikTokPost] = []
-
-    for post in collected:
-        if post.post_id:
-            existing = best_by_post_id.get(post.post_id)
-            if existing is None or len(post.content) > len(existing.content):
-                best_by_post_id[post.post_id] = post
-        else:
-            posts_without_id.append(post)
-
-    normalized_posts = list(best_by_post_id.values()) + posts_without_id
-    rows: list[dict[str, Any]] = []
-    seen: set[tuple[str, str, str | None]] = set()
-
-    for post in normalized_posts:
-        if post.timestamp and post.timestamp < cutoff:
-            continue
-
-        iso_ts = post.timestamp.isoformat() if post.timestamp else None
-        dedupe_key = ("id" if post.post_id else "body", post.post_id or post.content, iso_ts)
-        if dedupe_key in seen:
-            continue
-        seen.add(dedupe_key)
-
-        metadata = {
-            **(post.raw_metadata or {}),
-            "video_url": post.video_url,
-            "thumbnail_url": post.thumbnail_url,
-            "views": post.views,
-            "profile_image_url": profile_image_url or None,
-        }
-        rows.append(
-            {
-                "post_id": post.post_id,
-                "platform": "TikTok",
-                "username": normalized_username,
-                "content": post.content,
-                "timestamp": iso_ts,
-                "likes": post.likes,
-                "retweets": None,
-                "replies": post.comments,
-                "source_url": post.source_url,
-                "post_type": "post",
-                "referenced_username": None,
-                "metadata": metadata,
-            }
+            timeout=timeout,
+            now_utc=now_utc,
         )
-
-    if not rows and blocked_detected:
-        raise SourceAccessBlockedError(platform="tiktok", username=normalized_username)
-
-    rows.sort(key=lambda post: post["timestamp"] or "", reverse=True)
-    return rows
+    except ApifyConfigurationError as exc:
+        raise SourceUnavailableError(
+            platform="tiktok",
+            username=normalized_username,
+            reason=str(exc),
+        ) from exc
+    except (ApifyActorInputError, ApifyRequestError) as exc:
+        raise SourceUnavailableError(
+            platform="tiktok",
+            username=normalized_username,
+            reason=str(exc),
+        ) from exc

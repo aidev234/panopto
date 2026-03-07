@@ -17,6 +17,7 @@ _SECRET_ENV_MAP = {
     "osint_industries_api_key": "PANOPTO_OSINT_INDUSTRIES_API_KEY",
     "numverify_api_key": "PANOPTO_NUMVERIFY_API_KEY",
     "openai_api_key": "PANOPTO_OPENAI_API_KEY",
+    "apify_api_token": "PANOPTO_APIFY_API_TOKEN",
 }
 _SECRET_KEYS = tuple(_SECRET_ENV_MAP.keys())
 _RUNTIME_SECRETS: dict[str, str] = {}
@@ -30,18 +31,15 @@ def _normalize_osint_industries_api_key(raw: Any) -> str:
     return str(raw or "").strip()
 
 
-def _normalize_osint_industries_use_premium(raw: Any) -> bool:
-    if isinstance(raw, bool):
-        return raw
-    value = str(raw or "").strip().lower()
-    return value in {"1", "true", "yes", "on"}
-
-
 def _normalize_numverify_api_key(raw: Any) -> str:
     return str(raw or "").strip()
 
 
 def _normalize_openai_api_key(raw: Any) -> str:
+    return str(raw or "").strip()
+
+
+def _normalize_apify_api_token(raw: Any) -> str:
     return str(raw or "").strip()
 
 
@@ -64,6 +62,21 @@ def _normalize_custom_keyword_list(raw: Any) -> list[str]:
     return output
 
 
+def _normalize_data_retention_period(raw: Any) -> str:
+    allowed = {
+        "24h": "24h",
+        "24 hours": "24h",
+        "1 week": "1 week",
+        "3 week": "3 week",
+        "3 weeks": "3 week",
+        "6 weeks": "6 weeks",
+        "3 months": "3 months",
+        "1 year": "1 year",
+    }
+    clean = str(raw or "").strip()
+    return allowed.get(clean, allowed.get(clean.lower(), "3 months"))
+
+
 def _normalize_secret_value(key: str, raw: Any) -> str:
     if key == "pdl_api_key":
         return _normalize_pdl_api_key(raw)
@@ -73,6 +86,8 @@ def _normalize_secret_value(key: str, raw: Any) -> str:
         return _normalize_numverify_api_key(raw)
     if key == "openai_api_key":
         return _normalize_openai_api_key(raw)
+    if key == "apify_api_token":
+        return _normalize_apify_api_token(raw)
     return str(raw or "").strip()
 
 
@@ -80,10 +95,11 @@ def _default_config() -> dict[str, Any]:
     return {
         "pdl_api_key": "",
         "osint_industries_api_key": "",
-        "osint_industries_use_premium": False,
         "custom_keyword_list": [],
+        "default_data_retention_period": "3 months",
         "numverify_api_key": "",
         "openai_api_key": "",
+        "apify_api_token": "",
     }
 
 
@@ -108,15 +124,15 @@ def _load_non_secret_config() -> dict[str, Any]:
         return {}
     payload = _read_json(CONFIG_PATH)
     return {
-        "osint_industries_use_premium": _normalize_osint_industries_use_premium(payload.get("osint_industries_use_premium", False)),
         "custom_keyword_list": _normalize_custom_keyword_list(payload.get("custom_keyword_list", [])),
+        "default_data_retention_period": _normalize_data_retention_period(payload.get("default_data_retention_period")),
     }
 
 
-def _save_non_secret_config(*, osint_industries_use_premium: bool, custom_keyword_list: list[str]) -> None:
+def _save_non_secret_config(*, custom_keyword_list: list[str], default_data_retention_period: str) -> None:
     payload = {
-        "osint_industries_use_premium": bool(osint_industries_use_premium),
         "custom_keyword_list": _normalize_custom_keyword_list(custom_keyword_list),
+        "default_data_retention_period": _normalize_data_retention_period(default_data_retention_period),
     }
     _write_private_text(CONFIG_PATH, json.dumps(payload, ensure_ascii=True, indent=2) + "\n")
 
@@ -235,11 +251,17 @@ def _merge_secret_values(file_secrets: dict[str, str]) -> dict[str, str]:
     openai_global = _normalize_secret_value("openai_api_key", os.environ.get("OPENAI_API_KEY", ""))
     if openai_global:
         merged["openai_api_key"] = openai_global
+    # Backward-compatible standard env for Apify clients.
+    apify_global = _normalize_secret_value("apify_api_token", os.environ.get("APIFY_API_TOKEN", ""))
+    if apify_global:
+        merged["apify_api_token"] = apify_global
     return merged
 
 
 def _secret_storage_mode() -> str:
     has_env_secret = any(str(os.environ.get(env_name) or "").strip() for env_name in _SECRET_ENV_MAP.values())
+    if not has_env_secret and str(os.environ.get("APIFY_API_TOKEN") or "").strip():
+        has_env_secret = True
     if has_env_secret:
         return "env"
     if _secret_passphrase() and SECRETS_PATH.exists():
@@ -263,12 +285,13 @@ def load_config() -> dict[str, Any]:
 def load_public_config() -> dict[str, Any]:
     current = load_config()
     return {
-        "osint_industries_use_premium": bool(current.get("osint_industries_use_premium")),
         "custom_keyword_list": _normalize_custom_keyword_list(current.get("custom_keyword_list", [])),
+        "default_data_retention_period": _normalize_data_retention_period(current.get("default_data_retention_period")),
         "pdl_api_key_configured": bool(str(current.get("pdl_api_key") or "").strip()),
         "osint_industries_api_key_configured": bool(str(current.get("osint_industries_api_key") or "").strip()),
         "numverify_api_key_configured": bool(str(current.get("numverify_api_key") or "").strip()),
         "openai_api_key_configured": bool(str(current.get("openai_api_key") or "").strip()),
+        "apify_api_token_configured": bool(str(current.get("apify_api_token") or "").strip()),
         "secret_storage_mode": _secret_storage_mode(),
     }
 
@@ -277,23 +300,25 @@ def save_config(
     *,
     pdl_api_key: str | None = None,
     osint_industries_api_key: str | None = None,
-    osint_industries_use_premium: bool | None = None,
     custom_keyword_list: list[str] | None = None,
+    default_data_retention_period: str | None = None,
     numverify_api_key: str | None = None,
     openai_api_key: str | None = None,
+    apify_api_token: str | None = None,
     clear_pdl_api_key: bool | None = None,
     clear_osint_industries_api_key: bool | None = None,
     clear_numverify_api_key: bool | None = None,
     clear_openai_api_key: bool | None = None,
+    clear_apify_api_token: bool | None = None,
 ) -> dict[str, Any]:
     non_secret = _load_non_secret_config()
-    if osint_industries_use_premium is not None:
-        non_secret["osint_industries_use_premium"] = _normalize_osint_industries_use_premium(osint_industries_use_premium)
     if custom_keyword_list is not None:
         non_secret["custom_keyword_list"] = _normalize_custom_keyword_list(custom_keyword_list)
+    if default_data_retention_period is not None:
+        non_secret["default_data_retention_period"] = _normalize_data_retention_period(default_data_retention_period)
     _save_non_secret_config(
-        osint_industries_use_premium=_normalize_osint_industries_use_premium(non_secret.get("osint_industries_use_premium", False)),
         custom_keyword_list=_normalize_custom_keyword_list(non_secret.get("custom_keyword_list", [])),
+        default_data_retention_period=_normalize_data_retention_period(non_secret.get("default_data_retention_period")),
     )
 
     current_secrets = _merge_secret_values(_load_file_secrets())
@@ -302,12 +327,14 @@ def save_config(
         "osint_industries_api_key": osint_industries_api_key,
         "numverify_api_key": numverify_api_key,
         "openai_api_key": openai_api_key,
+        "apify_api_token": apify_api_token,
     }
     clears = {
         "pdl_api_key": bool(clear_pdl_api_key),
         "osint_industries_api_key": bool(clear_osint_industries_api_key),
         "numverify_api_key": bool(clear_numverify_api_key),
         "openai_api_key": bool(clear_openai_api_key),
+        "apify_api_token": bool(clear_apify_api_token),
     }
     for key in _SECRET_KEYS:
         if clears.get(key):

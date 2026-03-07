@@ -1,6 +1,6 @@
 # PANOPTO
 
-PANOPTO is a local OSINT workflow for collecting public social posts (Twitter/X, Reddit, TikTok via alt front-ends, Bluesky, and YouTube), storing them in SQLite, and exploring results in a browser dashboard.
+PANOPTO is a local OSINT workflow for collecting public social posts (Twitter/X, Reddit, TikTok, Bluesky, Instagram, and YouTube), storing them in SQLite, and exploring results in a browser dashboard.
 
 Recon supports batch selectors for both usernames and emails, powered by a vendored `user_scanner` integration in `panopto/_vendor/user_scanner` (no separate `pip install user-scanner` required).
 
@@ -8,7 +8,7 @@ Recon supports batch selectors for both usernames and emails, powered by a vendo
 
 - `panopto/post_query.py`: query engine, text cleanup, filtering, and DB-to-view model mapping.
 - `panopto/collection_service.py`: collection orchestration and aggregation workflow.
-- `panopto/collectors/`: platform collectors (`twitter.py`, `reddit.py`, `tiktok.py`, `bluesky.py`, `youtube.py`).
+- `panopto/collectors/`: platform collectors (`twitter.py`, `reddit.py`, `tiktok.py`, `bluesky.py`, `instagram.py`, `youtube.py`).
 - `panopto/storage/posts.py`: SQLite schema and persistence.
 - `frontend/server.py`: HTTP transport layer and static file serving.
 - `frontend/static/`: browser UI.
@@ -59,3 +59,47 @@ Environment variables:
 - Recon with `email` selectors calls PDL Person Enrichment with the email parameter.
 - Recon with `username` selectors calls PDL Person Enrichment for discovered profile URLs.
 - PDL social profiles are surfaced in `Person Data Profile` and merged into recon leads/collection targets.
+
+## Apify Setup (Instagram + TikTok + Twitter/X)
+
+Instagram, TikTok, and Twitter/X collection can run through Apify actor calls.
+
+Environment variables:
+
+- `PANOPTO_APIFY_API_TOKEN`: required Apify API token.
+- `PANOPTO_APIFY_INSTAGRAM_ACTOR_ID` (optional): actor ID override. Defaults to `apify/instagram-scraper`.
+- `PANOPTO_APIFY_TIKTOK_ACTOR_ID` (optional): actor ID override. Defaults to `clockworks/tiktok-scraper`.
+- `PANOPTO_APIFY_TWITTER_ACTOR_ID` (optional): actor ID override. Defaults to `apidojo/tweet-scraper`.
+
+Example:
+
+```bash
+export PANOPTO_APIFY_API_TOKEN="apify_api_..."
+export PANOPTO_APIFY_INSTAGRAM_ACTOR_ID="apify/instagram-scraper"
+export PANOPTO_APIFY_TIKTOK_ACTOR_ID="clockworks/tiktok-scraper"
+export PANOPTO_APIFY_TWITTER_ACTOR_ID="apidojo/tweet-scraper"
+python3 panopto.py
+```
+
+Twitter actor input templates used by the collector:
+
+Fetch tweets from a profile:
+
+```json
+{
+  "searchTerms": ["from:NASA"],
+  "sort": "Latest"
+}
+```
+
+Fetch tweets with date ranges:
+
+```json
+{
+  "searchTerms": [
+    "from:NASA since:2024-01-01 until:2024-06-01",
+    "from:NASA since:2024-06-01 until:2024-12-01"
+  ],
+  "sort": "Latest"
+}
+```

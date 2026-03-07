@@ -5,6 +5,9 @@ from unittest.mock import patch
 from panopto.recon import (
     _check_linkedin,
     _check_twitter,
+    _decode_google_polyline,
+    _fetch_osint_profiles,
+    _osint_coordinate_pair,
     _shape_person_data_profile,
     normalize_recon_selectors,
     run_recon,
@@ -381,7 +384,6 @@ def test_run_recon_includes_osint_profiles_and_spec_results():
             return_value={
                 "pdl_api_key": "",
                 "osint_industries_api_key": "oi_test_key",
-                "osint_industries_use_premium": True,
             },
         ):
             with patch("panopto.recon._fetch_osint_profiles", return_value=([osint_profile], [osint_spec], True)):
@@ -394,6 +396,217 @@ def test_run_recon_includes_osint_profiles_and_spec_results():
     assert any(row.get("source") == "osint_industries" for row in payload.get("results", []))
     assert any(row.get("screenshot_url") == "/recon_shots/osint-test.png?v=1" for row in payload.get("results", []))
     assert {"platform": "twitter", "username": "janedoe"} in payload.get("collection_targets", [])
+
+
+def test_run_recon_email_merges_scanner_and_osint_results():
+    scanner_rows = [
+        {"site_name": "Github", "status": "Found", "url": "https://github.com"},
+        {"site_name": "Reddit", "status": "Not Found", "url": "https://reddit.com"},
+    ]
+    osint_profile = {
+        "title": "Matt Campbell",
+        "name": "Matt Campbell",
+        "module": "strava",
+        "profile_url": "https://www.strava.com/athletes/11713407",
+        "source": "osint_industries",
+        "query_type": "email",
+        "query_value": "mattcampbell@gmail.com",
+    }
+
+    with patch("panopto.recon._run_user_scanner_selector", return_value=scanner_rows):
+        with patch("panopto.recon.load_config", return_value={"pdl_api_key": "", "osint_industries_api_key": "oi_test_key"}):
+            with patch("panopto.recon._fetch_osint_profiles", return_value=([osint_profile], [], True)):
+                with patch("panopto.recon._capture_profile_screenshot", return_value=""):
+                    payload = run_recon([{"type": "email", "value": "mattcampbell@gmail.com"}])
+
+    assert len(payload.get("osint_profiles") or []) == 1
+    assert any(row.get("source") == "osint_industries" for row in payload.get("results", []))
+    assert any(
+        row.get("source") == "scanner"
+        and row.get("selector_type") == "email"
+        and row.get("site_key") == "github"
+        for row in payload.get("results", [])
+    )
+    assert any(item.get("module") == "osint_industries" for item in payload.get("api_modules_queried", []))
+
+
+def test_run_recon_osint_website_only_does_not_emit_account_profile_url():
+    osint_profile = {
+        "title": "Example Listing",
+        "name": "Example Listing",
+        "module": "airbnb",
+        "website": "https://www.airbnb.com/users/show/12345",
+        "source": "osint_industries",
+        "query_type": "email",
+        "query_value": "mattcampbell@gmail.com",
+    }
+
+    with patch("panopto.recon._run_user_scanner_selector", return_value=[]):
+        with patch("panopto.recon.load_config", return_value={"pdl_api_key": "", "osint_industries_api_key": "oi_test_key"}):
+            with patch("panopto.recon._fetch_osint_profiles", return_value=([osint_profile], [], True)):
+                with patch("panopto.recon._capture_profile_screenshot", return_value=""):
+                    payload = run_recon([{"type": "email", "value": "mattcampbell@gmail.com"}])
+
+    osint_rows = [row for row in payload.get("results", []) if row.get("source") == "osint_industries"]
+    assert len(osint_rows) == 1
+    row = osint_rows[0]
+    assert row["profile_url"] == ""
+    assert row["has_direct_profile_url"] is False
+    assert row["category"] == "known_without_url"
+    assert row["site_url"] == "https://www.airbnb.com/users/show/12345"
+
+
+def test_fetch_osint_profiles_maps_spec_format_fields_into_osint_profile():
+    class _FakeResponse:
+        status_code = 200
+
+        @staticmethod
+        def iter_lines(decode_unicode=True):
+            _ = decode_unicode
+            yield '{"data":[{"module":"chess","status":"found","reliable_source":true,"front_schemas":[{"image":"https://cdn.example.com/avatar.jpg","timeline":{"registered_date":"2016-08-17T18:28:32","last_seen_date":"2026-03-03T17:18:53"}}],"spec_format":[{"registered":{"type":"bool","proper_key":"Registered","value":true},"id":{"type":"int","proper_key":"Id","value":29522958},"name":{"type":"str","proper_key":"Name","value":"Matt C"},"picture_url":{"type":"str","proper_key":"Picture Url","value":"https://images.example.com/matt.jpg"},"location":{"type":"str","proper_key":"Location","value":"Country: CA"},"username":{"type":"str","proper_key":"Username","value":"mattcampbellca"},"profile_url":{"type":"str","proper_key":"Profile Url","value":"https://www.chess.com/member/mattcampbellca"},"followers":{"type":"int","proper_key":"Followers","value":2},"following":{"type":"int","proper_key":"Following","value":0},"verified":{"type":"bool","proper_key":"Verified","value":false},"private":{"type":"bool","proper_key":"Private","value":false},"creation_date":{"type":"datetime","proper_key":"Creation Date","value":"2016-08-17T18:28:32"},"last_seen":{"type":"datetime","proper_key":"Last Seen","value":"2026-03-03T17:18:53"}}]}]}'
+
+    with patch("panopto.recon.requests.get", return_value=_FakeResponse()):
+        profiles, spec_rows, query_succeeded = _fetch_osint_profiles(
+            selector_type="username",
+            selector_value="mattcampbellca",
+            api_key="oi_test_key",
+        )
+
+    assert query_succeeded is True
+    assert len(profiles) == 1
+    profile = profiles[0]
+    assert profile["registered"] == "True"
+    assert profile["id"] == "29522958"
+    assert profile["followers"] == "2"
+    assert profile["following"] == "0"
+    assert profile["verified"] == "False"
+    assert profile["private"] == "False"
+    assert profile["creation_date"] == "2016-08-17T18:28:32"
+    assert profile["last_seen"] == "2026-03-03T17:18:53"
+    assert profile["profile_url"] == "https://www.chess.com/member/mattcampbellca"
+    assert len(spec_rows) == 1
+
+
+def test_fetch_osint_profiles_treats_root_domain_profile_url_as_website_only():
+    class _FakeResponse:
+        status_code = 200
+
+        @staticmethod
+        def iter_lines(decode_unicode=True):
+            _ = decode_unicode
+            yield '{"data":[{"module":"strava","status":"found","reliable_source":true,"spec_format":[{"name":{"proper_key":"Name","value":"Matt C"},"profile_url":{"proper_key":"Profile Url","value":"https://www.strava.com"},"username":{"proper_key":"Username","value":"mattcampbellca"}}]}]}'
+
+    with patch("panopto.recon.requests.get", return_value=_FakeResponse()):
+        profiles, spec_rows, query_succeeded = _fetch_osint_profiles(
+            selector_type="username",
+            selector_value="mattcampbellca",
+            api_key="oi_test_key",
+        )
+
+    assert query_succeeded is True
+    assert len(spec_rows) == 1
+    assert len(profiles) == 1
+    profile = profiles[0]
+    assert profile["module"] == "strava"
+    assert profile["profile_url"] == ""
+    assert profile["website"] == "https://www.strava.com"
+
+
+def test_fetch_osint_profiles_accepts_direct_profile_fields_without_spec_format():
+    class _FakeResponse:
+        status_code = 200
+
+        @staticmethod
+        def iter_lines(decode_unicode=True):
+            _ = decode_unicode
+            yield '{"data":[{"module":"x","status":"found","username":"janedoe","name":"Jane Doe","profile_url":"https://x.com/janedoe","bio":"OSINT analyst"}]}'
+
+    with patch("panopto.recon.requests.get", return_value=_FakeResponse()):
+        profiles, spec_rows, query_succeeded = _fetch_osint_profiles(
+            selector_type="username",
+            selector_value="janedoe",
+            api_key="oi_test_key",
+        )
+
+    assert query_succeeded is True
+    assert len(profiles) == 1
+    assert profiles[0]["profile_url"] == "https://x.com/janedoe"
+    assert profiles[0]["username"] == "janedoe"
+    assert len(spec_rows) == 1
+
+
+def test_fetch_osint_profiles_keeps_biolocation_and_uses_location_fallback():
+    class _FakeResponse:
+        status_code = 200
+
+        @staticmethod
+        def iter_lines(decode_unicode=True):
+            _ = decode_unicode
+            yield (
+                '{"data":[{"module":"forum","status":"found","reliable_source":true,'
+                '"spec_format":[{"username":{"proper_key":"Username","value":"geo_user"},'
+                '"profile_url":{"proper_key":"Profile Url","value":"https://example.com/u/geo_user"},'
+                '"biolocation":{"proper_key":"Biolocation","value":"Country: CA"}'
+                '}]}]}'
+            )
+
+    with patch("panopto.recon.requests.get", return_value=_FakeResponse()):
+        profiles, _, query_succeeded = _fetch_osint_profiles(
+            selector_type="username",
+            selector_value="geo_user",
+            api_key="oi_test_key",
+        )
+
+    assert query_succeeded is True
+    assert len(profiles) == 1
+    profile = profiles[0]
+    assert profile["biolocation"] == "Country: CA"
+    assert profile["location"] == "Country: CA"
+
+
+def test_decode_google_polyline_decodes_lat_lon_pairs():
+    points = _decode_google_polyline("_p~iF~ps|U_ulLnnqC_mqNvxq`@")
+    assert len(points) == 3
+    assert points[0] == {"lat": 38.5, "lon": -120.2}
+    assert points[-1] == {"lat": 43.252, "lon": -126.453}
+
+
+def test_osint_coordinate_pair_swaps_lon_lat_when_inverted():
+    pair = _osint_coordinate_pair([-122.3321, 47.6062])
+    assert pair == (47.6062, -122.3321)
+
+
+def test_fetch_osint_profiles_extracts_geo_signals_from_points_and_polylines():
+    class _FakeResponse:
+        status_code = 200
+
+        @staticmethod
+        def iter_lines(decode_unicode=True):
+            _ = decode_unicode
+            yield (
+                '{"data":[{"module":"strava","status":"found","reliable_source":true,'
+                '"spec_format":[{"name":{"proper_key":"Name","value":"Matt Route"},'
+                '"profile_url":{"proper_key":"Profile Url","value":"https://www.strava.com/athletes/matt"},'
+                '"review_text":{"proper_key":"Review Text","value":"Great ride around Seattle"},'
+                '"review_location":{"lat":47.6062,"lon":-122.3321},'
+                '"route_polyline":"_p~iF~ps|U_ulLnnqC_mqNvxq`@"}]}]}'
+            )
+
+    with patch("panopto.recon.requests.get", return_value=_FakeResponse()):
+        profiles, _, query_succeeded = _fetch_osint_profiles(
+            selector_type="email",
+            selector_value="matt@example.com",
+            api_key="oi_test_key",
+        )
+
+    assert query_succeeded is True
+    assert len(profiles) == 1
+    geo_signals = profiles[0].get("geo_signals") or []
+    point_signals = [item for item in geo_signals if item.get("kind") == "point"]
+    route_signals = [item for item in geo_signals if item.get("kind") == "polyline"]
+    assert any(abs(float(item.get("lat") or 0) - 47.6062) < 0.0001 for item in point_signals)
+    assert route_signals
+    assert len(route_signals[0].get("coordinates") or []) >= 3
 
 
 def test_run_recon_includes_numverify_phone_results():
@@ -413,7 +626,6 @@ def test_run_recon_includes_numverify_phone_results():
             return_value={
                 "pdl_api_key": "",
                 "osint_industries_api_key": "",
-                "osint_industries_use_premium": False,
                 "numverify_api_key": "numverify_test_key",
             },
         ):
@@ -458,7 +670,6 @@ def test_run_recon_reports_all_successfully_queried_api_modules():
             return_value={
                 "pdl_api_key": "pdl_test_key",
                 "osint_industries_api_key": "oi_test_key",
-                "osint_industries_use_premium": False,
                 "numverify_api_key": "numverify_test_key",
             },
         ):

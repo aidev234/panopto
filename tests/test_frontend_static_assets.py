@@ -22,16 +22,22 @@ def test_index_uses_local_assets_only():
     assert "id=\"contextRange\"" in html
     assert "id=\"postingTimezoneMap\"" in html
     assert "id=\"viewPatternLifeBtn\"" in html
+    assert "id=\"viewTimelineBtn\"" in html
     assert "id=\"patternLifeView\"" in html
     assert "id=\"patternLifeMap\"" in html
+    assert "id=\"timelineView\"" in html
     assert "id=\"faceRecognitionFilterList\"" in html
     assert "id=\"faceRecognitionFilterEmpty\"" in html
     assert "id=\"runFaceRecognitionBtn\"" in html
     assert "id=\"faceRecognitionStatus\"" in html
     assert "id=\"faceConfidenceRange\"" in html
     assert "id=\"faceConfidenceValue\"" in html
-    assert "id=\"quitSaveBtn\"" in html
-    assert "id=\"quitSaveSessionCaseBtn\"" in html
+    assert "id=\"quitBtn\"" in html
+    assert "id=\"quitSessionCaseBtn\"" in html
+    assert "id=\"quitOptionsModal\"" in html
+    assert "id=\"quitOptionsSaveBtn\"" in html
+    assert "id=\"quitOptionsWipeBtn\"" in html
+    assert "id=\"quitOptionsQuitBtn\"" in html
 
 
 def test_collection_target_platform_options_include_instagram():

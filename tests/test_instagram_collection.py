@@ -1,17 +1,9 @@
 from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
-from panopto.errors import SourceAccessBlockedError
-from panopto.collectors.instagram import (
-    _dismiss_browser_overlays,
-    _extract_posts_from_html,
-    _iter_pages,
-    _safe_scroll_height,
-    _safe_scroll_to_bottom,
-    _safe_page_content,
-    collect_instagram_posts,
-    normalize_instagram_username,
-)
+from panopto.collectors.apify import ApifyActorInputError
+from panopto.collectors.instagram import collect_instagram_posts, normalize_instagram_username
+from panopto.errors import SourceUnavailableError
 
 
 def test_normalize_instagram_username():
@@ -19,248 +11,278 @@ def test_normalize_instagram_username():
     assert normalize_instagram_username("https://www.instagram.com/AOC/") == "AOC"
 
 
-def test_extract_posts_from_html_parses_post_link_and_caption():
-    html = """
-    <article data-shortcode="abc123">
-      <a href="https://www.instagram.com/p/abc123/">open</a>
-      <p class="caption">Hello Instagram</p>
-      <time datetime="2026-02-10T12:00:00Z"></time>
-      <img src="https://cdn.example.com/ig.jpg" />
-    </article>
-    """
-    posts = _extract_posts_from_html("aoc", html, now_utc=datetime(2026, 2, 12, tzinfo=timezone.utc))
-    assert len(posts) == 1
-    assert posts[0]["post_id"] == "abc123"
-    assert posts[0]["content"] == "Hello Instagram"
-    assert posts[0]["source_url"] == "https://www.instagram.com/p/abc123/"
-    assert posts[0]["platform"] == "Instagram"
-
-
 def test_collect_instagram_posts_filters_window_and_dedupes():
     now = datetime.now(timezone.utc)
     recent_iso = (now - timedelta(days=1)).isoformat()
     old_iso = (now - timedelta(days=50)).isoformat()
-    html = f"""
-    <article data-shortcode="r1">
-      <a href="https://www.instagram.com/p/r1/">open</a>
-      <p>Recent IG</p>
-      <time datetime="{recent_iso}"></time>
-    </article>
-    <article data-shortcode="r1">
-      <a href="https://www.instagram.com/p/r1/">open</a>
-      <p>Recent IG with more detail</p>
-      <time datetime="{recent_iso}"></time>
-    </article>
-    <article data-shortcode="o1">
-      <a href="https://www.instagram.com/p/o1/">open</a>
-      <p>Old IG</p>
-      <time datetime="{old_iso}"></time>
-    </article>
-    """
-    with patch("panopto.collectors.instagram._iter_pages", return_value=[html]):
-        rows = collect_instagram_posts("aoc", "14 days", request_delay_seconds=0, browser_fallback=False)
+    dataset = [
+        {
+            "shortCode": "r1",
+            "url": "https://www.instagram.com/p/r1/",
+            "caption": "Recent IG",
+            "timestamp": recent_iso,
+            "ownerUsername": "aoc",
+        },
+        {
+            "shortCode": "r1",
+            "url": "https://www.instagram.com/p/r1/",
+            "caption": "Recent IG with more detail",
+            "timestamp": recent_iso,
+            "ownerUsername": "aoc",
+        },
+        {
+            "shortCode": "o1",
+            "url": "https://www.instagram.com/p/o1/",
+            "caption": "Old IG",
+            "timestamp": old_iso,
+            "ownerUsername": "aoc",
+        },
+    ]
+    with patch("panopto.collectors.instagram.run_actor_sync_get_items", return_value=dataset):
+        rows = collect_instagram_posts("aoc", "14 days")
 
     assert len(rows) == 1
     assert rows[0]["post_id"] == "r1"
     assert rows[0]["content"] == "Recent IG with more detail"
 
 
-def test_collect_instagram_browser_fallback_when_request_path_empty():
-    browser_html = """
-    <article data-shortcode="b1">
-      <a href="https://www.instagram.com/p/b1/">open</a>
-      <p>Loaded after scroll</p>
-      <time datetime="2026-02-10T12:00:00Z"></time>
-    </article>
-    """
-    with (
-        patch("panopto.collectors.instagram._iter_pages", return_value=["<html></html>"]),
-        patch("panopto.collectors.instagram._iter_rendered_pages", return_value=[browser_html]),
-    ):
-        rows = collect_instagram_posts("aoc", "30 days", request_delay_seconds=0, browser_fallback=True)
-
-    assert len(rows) == 1
-    assert rows[0]["post_id"] == "b1"
-
-
-def test_collect_instagram_browser_backfill_when_static_only_old_posts():
+def test_collect_instagram_posts_falls_back_to_direct_urls_input():
     now = datetime.now(timezone.utc)
-    old_iso = (now - timedelta(days=180)).isoformat()
-    recent_iso = (now - timedelta(days=1)).isoformat()
-    static_html = f"""
-    <article data-shortcode="old1">
-      <a href="https://www.instagram.com/p/old1/">open</a>
-      <p>Pinned old post</p>
-      <time datetime="{old_iso}"></time>
-    </article>
-    """
-    browser_html = f"""
-    <article data-shortcode="new1">
-      <a href="https://www.instagram.com/p/new1/">open</a>
-      <p>Recent post from rendered path</p>
-      <time datetime="{recent_iso}"></time>
-    </article>
-    """
-    with (
-        patch("panopto.collectors.instagram._iter_pages", return_value=[static_html]),
-        patch("panopto.collectors.instagram._iter_rendered_pages", return_value=[browser_html]),
-    ):
-        rows = collect_instagram_posts("aoc", "14 days", request_delay_seconds=0, browser_fallback=True)
+    dataset = [
+        {
+            "shortCode": "abc123",
+            "caption": "Fallback input path works",
+            "timestamp": now.isoformat(),
+            "url": "https://www.instagram.com/p/abc123/",
+        }
+    ]
+    with patch(
+        "panopto.collectors.instagram.run_actor_sync_get_items",
+        side_effect=[
+            ApifyActorInputError("usernames not allowed"),
+            dataset,
+        ],
+    ) as run_mock:
+        rows = collect_instagram_posts("aoc", "14 days", timeout=12)
 
     assert len(rows) == 1
-    assert rows[0]["post_id"] == "new1"
+    assert rows[0]["post_id"] == "abc123"
+    assert run_mock.call_count == 2
+    first_payload = run_mock.call_args_list[0].kwargs["actor_input"]
+    second_payload = run_mock.call_args_list[1].kwargs["actor_input"]
+    assert "username" in first_payload
+    assert "directUrls" in second_payload
 
 
-def test_collect_instagram_uses_official_fallback_when_aggregator_paths_empty():
-    html = """
-    <article>
-      <a href="/p/newer1/">open</a>
-      <img src="https://cdn.example.com/newer.jpg" />
-    </article>
-    """
-    with (
-        patch("panopto.collectors.instagram._iter_pages", return_value=[]),
-        patch("panopto.collectors.instagram._iter_rendered_pages", return_value=[]),
-        patch("panopto.collectors.instagram._iter_official_rendered_pages", return_value=[html]),
+def test_collect_instagram_posts_raises_unavailable_when_actor_input_rejected():
+    with patch(
+        "panopto.collectors.instagram.run_actor_sync_get_items",
+        side_effect=ApifyActorInputError("bad schema"),
     ):
-        rows = collect_instagram_posts("aoc", "30 days", request_delay_seconds=0, browser_fallback=True)
-
-    assert len(rows) == 1
-    assert rows[0]["source_url"] == "https://www.instagram.com/p/newer1/"
-
-
-def test_collect_instagram_raises_blocked_error_on_challenge_pages():
-    blocked_html = "<html><body>Just a moment... /cdn-cgi/challenge-platform/ cloudflare</body></html>"
-    with (
-        patch("panopto.collectors.instagram._iter_pages", return_value=[blocked_html]),
-        patch("panopto.collectors.instagram.requests.Session.get") as mock_get,
-    ):
-        mock_get.return_value.status_code = 200
-        mock_get.return_value.text = blocked_html
         try:
-            collect_instagram_posts("aoc", "30 days", request_delay_seconds=0, browser_fallback=False)
-        except SourceAccessBlockedError as exc:
+            collect_instagram_posts("aoc", "30 days")
+        except SourceUnavailableError as exc:
             assert exc.platform == "instagram"
             assert exc.username == "aoc"
+            assert "input rejected" in exc.reason
         else:
-            raise AssertionError("Expected SourceAccessBlockedError on challenge page")
+            raise AssertionError("Expected SourceUnavailableError for rejected actor input")
 
 
-def test_extract_posts_from_html_fallback_reads_links_from_script_payload():
-    html = """
-    <html><body>
-      <script>
-        window.__DATA__ = {"items":[{"url":"https://www.instagram.com/reel/xyz123/"}]};
-      </script>
-    </body></html>
-    """
-    posts = _extract_posts_from_html("aoc", html, now_utc=datetime(2026, 2, 12, tzinfo=timezone.utc))
-    assert len(posts) == 1
-    assert posts[0]["post_id"] == "xyz123"
-    assert posts[0]["source_url"] == "https://www.instagram.com/reel/xyz123/"
+def test_collect_instagram_posts_maps_latest_posts_shape():
+    now = datetime.now(timezone.utc)
+    dataset = [
+        {
+            "username": "aoc",
+            "latestPosts": [
+                {
+                    "shortCode": "nested1",
+                    "caption": "nested row",
+                    "timestamp": now.isoformat(),
+                    "displayUrl": "https://cdn.example.com/1.jpg",
+                }
+            ],
+        }
+    ]
+    with patch("panopto.collectors.instagram.run_actor_sync_get_items", return_value=dataset):
+        rows = collect_instagram_posts("aoc", "14 days")
+
+    assert len(rows) == 1
+    assert rows[0]["post_id"] == "nested1"
+    assert rows[0]["source_url"] == "https://www.instagram.com/p/nested1/"
+    assert rows[0]["metadata"]["image_urls"] == ["https://cdn.example.com/1.jpg"]
 
 
-def test_extract_posts_from_html_fallback_reads_shortcode_payload_without_links():
-    html = """
-    <html><body>
-      <script>
-        window.__DATA__ = {"edge_media_to_caption":{"shortcode":"zzTop999"}};
-      </script>
-    </body></html>
-    """
-    posts = _extract_posts_from_html("aoc", html, now_utc=datetime(2026, 2, 12, tzinfo=timezone.utc))
-    assert len(posts) == 1
-    assert posts[0]["post_id"] == "zzTop999"
-    assert posts[0]["source_url"] == "https://www.instagram.com/p/zzTop999/"
+def test_collect_instagram_posts_retries_when_first_input_returns_empty():
+    now = datetime.now(timezone.utc)
+    dataset = [
+        {
+            "shortCode": "abc999",
+            "caption": "Returned on fallback input",
+            "timestamp": now.isoformat(),
+            "url": "https://www.instagram.com/p/abc999/",
+        }
+    ]
+    with patch(
+        "panopto.collectors.instagram.run_actor_sync_get_items",
+        side_effect=[[], dataset],
+    ) as run_mock:
+        rows = collect_instagram_posts("aoc", "14 days")
+
+    assert len(rows) == 1
+    assert rows[0]["post_id"] == "abc999"
+    assert run_mock.call_count == 2
 
 
-def test_iter_pages_tries_detail_url_variants():
-    class _Response:
-        def __init__(self, status_code: int, text: str):
-            self.status_code = status_code
-            self.text = text
+def test_collect_instagram_posts_skips_posts_not_owned_by_target_when_tagged():
+    now = datetime.now(timezone.utc)
+    dataset = [
+        {
+            "id": "3829044966723868326",
+            "shortCode": "DUjgBwuktam",
+            "caption": "sample caption",
+            "url": "https://www.instagram.com/p/DUjgBwuktam/",
+            "displayUrl": "https://cdn.example.com/post.jpg",
+            "videoUrl": "https://cdn.example.com/post.mp4",
+            "timestamp": now.isoformat(),
+            "ownerUsername": "uaw.union",
+            "taggedUsers": [
+                {
+                    "username": "aoc",
+                    "profile_pic_url": "https://cdn.example.com/aoc.jpg",
+                }
+            ],
+        }
+    ]
+    with patch("panopto.collectors.instagram.run_actor_sync_get_items", return_value=dataset):
+        rows = collect_instagram_posts("aoc", "30 days")
 
-    class _Session:
-        def __init__(self):
-            self.calls = []
-
-        def get(self, url, timeout=20):
-            self.calls.append(url)
-            if "detail/?username" in url:
-                return _Response(200, "<html>ok</html>")
-            return _Response(404, "")
-
-    session = _Session()
-    pages = list(_iter_pages(session, "aoc", max_pages=1, request_delay_seconds=0, timeout=20))
-
-    assert pages == ["<html>ok</html>"]
-    assert any("detail/?username=aoc" in call for call in session.calls)
-
-
-def test_dismiss_browser_overlays_executes_js_and_escape():
-    class _Keyboard:
-        def __init__(self):
-            self.keys = []
-
-        def press(self, key):
-            self.keys.append(key)
-
-    class _Page:
-        def __init__(self):
-            self.scripts = []
-            self.keyboard = _Keyboard()
-
-        def evaluate(self, script):
-            self.scripts.append(script)
-            return None
-
-    page = _Page()
-    _dismiss_browser_overlays(page)
-
-    assert page.scripts
-    assert "closeTokens" in page.scripts[0]
-    assert page.keyboard.keys == ["Escape"]
+    assert rows == []
 
 
-def test_safe_page_content_retries_transient_errors():
-    class _Page:
-        def __init__(self):
-            self.calls = 0
+def test_collect_instagram_posts_uses_owner_profile_pic_and_primary_image_only():
+    now = datetime.now(timezone.utc)
+    dataset = [
+        {
+            "id": "3829044966723868326",
+            "shortCode": "DUjgBwuktam",
+            "caption": "sample caption",
+            "url": "https://www.instagram.com/p/DUjgBwuktam/",
+            "displayUrl": "https://cdn.example.com/post-1.jpg",
+            "images": ["https://cdn.example.com/post-2.jpg", "https://cdn.example.com/post-3.jpg"],
+            "timestamp": now.isoformat(),
+            "ownerUsername": "aoc",
+            "ownerProfilePicUrl": "https://cdn.example.com/aoc-owner.jpg",
+        }
+    ]
+    with patch("panopto.collectors.instagram.run_actor_sync_get_items", return_value=dataset):
+        rows = collect_instagram_posts("aoc", "30 days")
 
-        def content(self):
-            self.calls += 1
-            if self.calls == 1:
-                raise RuntimeError("navigating")
-            return "<html>ok</html>"
-
-        def wait_for_timeout(self, _ms):
-            return None
-
-    page = _Page()
-    assert _safe_page_content(page) == "<html>ok</html>"
+    assert len(rows) == 1
+    assert rows[0]["content"] == "sample caption"
+    assert rows[0]["source_url"] == "https://www.instagram.com/p/DUjgBwuktam/"
+    assert rows[0]["metadata"]["profile_image_url"] == "https://cdn.example.com/aoc-owner.jpg"
+    assert rows[0]["metadata"]["image_urls"] == ["https://cdn.example.com/post-1.jpg"]
 
 
-def test_safe_scroll_helpers_retry_transient_navigation_errors():
-    class _Page:
-        def __init__(self):
-            self.eval_calls = 0
-            self.scrolled = False
+def test_collect_instagram_posts_does_not_build_shortcode_from_numeric_id():
+    now = datetime.now(timezone.utc)
+    dataset = [
+        {
+            "id": "3829044966723868326",
+            "caption": "numeric id only",
+            "timestamp": now.isoformat(),
+            "ownerUsername": "aoc",
+        }
+    ]
+    with patch("panopto.collectors.instagram.run_actor_sync_get_items", return_value=dataset):
+        rows = collect_instagram_posts("aoc", "30 days")
 
-        def evaluate(self, expression):
-            self.eval_calls += 1
-            if self.eval_calls == 1:
-                raise RuntimeError("context destroyed")
-            if "scrollHeight" in expression and "window.scrollTo" not in expression:
-                return 900
-            if "window.scrollTo" in expression:
-                self.scrolled = True
-                return None
-            return None
+    assert len(rows) == 1
+    assert rows[0]["post_id"] is None
+    assert rows[0]["source_url"] == "https://www.instagram.com/aoc/"
 
-        def wait_for_timeout(self, _ms):
-            return None
 
-    page = _Page()
-    assert _safe_scroll_height(page) == 900
-    _safe_scroll_to_bottom(page)
-    assert page.scrolled is True
+def test_collect_instagram_posts_supports_caption_object_shape():
+    now = datetime.now(timezone.utc)
+    dataset = [
+        {
+            "shortCode": "objcap1",
+            "caption": {"text": "caption from object"},
+            "timestamp": now.isoformat(),
+            "url": "https://www.instagram.com/p/objcap1/",
+            "ownerUsername": "aoc",
+        }
+    ]
+    with patch("panopto.collectors.instagram.run_actor_sync_get_items", return_value=dataset):
+        rows = collect_instagram_posts("aoc", "30 days")
+
+    assert len(rows) == 1
+    assert rows[0]["content"] == "caption from object"
+
+
+def test_collect_instagram_posts_ignores_profile_only_item_and_uses_fallback_posts():
+    now = datetime.now(timezone.utc)
+    profile_only = [
+        {
+            "username": "aoc",
+            "fullName": "Alexandria Ocasio-Cortez",
+            "url": "https://www.instagram.com/aoc/",
+        }
+    ]
+    dataset = [
+        {
+            "shortCode": "realpost1",
+            "caption": "real post from fallback input",
+            "timestamp": now.isoformat(),
+            "url": "https://www.instagram.com/p/realpost1/",
+            "displayUrl": "https://cdn.example.com/realpost1.jpg",
+            "ownerUsername": "aoc",
+        }
+    ]
+    with patch(
+        "panopto.collectors.instagram.run_actor_sync_get_items",
+        side_effect=[profile_only, dataset],
+    ) as run_mock:
+        rows = collect_instagram_posts("aoc", "14 days")
+
+    assert len(rows) == 1
+    assert rows[0]["post_id"] == "realpost1"
+    assert rows[0]["content"] == "real post from fallback input"
+    assert rows[0]["source_url"] == "https://www.instagram.com/p/realpost1/"
+    assert run_mock.call_count == 2
+
+
+def test_collect_instagram_posts_supports_nested_items_shape():
+    now = datetime.now(timezone.utc)
+    dataset = [
+        {
+            "items": [
+                {
+                    "shortCode": "nestedshape1",
+                    "captionText": "nested list payload",
+                    "created_time": int(now.timestamp()),
+                    "url": "https://www.instagram.com/p/nestedshape1/",
+                    "ownerUsername": "aoc",
+                }
+            ]
+        }
+    ]
+    with patch("panopto.collectors.instagram.run_actor_sync_get_items", return_value=dataset):
+        rows = collect_instagram_posts("aoc", "30 days")
+
+    assert len(rows) == 1
+    assert rows[0]["post_id"] == "nestedshape1"
+    assert rows[0]["content"] == "nested list payload"
+
+
+def test_collect_instagram_posts_raises_unavailable_on_actor_error_items():
+    dataset = [{"error": "profile_not_found", "errorDescription": "username missing"}]
+    with patch("panopto.collectors.instagram.run_actor_sync_get_items", return_value=dataset):
+        try:
+            collect_instagram_posts("aoc", "30 days")
+        except SourceUnavailableError as exc:
+            assert exc.platform == "instagram"
+            assert "profile_not_found" in str(exc)
+        else:
+            assert False, "expected SourceUnavailableError"

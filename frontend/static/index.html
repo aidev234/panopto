@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>PANOPTO</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=20260218b" />
-    <link rel="stylesheet" href="/styles.css?v=20260304e" />
+    <link rel="stylesheet" href="/styles.css?v=20260306c" />
   </head>
   <body>
     <div id="notifications" class="toast-stack" aria-live="polite" aria-atomic="false"></div>
@@ -20,13 +20,12 @@
             </div>
             <div class="case-head-actions">
               <div class="action-cluster">
-                <button id="openConfigBtn" class="secondary-btn" type="button">Configuration</button>
+                <button id="openConfigBtn" class="secondary-btn" type="button">Master Settings</button>
                 <button id="generateDemoCaseBtn" class="secondary-btn" type="button">Generate Demo Case</button>
                 <button id="openNewCaseBtn" class="primary-btn" type="button">Open New Case</button>
               </div>
               <div class="action-cluster action-cluster-danger">
-                <button id="quitSaveSessionCaseBtn" class="secondary-btn" type="button">Quit &amp; Save Results</button>
-                <button id="quitSessionCaseBtn" class="secondary-btn danger-btn" type="button">Quit Session</button>
+                <button id="quitSessionCaseBtn" class="secondary-btn danger-btn" type="button">Quit</button>
               </div>
             </div>
           </div>
@@ -66,6 +65,10 @@
           </div>
           <form id="caseEditForm" class="setup-form">
             <label class="field">
+              <span>Case Title</span>
+              <input id="caseEditTitleInput" type="text" placeholder="Enter case title" required />
+            </label>
+            <label class="field">
               <span>Status</span>
               <select id="caseEditStatusSelect" required>
                 <option value="Open">Open</option>
@@ -99,6 +102,17 @@
                 <option value="Substantial Threat">Substantial Threat</option>
                 <option value="High Threat">High Threat</option>
                 <option value="Very High Threat">Very High Threat</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Data Retention Period</span>
+              <select id="caseEditRetentionSelect" required>
+                <option value="24h">24h</option>
+                <option value="1 week">1 week</option>
+                <option value="3 week">3 week</option>
+                <option value="6 weeks">6 weeks</option>
+                <option value="3 months">3 months</option>
+                <option value="1 year">1 year</option>
               </select>
             </label>
             <label class="field">
@@ -160,6 +174,17 @@
               </select>
             </label>
             <label class="field">
+              <span>Data Retention Period</span>
+              <select id="caseSaveRetentionSelect" required>
+                <option value="24h">24h</option>
+                <option value="1 week">1 week</option>
+                <option value="3 week">3 week</option>
+                <option value="6 weeks">6 weeks</option>
+                <option value="3 months">3 months</option>
+                <option value="1 year">1 year</option>
+              </select>
+            </label>
+            <label class="field">
               <span>Known Location</span>
               <input id="caseSaveLocationInput" type="text" placeholder="Enter known location" required />
             </label>
@@ -177,7 +202,7 @@
       <section id="configModal" class="setup-modal hidden" aria-live="polite">
         <div class="setup-card case-save-card">
           <div class="setup-head">
-            <h2>Configuration</h2>
+            <h2>Master Settings</h2>
             <button id="configCloseBtn" class="secondary-btn" type="button">Close</button>
           </div>
           <form id="configForm" class="setup-form">
@@ -192,10 +217,6 @@
               <input id="configOsintIndustriesApiKeyInput" type="password" placeholder="oi_xxxxxxxxx" data-empty-placeholder="oi_xxxxxxxxx" data-configured-placeholder="Stored key detected. Enter new key to replace." autocomplete="off" />
               <small id="configOsintIndustriesApiKeyHint" class="status"></small>
             </label>
-            <label class="field">
-              <span>OSINT Industries Premium Endpoint</span>
-              <input id="configOsintIndustriesPremiumInput" type="checkbox" />
-            </label>
             <label class="field config-secret-field">
               <span>Numverify API Key</span>
               <input id="configNumverifyApiKeyInput" type="password" placeholder="numverify/apilayer key" data-empty-placeholder="numverify/apilayer key" data-configured-placeholder="Stored key detected. Enter new key to replace." autocomplete="off" />
@@ -206,11 +227,27 @@
               <input id="configOpenAiApiKeyInput" type="password" placeholder="sk-..." data-empty-placeholder="sk-..." data-configured-placeholder="Stored key detected. Enter new key to replace." autocomplete="off" />
               <small id="configOpenAiApiKeyHint" class="status"></small>
             </label>
+            <label class="field config-secret-field">
+              <span>Apify API Token</span>
+              <input id="configApifyApiTokenInput" type="password" placeholder="apify_api_..." data-empty-placeholder="apify_api_..." data-configured-placeholder="Stored token detected. Enter new token to replace." autocomplete="off" />
+              <small id="configApifyApiTokenHint" class="status"></small>
+            </label>
             <label class="field">
-              <span>Custom Keyword List</span>
+              <span>Default Data Retention Period (New Cases)</span>
+              <select id="configDefaultRetentionSelect">
+                <option value="24h">24h</option>
+                <option value="1 week">1 week</option>
+                <option value="3 week">3 week</option>
+                <option value="6 weeks">6 weeks</option>
+                <option value="3 months">3 months</option>
+                <option value="1 year">1 year</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Custom Text Parse Keywords</span>
               <input id="configCustomKeywordInput" type="text" placeholder="Type keyword/phrase and press Enter" autocomplete="off" />
               <div id="configCustomKeywordPills" class="config-keyword-pills"></div>
-              <small class="status">Press Enter to add each keyword or phrase.</small>
+              <small class="status">Master setting applied globally. Press Enter to add each keyword or phrase.</small>
             </label>
             <div class="setup-actions-row">
               <button id="configSaveBtn" type="submit">Save</button>
@@ -354,6 +391,10 @@
               <button id="useReconTargetsBtn" class="secondary-btn hidden" type="button" disabled>Use Active Profiles for Collection</button>
               <button id="goReconAssessmentBtn" class="secondary-btn hidden" type="button" disabled>Go to Assessment</button>
             </div>
+            <div id="reconProgress" class="recon-progress hidden" role="status" aria-live="polite" aria-atomic="true">
+              <div class="recon-progress-track"><div id="reconProgressBar" class="recon-progress-bar"></div></div>
+              <p id="reconProgressLabel" class="recon-progress-label">Recon modules are running...</p>
+            </div>
             <div id="reconResults" class="recon-results hidden"></div>
             <p id="reconStatus" class="status"></p>
           </form>
@@ -398,8 +439,7 @@
                 <button id="saveQuitCaseBtn" class="secondary-btn" type="button">Save &amp; Quit Case</button>
               </div>
               <div class="action-cluster action-cluster-danger">
-                <button id="quitSaveBtn" class="secondary-btn" type="button">Quit &amp; Save Results</button>
-                <button id="quitBtn" class="secondary-btn danger-btn" type="button">Quit Session</button>
+                <button id="quitBtn" class="secondary-btn danger-btn" type="button">Quit</button>
               </div>
             </div>
           </div>
@@ -454,6 +494,12 @@
                   <svg viewBox="0 0 24 24" role="img" focusable="false"><path d="M3.5 12h4"></path><path d="M8.5 12h4"></path><path d="M13.5 12h7"></path><circle cx="8.5" cy="12" r="1.8"></circle><circle cx="13.5" cy="12" r="1.8"></circle></svg>
                 </span>
                 <span>Pattern of Life</span>
+              </button>
+              <button id="viewTimelineBtn" class="secondary-btn view-toggle-btn" type="button" aria-pressed="false">
+                <span class="view-toggle-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" role="img" focusable="false"><path d="M4 7h4"></path><path d="M10 7h10"></path><path d="M4 12h7"></path><path d="M13 12h7"></path><path d="M4 17h3"></path><path d="M9 17h11"></path><circle cx="8" cy="7" r="1.4"></circle><circle cx="12" cy="12" r="1.4"></circle><circle cx="8" cy="17" r="1.4"></circle></svg>
+                </span>
+                <span>Timeline</span>
               </button>
               <button id="openCaseNotesTopBtn" class="secondary-btn view-toggle-btn" type="button">
                 <span class="view-toggle-icon" aria-hidden="true">
@@ -753,8 +799,29 @@
                 <button id="footprintReconBtn" type="submit">Run Recon Query</button>
                 <button id="footprintUseTargetsBtn" class="secondary-btn hidden" type="button" disabled>Use Active Profiles for Collection</button>
               </div>
+              <div id="footprintReconProgress" class="recon-progress hidden" role="status" aria-live="polite" aria-atomic="true">
+                <div class="recon-progress-track"><div id="footprintReconProgressBar" class="recon-progress-bar"></div></div>
+                <p id="footprintReconProgressLabel" class="recon-progress-label">Recon modules are running...</p>
+              </div>
             </form>
-            <div id="footprintReconResults" class="recon-results hidden"></div>
+            <div class="footprint-recon-layout">
+              <div id="footprintReconResults" class="recon-results hidden"></div>
+              <aside id="footprintKnownSelectors" class="known-selectors-panel">
+                <div class="known-selectors-head">
+                  <h4>Selectors</h4>
+                  <div class="known-selectors-head-meta">
+                    <span id="footprintKnownSelectorsTotal" class="viz-total">0</span>
+                    <div id="footprintPivotProgress" class="recon-progress recon-progress-inline hidden" role="status" aria-live="polite" aria-atomic="true">
+                      <div class="recon-progress-track"><div id="footprintPivotProgressBar" class="recon-progress-bar"></div></div>
+                      <p id="footprintPivotProgressLabel" class="recon-progress-label">Pivot recon running...</p>
+                    </div>
+                  </div>
+                </div>
+                <div id="footprintKnownSelectorsGroups" class="known-selectors-groups">
+                  <p class="viz-empty">Run recon to build selector pivots.</p>
+                </div>
+              </aside>
+            </div>
             <p id="footprintReconStatus" class="status"></p>
           </article>
         </section>
@@ -767,12 +834,33 @@
             <p id="patternLifeRhythmSummary" class="posting-rhythm-summary">
               Merged view of location signals (NER + profile enrichment) and posting-rhythm timezone estimate.
             </p>
+            <div class="filter-group pattern-life-platform-filter-group">
+              <span class="filter-label">Platforms</span>
+              <div class="pattern-life-platform-controls">
+                <div id="patternLifePlatformFilters" class="type-mix"></div>
+                <button id="patternLifeRefreshBtn" class="secondary-btn" type="button">Refresh Estimate</button>
+              </div>
+            </div>
             <div id="patternLifeTimezoneInference" class="viz-total">Insufficient data</div>
             <div id="patternLifeMap" class="location-map" role="img" aria-label="Pattern of life location map"></div>
             <p id="patternLifeMapEmpty" class="viz-empty hidden">No mapped pattern-of-life locations available yet.</p>
             <div id="patternLifeHourChart" class="posting-hour-chart" role="img" aria-label="Hourly post frequency by inferred local hour"></div>
             <div id="patternLifeSourceMix" class="type-mix"></div>
             <p id="patternLifeRhythmEmpty" class="viz-empty hidden">Not enough timestamped posts to infer rhythm yet.</p>
+          </article>
+        </section>
+        <section id="timelineView" class="footprint-view hidden">
+          <article class="viz-card footprint-card">
+            <div class="viz-head">
+              <h3>Activity Timeline</h3>
+              <span id="footprintTimelineSummary" class="viz-total">No OSINT timeline data</span>
+            </div>
+            <p id="footprintTimelineSummaryText" class="posting-rhythm-summary">
+              Run Digital Footprint recon to map OSINT Industries activity signals (account creation, last seen, reviews, and other date-stamped events).
+            </p>
+            <div id="footprintTimelineEarliest" class="timeline-earliest-grid"></div>
+            <div id="footprintTimelineEvents" class="timeline-events"></div>
+            <p id="footprintTimelineEmpty" class="viz-empty">No OSINT timeline events yet. Run a recon query first.</p>
           </article>
         </section>
       </section>
@@ -824,6 +912,21 @@
       </div>
     </section>
 
-    <script src="/app.js?v=20260304e"></script>
+    <section id="quitOptionsModal" class="setup-modal hidden" aria-live="polite">
+      <div class="setup-card case-save-card">
+        <div class="setup-head">
+          <h2>Quit PANOPTO</h2>
+          <button id="quitOptionsCancelBtn" class="secondary-btn" type="button">Cancel</button>
+        </div>
+        <p class="subtle">Choose how you want to end this PANOPTO session.</p>
+        <div class="setup-actions-row">
+          <button id="quitOptionsSaveBtn" type="button">Quit and Save</button>
+          <button id="quitOptionsWipeBtn" class="secondary-btn danger-btn" type="button">Quit and Wipe</button>
+          <button id="quitOptionsQuitBtn" class="secondary-btn" type="button">Quit</button>
+        </div>
+      </div>
+    </section>
+
+    <script src="/app.js?v=20260306c"></script>
   </body>
 </html>
