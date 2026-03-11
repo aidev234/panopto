@@ -21,4 +21,6 @@ This version is fully self-contained and served from local files only (`index.ht
    ```
 2. Open `http://localhost:8000` in your browser.
 
+The launcher binds to `127.0.0.1` by default. Pass `--host 0.0.0.0` only if you explicitly need remote access on a trusted network.
+
 By default, the API reads from `./osint_data.db`.
