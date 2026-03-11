@@ -2484,15 +2484,19 @@ def run_recon(selectors: list[dict[str, str]]) -> dict[str, Any]:
         _append_intel_lead("Location", str(profile.get("location_name") or ""), profile_name=profile_name)
         _append_intel_lead("Job Title", str(profile.get("job_title") or ""), profile_name=profile_name)
         _append_intel_lead("Company", str(profile.get("job_company_name") or ""), profile_name=profile_name)
-        _append_intel_lead("Professional Email", str(profile.get("professional_email") or profile.get("work_email") or ""), profile_name=profile_name)
         personal_emails = profile.get("personal_emails") if isinstance(profile.get("personal_emails"), list) else []
         for item in personal_emails:
             _append_intel_lead("Personal Email", str(item or ""), profile_name=profile_name)
-        _append_intel_lead("Mobile Phone", str(profile.get("mobile_phone") or ""), profile_name=profile_name)
+        _append_intel_lead(
+            "Professional Email",
+            str(profile.get("professional_email") or profile.get("work_email") or ""),
+            profile_name=profile_name,
+        )
         personal_phones = profile.get("personal_phones") if isinstance(profile.get("personal_phones"), list) else []
         work_phones = profile.get("professional_phones") if isinstance(profile.get("professional_phones"), list) else []
         for item in personal_phones:
             _append_intel_lead("Personal Phone", str(item or ""), profile_name=profile_name)
+        _append_intel_lead("Mobile Phone", str(profile.get("mobile_phone") or ""), profile_name=profile_name)
         for item in work_phones:
             _append_intel_lead("Professional Phone", str(item or ""), profile_name=profile_name)
 

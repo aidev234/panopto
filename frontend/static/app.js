@@ -73,7 +73,11 @@ const caseNotesSubjectUploadInput = document.getElementById('caseNotesSubjectUpl
 const caseNotesContextInput = document.getElementById('caseNotesContextInput');
 const caseNotesThreatInput = document.getElementById('caseNotesThreatInput');
 const caseNotesPersonalInput = document.getElementById('caseNotesPersonalInput');
+const caseNotesSelectorEmailsInput = document.getElementById('caseNotesSelectorEmailsInput');
+const caseNotesSelectorPhonesInput = document.getElementById('caseNotesSelectorPhonesInput');
+const caseNotesSelectorUsernamesInput = document.getElementById('caseNotesSelectorUsernamesInput');
 const caseNotesProfilesList = document.getElementById('caseNotesProfilesList');
+const caseNotesFootprintResults = document.getElementById('caseNotesFootprintResults');
 const caseNotesAddProfileBtn = document.getElementById('caseNotesAddProfileBtn');
 const caseNotesExportPdfBtn = document.getElementById('caseNotesExportPdfBtn');
 const caseNotesSaveBtn = document.getElementById('caseNotesSaveBtn');
@@ -91,12 +95,14 @@ const viewMediaBtn = document.getElementById('viewMediaBtn');
 const viewFootprintBtn = document.getElementById('viewFootprintBtn');
 const viewPatternLifeBtn = document.getElementById('viewPatternLifeBtn');
 const viewTimelineBtn = document.getElementById('viewTimelineBtn');
+const viewEntityGraphBtn = document.getElementById('viewEntityGraphBtn');
 const filterMenu = document.getElementById('filterMenu');
 const statusEl = document.getElementById('status');
 const resultsEl = document.getElementById('results');
 const footprintView = document.getElementById('footprintView');
 const patternLifeView = document.getElementById('patternLifeView');
 const timelineView = document.getElementById('timelineView');
+const entityGraphView = document.getElementById('entityGraphView');
 const footprintReconForm = document.getElementById('footprintReconForm');
 const footprintSelectorsList = document.getElementById('footprintSelectorsList');
 const addFootprintSelectorBtn = document.getElementById('addFootprintSelectorBtn');
@@ -107,6 +113,8 @@ const footprintReconStatus = document.getElementById('footprintReconStatus');
 const footprintKnownSelectors = document.getElementById('footprintKnownSelectors');
 const footprintKnownSelectorsTotal = document.getElementById('footprintKnownSelectorsTotal');
 const footprintKnownSelectorsGroups = document.getElementById('footprintKnownSelectorsGroups');
+const footprintLikelyName = document.getElementById('footprintLikelyName');
+const footprintLikelyNameValue = document.getElementById('footprintLikelyNameValue');
 const footprintPivotProgress = document.getElementById('footprintPivotProgress');
 const footprintPivotProgressLabel = document.getElementById('footprintPivotProgressLabel');
 const footprintReconProgress = document.getElementById('footprintReconProgress');
@@ -181,6 +189,8 @@ const patternLifeSourceMix = document.getElementById('patternLifeSourceMix');
 const patternLifeRhythmEmpty = document.getElementById('patternLifeRhythmEmpty');
 const patternLifePlatformFilters = document.getElementById('patternLifePlatformFilters');
 const patternLifeRefreshBtn = document.getElementById('patternLifeRefreshBtn');
+const patternLifeLikelyLocations = document.getElementById('patternLifeLikelyLocations');
+const patternLifeLikelyLocationsEmpty = document.getElementById('patternLifeLikelyLocationsEmpty');
 const keywordChart = document.getElementById('keywordChart');
 const keywordEmpty = document.getElementById('keywordEmpty');
 const typeMix = document.getElementById('typeMix');
@@ -195,6 +205,13 @@ const footprintTimelineSummaryText = document.getElementById('footprintTimelineS
 const footprintTimelineEarliest = document.getElementById('footprintTimelineEarliest');
 const footprintTimelineEvents = document.getElementById('footprintTimelineEvents');
 const footprintTimelineEmpty = document.getElementById('footprintTimelineEmpty');
+const footprintEntityGraphSummary = document.getElementById('footprintEntityGraphSummary');
+const footprintEntityGraphSummaryText = document.getElementById('footprintEntityGraphSummaryText');
+const footprintEntityGraphCanvas = document.getElementById('footprintEntityGraphCanvas');
+const footprintEntityGraphDetails = document.getElementById('footprintEntityGraphDetails');
+const footprintEntityGraphEmpty = document.getElementById('footprintEntityGraphEmpty');
+const footprintEntityGraphQuery = document.getElementById('footprintEntityGraphQuery');
+const footprintEntityGraphReset = document.getElementById('footprintEntityGraphReset');
 const entityMix = document.getElementById('entityMix');
 const entityMixEmpty = document.getElementById('entityMixEmpty');
 const threatMix = document.getElementById('threatMix');
@@ -262,6 +279,9 @@ let caseSaveSelectedImageUrl = '';
 let caseSaveImageChoices = [];
 let caseNotesImageChoices = [];
 let caseNotesKnownProfiles = [];
+let caseNotesFootprintEntries = [];
+const caseNotesExcludedSections = new Set();
+const caseNotesExcludedFootprintResultKeys = new Set();
 let activeStartDate = '';
 let activeEndDate = '';
 let activeUsername = '';
@@ -321,6 +341,13 @@ let footprintReconProgressStartedAt = 0;
 let footprintReconProgressTimer = null;
 let footprintPivotProgressStartedAt = 0;
 let footprintPivotProgressTimer = null;
+let lastAutofilledCaseNotesName = '';
+let lastAutofilledCaseNotesLocation = '';
+const caseNotesAutoProfileKeys = new Set();
+const SELECTOR_CONFIDENCE_OVERRIDE_STORAGE_KEY = 'panopto.selectorConfidenceOverrides.v1';
+const SELECTOR_CONFIDENCE_LEVELS = ['high', 'medium', 'low'];
+const selectorConfidenceOverrides = new Map();
+const CASE_NOTES_MAJOR_PROFILE_SITE_KEYS = new Set(['facebook', 'instagram', 'tiktok']);
 const TARGET_PLATFORM_OPTIONS = [
   { value: 'twitter', label: 'Twitter/X' },
   { value: 'reddit', label: 'Reddit' },
@@ -346,13 +373,23 @@ let postingTimezoneMapLayer;
 let latestLocationMapPoints = [];
 let patternLifeMapInstance;
 let patternLifeMapLayer;
+let patternLifeTargetBoxLayers = [];
 let latestPatternLifeMapPoints = [];
 let latestPatternLifeMapRoutes = [];
+let latestPatternLifeLikelyCandidates = [];
 const activePatternLifePlatforms = new Set(SOURCE_ORDER);
 const activeTimelineSources = new Set();
 const activeTimelineActions = new Set();
 let timelineSelectorQuery = '';
 let timelineShowOnlyLinked = false;
+let entityGraphQuery = '';
+let entityGraphSelectedNodeId = '';
+let entityGraphViewport = { zoom: 1, offsetX: 0, offsetY: 0 };
+let entityGraphModelCache = null;
+let entityGraphLayoutCache = null;
+let entityGraphPointerPan = null;
+const entityGraphManualPositions = new Map();
+let entityGraphNodeDrag = null;
 let activeFootprintSourceSelectorKey = 'all';
 let configCustomKeywordList = [];
 const DEFAULT_DATA_RETENTION_PERIOD = '3 months';
@@ -371,6 +408,7 @@ const LOCATION_COORDS_BY_TAG = {
   'loc:new-york': { name: 'New York', lat: 40.7128, lon: -74.0060 },
   'loc:united-states': { name: 'United States', lat: 39.8283, lon: -98.5795 },
   'loc:canada': { name: 'Canada', lat: 56.1304, lon: -106.3468 },
+  'loc:ottawa': { name: 'Ottawa', lat: 45.4215, lon: -75.6972 },
   'loc:nova-scotia': { name: 'Nova Scotia', lat: 44.682, lon: -63.7443 },
   'loc:halifax': { name: 'Halifax', lat: 44.6488, lon: -63.5752 },
   'loc:washington-dc': { name: 'Washington DC', lat: 38.9072, lon: -77.0369 },
@@ -411,10 +449,25 @@ const LOCATION_ALIAS_TO_TAG = {
   'country usa': 'loc:united-states',
   canada: 'loc:canada',
   'country ca': 'loc:canada',
+  ottawa: 'loc:ottawa',
+  'ottawa, canada': 'loc:ottawa',
+  'city ottawa': 'loc:ottawa',
   'nova scotia': 'loc:nova-scotia',
   halifax: 'loc:halifax',
   'halifax, nova scotia': 'loc:halifax',
   'halifax, nova scotia, canada': 'loc:halifax',
+};
+const COUNTRY_CODE_TO_LOCATION_TAG = {
+  us: 'loc:united-states',
+  usa: 'loc:united-states',
+  ca: 'loc:canada',
+  can: 'loc:canada',
+  ua: 'loc:ukraine',
+  ukr: 'loc:ukraine',
+  il: 'loc:israel',
+  isr: 'loc:israel',
+  ps: 'loc:palestine',
+  pse: 'loc:palestine',
 };
 
 function clearHiddenReconEntities() {
@@ -645,11 +698,9 @@ function caseRowMarkup(row) {
   const caseName = String(row?.case_name || 'Untitled Case').trim() || 'Untitled Case';
   const status = String(row?.status || 'Open').trim() || 'Open';
   const threatLevel = String(row?.threat_level || 'Low Threat').trim() || 'Low Threat';
-  const retentionPeriod = normalizeDataRetentionPeriod(row?.data_retention_period);
   const knownLocation = String(row?.known_location || '').trim() || 'Unknown';
   const openedAt = formatIsoDateTime(row?.opened_at);
   const editedAt = formatIsoDateTime(row?.last_edited_at);
-  const postCount = Number(row?.post_count || 0);
   const statusCls = `status-${slugifyToken(status)}`;
   let threatCls = 'threat-low';
   if (threatLevel === 'Moderate Threat') threatCls = 'threat-moderate';
@@ -670,8 +721,6 @@ function caseRowMarkup(row) {
             <span class="case-chip case-badge case-status ${escapeAttr(statusCls)}">${escapeHtml(status)}</span>
             <span class="case-chip case-badge threat ${escapeAttr(threatCls)}">${escapeHtml(threatLevel)}</span>
             <span class="case-chip case-tag case-tag-location">${escapeHtml(knownLocation)}</span>
-            <span class="case-chip case-tag">Retention: ${escapeHtml(retentionPeriod)}</span>
-            <span class="case-chip case-tag case-tag-collected">${postCount} Posts Collected</span>
           </div>
           <div class="case-submeta">
             <span>Opened ${escapeHtml(openedAt)}</span>
@@ -1108,6 +1157,436 @@ function normalizeCaseNotesObject(raw) {
   return raw;
 }
 
+function normalizeCaseNotesReportPreferences(raw) {
+  const prefs = raw && typeof raw === 'object' ? raw : {};
+  const excludedSections = Array.isArray(prefs.excluded_sections)
+    ? prefs.excluded_sections.map((item) => String(item || '').trim().toLowerCase()).filter(Boolean)
+    : [];
+  const excludedFootprintResultKeys = Array.isArray(prefs.excluded_footprint_result_keys)
+    ? prefs.excluded_footprint_result_keys.map((item) => String(item || '').trim().toLowerCase()).filter(Boolean)
+    : [];
+  return {
+    excluded_sections: [...new Set(excludedSections)],
+    excluded_footprint_result_keys: [...new Set(excludedFootprintResultKeys)],
+  };
+}
+
+function caseNotesFootprintResultKey(source, selectorType, selectorValue, summary) {
+  return [
+    String(source || '').trim().toLowerCase(),
+    String(selectorType || '').trim().toLowerCase(),
+    String(selectorValue || '').trim().toLowerCase(),
+    String(summary || '').trim().toLowerCase(),
+  ].join('|');
+}
+
+function splitCommaSeparatedValues(raw) {
+  const text = String(raw || '').trim();
+  if (!text) return [];
+  return text.split(',').map((item) => String(item || '').trim()).filter(Boolean);
+}
+
+function joinCommaSeparatedValues(values) {
+  return [...new Set((Array.isArray(values) ? values : []).map((item) => String(item || '').trim()).filter(Boolean))].join(', ');
+}
+
+function inferSelectorValuesFromCaseNotes(notes) {
+  const snapshot = normalizeReconSnapshot(notes?.recon_snapshot);
+  const payload = snapshot?.payload || {};
+  const emails = [];
+  const phones = [];
+  const usernames = [];
+  const seenEmails = new Set();
+  const seenPhones = new Set();
+  const seenUsernames = new Set();
+
+  const pushUnique = (bucket, seen, value, formatter = (v) => v) => {
+    const clean = String(value || '').trim();
+    if (!clean) return;
+    const key = formatter(clean).toLowerCase();
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    bucket.push(clean);
+  };
+
+  const pushEmail = (value) => pushUnique(emails, seenEmails, String(value || '').trim().toLowerCase(), (v) => v);
+  const pushPhone = (value) => {
+    const clean = String(value || '').trim();
+    const canonical = clean.replace(/[^\d+]/g, '');
+    if (!canonical) return;
+    pushUnique(phones, seenPhones, clean, () => canonical);
+  };
+  const pushUsername = (value) => pushUnique(usernames, seenUsernames, value, (v) => v.replace(/^@+/, ''));
+  const pushEmailHint = (value) => {
+    const clean = String(value || '').trim().toLowerCase();
+    if (!clean) return;
+    const exactKey = clean;
+    if (seenEmails.has(exactKey)) return;
+    pushUnique(emails, seenEmails, `${clean} (email hint)`, (v) => v.replace(/\s*\(email hint\)$/i, ''));
+  };
+  const pushPhoneHint = (value) => {
+    const clean = String(value || '').trim();
+    if (!clean) return;
+    const exactKey = clean.replace(/[^\d+]/g, '');
+    if (exactKey && seenPhones.has(exactKey)) return;
+    pushUnique(phones, seenPhones, `${clean} (phone hint)`, (v) => v.replace(/\s*\(phone hint\)$/i, '').replace(/[^\d+]/g, ''));
+  };
+  const isMediumOrHighConfidenceSelector = (selectorType) => {
+    const confidence = selectorConfidenceLevel(selectorType);
+    return confidence === 'high' || confidence === 'medium';
+  };
+
+  const ingest = (type, value) => {
+    const selectorType = String(type || '').trim().toLowerCase();
+    const selectorValue = String(value || '').trim();
+    if (!selectorType || !selectorValue) return;
+    if (!isMediumOrHighConfidenceSelector(selectorType)) return;
+    if (selectorType === 'email') {
+      pushEmail(selectorValue);
+      return;
+    }
+    if (selectorType === 'phone') {
+      pushPhone(selectorValue);
+      return;
+    }
+    if (selectorType === 'username' || selectorType === 'name') {
+      pushUsername(selectorValue);
+    }
+  };
+
+  for (const selector of (Array.isArray(payload?.selectors) ? payload.selectors : [])) {
+    if (!selector || typeof selector !== 'object') continue;
+    ingest(selector.type, selector.value);
+  }
+  for (const row of (Array.isArray(payload?.results) ? payload.results : [])) {
+    if (!row || typeof row !== 'object') continue;
+    ingest(row.selector_type, row.selector);
+  }
+  for (const row of (Array.isArray(payload?.osint_profiles) ? payload.osint_profiles : [])) {
+    if (!row || typeof row !== 'object') continue;
+    if (!isMediumOrHighConfidenceSelector(row.query_type)) continue;
+    ingest(row.query_type, row.query_value);
+    pushUsername(row.username);
+    pushEmail(row.email);
+    pushPhone(row.phone);
+    pushEmailHint(row.email_hint);
+    pushPhoneHint(row.phone_hint);
+  }
+  for (const row of (Array.isArray(payload?.person_data_profiles) ? payload.person_data_profiles : [])) {
+    if (!row || typeof row !== 'object') continue;
+    if (!isMediumOrHighConfidenceSelector(row.query_type)) continue;
+    ingest(row.query_type, row.query_value);
+    pushEmail(row.professional_email || row.work_email || row.email);
+    for (const item of (Array.isArray(row.personal_emails) ? row.personal_emails : [])) pushEmail(item);
+    pushPhone(row.mobile_phone || row.phone);
+    for (const item of (Array.isArray(row.personal_phones) ? row.personal_phones : [])) pushPhone(item);
+    for (const item of (Array.isArray(row.professional_phones) ? row.professional_phones : [])) pushPhone(item);
+  }
+  for (const row of (Array.isArray(payload?.numverify_profiles) ? payload.numverify_profiles : [])) {
+    if (!row || typeof row !== 'object') continue;
+    if (!isMediumOrHighConfidenceSelector(row.query_type || 'phone')) continue;
+    ingest(row.query_type, row.query_value);
+    pushPhone(row.number || row.international_format || row.e164 || row.local_format);
+  }
+  for (const row of (Array.isArray(payload?.leads) ? payload.leads : [])) {
+    if (!row || typeof row !== 'object') continue;
+    const attr = String(row.attribute || row.lead_type || '').trim().toLowerCase();
+    const value = String(row.value || '').trim();
+    if (!value) continue;
+    if (attr.includes('email')) {
+      if (isMediumOrHighConfidenceSelector('email')) pushEmail(value);
+    } else if (attr.includes('phone')) {
+      if (isMediumOrHighConfidenceSelector('phone')) pushPhone(value);
+    } else if (attr.includes('name')) {
+      if (isMediumOrHighConfidenceSelector('name')) pushUsername(value);
+    }
+  }
+
+  return {
+    emails,
+    phones,
+    usernames,
+  };
+}
+
+function buildCaseNotesFootprintEntries(notes) {
+  const snapshot = normalizeReconSnapshot(notes?.recon_snapshot);
+  const payload = snapshot?.payload || {};
+  const entries = [];
+  const addEntry = ({
+    source,
+    selectorType,
+    selectorValue,
+    siteLabel = '',
+    profileUrl = '',
+    imageUrl = '',
+    metadata = [],
+  }) => {
+    const cleanSource = String(source || '').trim() || 'Digital Footprint';
+    const cleanSelectorType = String(selectorType || '').trim().toLowerCase();
+    const cleanSelectorValue = String(selectorValue || '').trim();
+    const cleanSiteLabel = String(siteLabel || '').trim();
+    const cleanProfileUrl = normalizeExternalUrl(profileUrl);
+    const cleanImageUrl = normalizeProfileImageUrl(imageUrl) || normalizeExternalUrl(imageUrl);
+    const metadataRows = (Array.isArray(metadata) ? metadata : [])
+      .map((item) => ({
+        label: String(item?.label || '').trim(),
+        value: String(item?.value || '').trim(),
+      }))
+      .filter((item) => item.label && item.value);
+    const cleanSummary = metadataRows.length
+      ? metadataRows.map((item) => `${item.label}: ${item.value}`).join(' | ')
+      : 'No details available.';
+    const key = caseNotesFootprintResultKey(
+      cleanSource,
+      cleanSelectorType,
+      cleanSelectorValue,
+      [cleanSiteLabel, cleanProfileUrl, cleanImageUrl, cleanSummary].filter(Boolean).join(' | '),
+    );
+    const confidence = selectorConfidenceLevel(cleanSelectorType);
+    entries.push({
+      key,
+      source: cleanSource,
+      selectorType: cleanSelectorType,
+      selectorValue: cleanSelectorValue,
+      siteLabel: cleanSiteLabel,
+      profileUrl: cleanProfileUrl,
+      imageUrl: cleanImageUrl,
+      metadata: metadataRows,
+      summary: cleanSummary,
+      confidence,
+    });
+  };
+
+  for (const row of (Array.isArray(payload?.results) ? payload.results : [])) {
+    if (!row || typeof row !== 'object') continue;
+    const status = String(row.status || 'unknown').trim().toLowerCase() || 'unknown';
+    const site = String(row.site || row.site_key || 'unknown').trim() || 'unknown';
+    const profileUrl = String(row.profile_url || '').trim();
+    const reason = String(row.reason || '').trim();
+    const source = String(row.source || 'Recon').trim() || 'Recon';
+    const metadata = [
+      { label: 'Status', value: status },
+      reason ? { label: 'Reason', value: reason } : null,
+    ].filter(Boolean);
+    addEntry({
+      source: `Recon (${source})`,
+      selectorType: row.selector_type,
+      selectorValue: row.selector,
+      siteLabel: normalizeReconSiteLabel(site, profileUrl, row.site_url),
+      profileUrl,
+      imageUrl: row.profile_image_url || row.picture_url || row.avatar_url || row.screenshot_url,
+      metadata,
+    });
+  }
+
+  for (const row of (Array.isArray(payload?.osint_profiles) ? payload.osint_profiles : [])) {
+    if (!row || typeof row !== 'object') continue;
+    const module = String(row.module || 'osint_industries').trim() || 'osint_industries';
+    const website = String(row.website || '').trim();
+    const profileUrl = String(row.profile_url || '').trim();
+    const username = String(row.username || '').trim();
+    const email = String(row.email || '').trim();
+    const phone = String(row.phone || '').trim();
+    const metadata = [
+      { label: 'Module', value: module },
+      username ? { label: 'Username', value: username } : null,
+      email ? { label: 'Email', value: email } : null,
+      phone ? { label: 'Phone', value: phone } : null,
+    ].filter(Boolean);
+    addEntry({
+      source: 'OSINT Industries',
+      selectorType: row.query_type,
+      selectorValue: row.query_value,
+      siteLabel: website || normalizeReconSiteLabel(row.website, profileUrl, row.website),
+      profileUrl,
+      imageUrl: row.picture_url || row.avatar_url || row.profile_image_url || row.screenshot_url,
+      metadata,
+    });
+  }
+
+  for (const row of (Array.isArray(payload?.numverify_profiles) ? payload.numverify_profiles : [])) {
+    if (!row || typeof row !== 'object') continue;
+    const number = String(row.number || row.international_format || '').trim();
+    const country = String(row.country_name || '').trim();
+    const carrier = String(row.carrier || '').trim();
+    const lineType = String(row.line_type || '').trim();
+    const valid = row.valid === true ? 'yes' : 'no';
+    const metadata = [
+      { label: 'Valid', value: valid },
+      number ? { label: 'Number', value: number } : null,
+      country ? { label: 'Country', value: country } : null,
+      carrier ? { label: 'Carrier', value: carrier } : null,
+      lineType ? { label: 'Line Type', value: lineType } : null,
+    ].filter(Boolean);
+    addEntry({
+      source: 'Numverify',
+      selectorType: row.query_type || 'phone',
+      selectorValue: row.query_value,
+      siteLabel: 'Phone Intelligence',
+      profileUrl: '',
+      imageUrl: '',
+      metadata,
+    });
+  }
+
+  for (const row of (Array.isArray(payload?.person_data_profiles) ? payload.person_data_profiles : [])) {
+    if (!row || typeof row !== 'object') continue;
+    const fullName = String(row.full_name || '').trim();
+    const location = String(row.location_name || '').trim();
+    const jobTitle = String(row.job_title || '').trim();
+    const company = String(row.job_company_name || '').trim();
+    const linkedin = String(row.linkedin_url || '').trim();
+    const workEmail = String(row.professional_email || row.work_email || '').trim();
+    const mobile = String(row.mobile_phone || '').trim();
+    const metadata = [
+      fullName ? { label: 'Name', value: fullName } : null,
+      location ? { label: 'Location', value: location } : null,
+      (jobTitle || company) ? { label: 'Employment', value: `${jobTitle}${company ? ` @ ${company}` : ''}`.trim() } : null,
+      workEmail ? { label: 'Work Email', value: workEmail } : null,
+      mobile ? { label: 'Mobile', value: mobile } : null,
+    ].filter(Boolean);
+    addEntry({
+      source: 'People Data Labs',
+      selectorType: row.query_type,
+      selectorValue: row.query_value,
+      siteLabel: 'People Data Labs',
+      profileUrl: linkedin,
+      imageUrl: row.picture_url || row.avatar_url || '',
+      metadata,
+    });
+  }
+
+  return entries;
+}
+
+function setCaseNotesSectionExcluded(sectionKey, excluded) {
+  const key = String(sectionKey || '').trim().toLowerCase();
+  if (!key) return;
+  if (key === 'digital_footprint') {
+    for (const level of ['digital_footprint_high', 'digital_footprint_medium', 'digital_footprint_low']) {
+      if (excluded) caseNotesExcludedSections.add(level);
+      else caseNotesExcludedSections.delete(level);
+    }
+  } else if (excluded) {
+    caseNotesExcludedSections.add(key);
+  } else {
+    caseNotesExcludedSections.delete(key);
+  }
+}
+
+function renderCaseNotesSectionVisibility() {
+  const panels = document.querySelectorAll('[data-case-notes-section-panel]');
+  for (const panel of panels) {
+    if (!(panel instanceof HTMLElement)) continue;
+    const key = String(panel.getAttribute('data-case-notes-section-panel') || '').trim().toLowerCase();
+    if (!key) continue;
+    const excluded = key === 'digital_footprint'
+      ? (
+        caseNotesExcludedSections.has('digital_footprint_high')
+        && caseNotesExcludedSections.has('digital_footprint_medium')
+        && caseNotesExcludedSections.has('digital_footprint_low')
+      )
+      : caseNotesExcludedSections.has(key);
+    panel.classList.toggle('is-excluded', excluded);
+    const button = panel.querySelector('[data-case-notes-section-toggle]');
+    if (button instanceof HTMLButtonElement) {
+      button.textContent = excluded ? '+' : 'x';
+      button.setAttribute('aria-label', `${excluded ? 'Restore' : 'Remove'} ${key.replace(/_/g, ' ')} section from report`);
+      button.title = excluded ? 'Restore section to report' : 'Remove section from report';
+    }
+  }
+}
+
+function caseNotesMajorProfiles(profiles) {
+  return normalizeKnownProfiles(profiles).filter((profile) => {
+    if (!String(profile?.site || '').trim() && !String(profile?.url || '').trim()
+      && !String(profile?.image_url || '').trim() && !String(profile?.screenshot_url || '').trim()) {
+      return true;
+    }
+    const siteKey = _siteKeyFromKnownProfile(profile);
+    return CASE_NOTES_MAJOR_PROFILE_SITE_KEYS.has(siteKey);
+  });
+}
+
+function renderCaseNotesFootprintResults() {
+  if (!(caseNotesFootprintResults instanceof HTMLElement)) return;
+  if (!caseNotesFootprintEntries.length) {
+    caseNotesFootprintResults.innerHTML = '<p class="case-notes-footprint-empty">No digital footprint results are currently attached to case notes.</p>';
+    return;
+  }
+  const groups = { high: [], medium: [], low: [] };
+  for (const entry of caseNotesFootprintEntries) {
+    const level = entry.confidence === 'high' ? 'high' : entry.confidence === 'medium' ? 'medium' : 'low';
+    groups[level].push(entry);
+  }
+  caseNotesFootprintResults.innerHTML = ['high', 'medium', 'low'].map((level) => {
+    const items = groups[level];
+    const title = `${level.charAt(0).toUpperCase()}${level.slice(1)} Confidence`;
+    const body = items.length
+      ? items.map((entry) => {
+        const excluded = caseNotesExcludedFootprintResultKeys.has(entry.key);
+        const selectorType = String(entry.selectorType || '').trim().toLowerCase() || 'default';
+        const selectorValue = String(entry.selectorValue || '').trim();
+        const profileUrl = String(entry.profileUrl || '').trim();
+        const imageUrl = String(entry.imageUrl || '').trim();
+        const siteLabel = String(entry.siteLabel || '').trim() || String(entry.source || '').trim() || 'Digital Footprint';
+        const evidenceLabel = footprintSelectorEvidenceLabel(selectorType, selectorValue);
+        const metadataMarkup = Array.isArray(entry.metadata) && entry.metadata.length
+          ? `
+            <dl class="case-notes-footprint-metadata">
+              ${entry.metadata.map((item) => `
+                <div class="case-notes-footprint-metadata-row">
+                  <dt>${escapeHtml(item.label)}</dt>
+                  <dd>${escapeHtml(item.value)}</dd>
+                </div>
+              `).join('')}
+            </dl>
+          `
+          : '<p class="case-notes-footprint-summary">No associated metadata captured.</p>';
+        return `
+          <article class="case-notes-footprint-item${excluded ? ' is-excluded' : ''}">
+            <div class="case-notes-footprint-item-head">
+              <div class="case-notes-footprint-item-meta">
+                <span class="case-notes-footprint-source">${escapeHtml(entry.source)}</span>
+              </div>
+              <button class="secondary-btn case-notes-footprint-toggle" type="button" data-case-notes-footprint-key="${escapeAttr(entry.key)}">${excluded ? 'Restore' : 'Remove'}</button>
+            </div>
+            <div class="case-notes-footprint-evidence">
+              <div class="case-notes-footprint-media">
+                ${imageUrl
+                  ? `<img class="case-notes-footprint-avatar" src="${escapeAttr(imageUrl)}" alt="${escapeAttr(siteLabel)} profile image" loading="lazy" referrerpolicy="no-referrer" />`
+                  : '<div class="case-notes-footprint-avatar case-notes-footprint-avatar-placeholder">No image</div>'}
+              </div>
+              <div class="case-notes-footprint-body">
+                <div class="case-notes-footprint-site-row">
+                  <div class="case-notes-footprint-site">
+                    ${faviconMarkup(siteLabel, profileUrl || siteLabel)}
+                    <span class="case-notes-footprint-site-name">${escapeHtml(siteLabel)}</span>
+                  </div>
+                  ${selectorConfidenceBadgeMarkup(selectorType, selectorValue, { compact: true, scopeId: `case_notes|${entry.key}` })}
+                </div>
+                ${profileUrl ? `<div class="case-notes-footprint-url"><a href="${escapeAttr(profileUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(profileUrl)}</a></div>` : '<div class="case-notes-footprint-url case-notes-footprint-url-empty">No profile URL captured</div>'}
+                <div class="case-notes-footprint-selector case-notes-footprint-selector-${escapeAttr(selectorTypeColorToken(selectorType))}">
+                  <span class="case-notes-footprint-selector-type">${escapeHtml(selectorTypeDisplayLabel(selectorType))}</span>
+                  <span class="case-notes-footprint-selector-value">${escapeHtml(evidenceLabel)}</span>
+                </div>
+                ${metadataMarkup}
+              </div>
+            </div>
+          </article>
+        `;
+      }).join('')
+      : '<p class="case-notes-footprint-empty">No results.</p>';
+    return `
+      <section class="case-notes-footprint-group case-notes-footprint-group-${escapeAttr(level)}">
+        <h4>${escapeHtml(title)} <span>${items.length}</span></h4>
+        <div class="case-notes-footprint-group-items">${body}</div>
+      </section>
+    `;
+  }).join('');
+}
+
 function normalizeKnownProfiles(rawProfiles) {
   const rows = Array.isArray(rawProfiles) ? rawProfiles : [];
   const output = [];
@@ -1154,7 +1633,7 @@ function _collectionTargetFromKnownProfile(profile, siteKey) {
 
 function seedReconFromCaseNotes(caseRow) {
   const notes = normalizeCaseNotesObject(caseRow?.case_notes || {});
-  const knownProfiles = normalizeKnownProfiles(notes.known_profiles);
+  const knownProfiles = caseNotesMajorProfiles(notes.known_profiles).filter((profile) => String(profile?.url || '').trim());
   const snapshot = normalizeReconSnapshot(notes.recon_snapshot);
   if (snapshot && applyReconSnapshot(snapshot)) {
     if (footprintReconStatus) {
@@ -1260,6 +1739,7 @@ function normalizeReconSnapshot(raw) {
     version: Number(raw.version) || 1,
     saved_at: String(raw.saved_at || '').trim(),
     payload: {
+      selectors: Array.isArray(payloadRaw.selectors) ? payloadRaw.selectors : [],
       results: Array.isArray(payloadRaw.results) ? payloadRaw.results : [],
       checked: Number(payloadRaw.checked) || 0,
       present_count: Number(payloadRaw.present_count) || 0,
@@ -1420,6 +1900,14 @@ function mergeDiscoveredKnownProfiles(baseProfiles, discoveredProfiles) {
   return Array.from(merged.values());
 }
 
+function profileKeySetForKnownProfiles(profiles) {
+  const keys = new Set();
+  for (const item of normalizeKnownProfiles(profiles)) {
+    keys.add(normalizeProfileKey(item.site, item.url));
+  }
+  return keys;
+}
+
 function firstProfileNameCandidate(posts, profiles) {
   for (const post of Array.isArray(posts) ? posts : []) {
     const displayName = String(post?.display_name || '').trim();
@@ -1476,7 +1964,8 @@ function renderCaseNotesSubjectImagePreview(url) {
 
 function caseNotesProfileCardMarkup(profile, index) {
   const safe = profile || {};
-  const site = String(safe.site || '').trim();
+  const inferredSiteKey = _siteKeyFromKnownProfile(safe);
+  const site = CASE_NOTES_MAJOR_PROFILE_SITE_KEYS.has(inferredSiteKey) ? inferredSiteKey : '';
   const url = String(safe.url || '').trim();
   const imageUrl = normalizeProfileImageUrl(safe.image_url) || USER_PLACEHOLDER_AVATAR_URL;
   const screenshotUrl = String(safe.screenshot_url || '').trim();
@@ -1488,8 +1977,13 @@ function caseNotesProfileCardMarkup(profile, index) {
         <div class="case-notes-profile-fields">
           <div class="case-notes-profile-grid">
             <label class="field">
-              <span>Name</span>
-              <input class="case-notes-profile-site" type="text" value="${escapeAttr(site)}" placeholder="Platform or profile name" />
+              <span>Platform</span>
+              <select class="case-notes-profile-site">
+                <option value="">Select platform</option>
+                <option value="facebook"${site === 'facebook' ? ' selected' : ''}>Facebook</option>
+                <option value="instagram"${site === 'instagram' ? ' selected' : ''}>Instagram</option>
+                <option value="tiktok"${site === 'tiktok' ? ' selected' : ''}>TikTok</option>
+              </select>
             </label>
             <label class="field">
               <span>Profile Picture</span>
@@ -1524,8 +2018,9 @@ function caseNotesProfileCardMarkup(profile, index) {
 
 function renderCaseNotesProfiles() {
   if (!caseNotesProfilesList) return;
+  caseNotesKnownProfiles = caseNotesMajorProfiles(caseNotesKnownProfiles);
   if (!caseNotesKnownProfiles.length) {
-    caseNotesProfilesList.innerHTML = '<div class="empty">No known profiles yet. Add a profile or run recon.</div>';
+    caseNotesProfilesList.innerHTML = '<div class="empty">No major profiles yet. Add Facebook, Instagram, or TikTok profiles, or run recon.</div>';
     return;
   }
   caseNotesProfilesList.innerHTML = caseNotesKnownProfiles.map((profile, index) => caseNotesProfileCardMarkup(profile, index)).join('');
@@ -1554,12 +2049,12 @@ function syncKnownProfilesFromForm() {
     const selectedImage = imageSelect instanceof HTMLSelectElement ? String(imageSelect.value || '').trim() : '';
     const screenshot = String(row.getAttribute('data-screenshot-url') || '').trim();
     return {
-      site: site instanceof HTMLInputElement ? String(site.value || '').trim() : '',
+      site: site instanceof HTMLInputElement || site instanceof HTMLSelectElement ? String(site.value || '').trim() : '',
       url: url instanceof HTMLInputElement ? String(url.value || '').trim() : '',
       image_url: selectedImage === USER_PLACEHOLDER_AVATAR_URL ? '' : normalizeProfileImageUrl(selectedImage),
       screenshot_url: screenshot,
     };
-  });
+  }).filter((profile) => CASE_NOTES_MAJOR_PROFILE_SITE_KEYS.has(_siteKeyFromKnownProfile(profile)));
 }
 
 async function openCaseNotesModal() {
@@ -1568,32 +2063,78 @@ async function openCaseNotesModal() {
     return;
   }
   const notes = normalizeCaseNotesObject(activeCase.case_notes || {});
+  const reportPreferences = normalizeCaseNotesReportPreferences(notes.report_preferences);
+  caseNotesExcludedSections.clear();
+  for (const key of reportPreferences.excluded_sections) caseNotesExcludedSections.add(key);
+  caseNotesExcludedFootprintResultKeys.clear();
+  for (const key of reportPreferences.excluded_footprint_result_keys) caseNotesExcludedFootprintResultKeys.add(key);
+  caseNotesFootprintEntries = buildCaseNotesFootprintEntries(notes);
   const posts = await fetchCasePosts(activeCaseId);
   const associatedImages = uniqueProfileImageUrls(posts);
   const casePoiImage = normalizeProfileImageUrl(activeCase?.poi_image_url);
   const notesSubjectImage = normalizeProfileImageUrl(notes.subject_image_url);
-  const notesKnownProfiles = normalizeKnownProfiles(notes.known_profiles);
+  const notesKnownProfiles = caseNotesMajorProfiles(notes.known_profiles);
   const discoveredFromRecon = defaultKnownProfilesFromRecon();
   const discoveredFromPosts = discoverKnownProfilesFromPosts(posts);
   const discoveredKnownProfiles = mergeDiscoveredKnownProfiles(discoveredFromRecon, discoveredFromPosts);
   const knownProfiles = notesKnownProfiles.length ? mergeDiscoveredKnownProfiles(notesKnownProfiles, discoveredKnownProfiles) : discoveredKnownProfiles;
   caseNotesKnownProfiles = enrichKnownProfilesWithExtractedImages(knownProfiles, posts);
+  caseNotesAutoProfileKeys.clear();
+  for (const key of profileKeySetForKnownProfiles(discoveredKnownProfiles)) caseNotesAutoProfileKeys.add(key);
   const knownProfileImages = caseNotesKnownProfiles.map((item) => normalizeProfileImageUrl(item.image_url)).filter(Boolean);
   caseNotesImageChoices = [...new Set([USER_PLACEHOLDER_AVATAR_URL, casePoiImage, notesSubjectImage, ...associatedImages, ...knownProfileImages].filter(Boolean))];
 
   const discoveredName = firstProfileNameCandidate(posts, caseNotesKnownProfiles);
-  if (caseNotesNameInput) caseNotesNameInput.value = String(notes.name || discoveredName || activeCase.case_name || '').trim();
-  if (caseNotesLocationInput) caseNotesLocationInput.value = String(notes.location || activeCase.known_location || '').trim();
+  const likelyName = calculatedLikelyNameForCaseNotes();
+  if (caseNotesNameInput) {
+    if (String(notes.name || '').trim()) {
+      caseNotesNameInput.value = String(notes.name || '').trim();
+      lastAutofilledCaseNotesName = '';
+      caseNotesNameInput.classList.remove('case-notes-name-autofill');
+    } else if (likelyName) {
+      caseNotesNameInput.value = likelyName;
+      lastAutofilledCaseNotesName = likelyName;
+      caseNotesNameInput.classList.add('case-notes-name-autofill');
+    } else {
+      caseNotesNameInput.value = String(discoveredName || activeCase.case_name || '').trim();
+      lastAutofilledCaseNotesName = '';
+      caseNotesNameInput.classList.remove('case-notes-name-autofill');
+    }
+  }
+  const notesLocation = String(notes.location || '').trim();
+  const caseKnownLocation = String(activeCase.known_location || '').trim();
+  const hasUsableKnownLocation = caseKnownLocation && !/^(?:unknown|n\/a|none)$/i.test(caseKnownLocation);
+  const inferredLikelyLocation = inferMostLikelyLocationForCaseNotes(posts);
+  if (caseNotesLocationInput) {
+    const selectedLocation = String(notesLocation || inferredLikelyLocation || (hasUsableKnownLocation ? caseKnownLocation : '') || '').trim();
+    caseNotesLocationInput.value = selectedLocation;
+    lastAutofilledCaseNotesLocation = notesLocation ? '' : selectedLocation;
+  }
   if (caseNotesAgeInput) caseNotesAgeInput.value = String(notes.age || '').trim();
   if (caseNotesAkasInput) caseNotesAkasInput.value = String(notes.akas || '').trim();
   if (caseNotesContextInput) caseNotesContextInput.value = String(notes.context || '').trim();
   if (caseNotesThreatInput) caseNotesThreatInput.value = String(notes.threat_risk_assessment || '').trim();
   if (caseNotesPersonalInput) caseNotesPersonalInput.value = String(notes.personal_details || '').trim();
+  const inferredSelectors = inferSelectorValuesFromCaseNotes(notes);
+  if (caseNotesSelectorEmailsInput) {
+    const saved = splitCommaSeparatedValues(notes.selector_emails);
+    caseNotesSelectorEmailsInput.value = joinCommaSeparatedValues([...saved, ...inferredSelectors.emails]);
+  }
+  if (caseNotesSelectorPhonesInput) {
+    const saved = splitCommaSeparatedValues(notes.selector_phone_numbers);
+    caseNotesSelectorPhonesInput.value = joinCommaSeparatedValues([...saved, ...inferredSelectors.phones]);
+  }
+  if (caseNotesSelectorUsernamesInput) {
+    const saved = splitCommaSeparatedValues(notes.selector_usernames);
+    caseNotesSelectorUsernamesInput.value = joinCommaSeparatedValues([...saved, ...inferredSelectors.usernames]);
+  }
 
   const selectedSubject = notesSubjectImage || casePoiImage || knownProfileImages[0] || associatedImages[0] || USER_PLACEHOLDER_AVATAR_URL;
   renderCaseNotesSubjectImageOptions(selectedSubject);
   renderCaseNotesSubjectImagePreview(selectedSubject);
   renderCaseNotesProfiles();
+  renderCaseNotesSectionVisibility();
+  renderCaseNotesFootprintResults();
   setCaseNotesModalOpen(true);
 }
 
@@ -1608,9 +2149,12 @@ async function submitCaseNotes(event) {
   const context = String(caseNotesContextInput?.value || '').trim();
   const threatRisk = String(caseNotesThreatInput?.value || '').trim();
   const personal = String(caseNotesPersonalInput?.value || '').trim();
+  const selectorEmails = joinCommaSeparatedValues(splitCommaSeparatedValues(caseNotesSelectorEmailsInput?.value));
+  const selectorPhones = joinCommaSeparatedValues(splitCommaSeparatedValues(caseNotesSelectorPhonesInput?.value));
+  const selectorUsernames = joinCommaSeparatedValues(splitCommaSeparatedValues(caseNotesSelectorUsernamesInput?.value));
   const subjectImage = String(caseNotesSubjectImageSelect?.value || '').trim();
   const normalizedSubjectImage = subjectImage === USER_PLACEHOLDER_AVATAR_URL ? '' : normalizeProfileImageUrl(subjectImage);
-  const sanitizedProfiles = caseNotesKnownProfiles
+  const sanitizedProfiles = caseNotesMajorProfiles(caseNotesKnownProfiles)
     .map((profile) => ({
       site: String(profile.site || '').trim(),
       url: String(profile.url || '').trim(),
@@ -1628,7 +2172,14 @@ async function submitCaseNotes(event) {
     context,
     threat_risk_assessment: threatRisk,
     personal_details: personal,
+    selector_emails: selectorEmails,
+    selector_phone_numbers: selectorPhones,
+    selector_usernames: selectorUsernames,
     known_profiles: sanitizedProfiles,
+    report_preferences: {
+      excluded_sections: Array.from(caseNotesExcludedSections.values()),
+      excluded_footprint_result_keys: Array.from(caseNotesExcludedFootprintResultKeys.values()),
+    },
     recon_snapshot: reconSnapshotCache || normalizeReconSnapshot(activeCase?.case_notes?.recon_snapshot),
   };
   if (caseNotesSaveBtn) caseNotesSaveBtn.disabled = true;
@@ -3437,10 +3988,10 @@ function renderPostingTimezoneMap(analysis) {
       const east = centerLongitude + corridorHalfWidthDegrees;
       const addCorridor = (westBound, eastBound) => {
         L.rectangle([[-85, westBound], [85, eastBound]], {
-          color: 'rgba(245, 158, 11, 0.88)',
+          color: 'rgba(217, 119, 6, 0.9)',
           weight: 1,
-          fillColor: 'rgba(250, 204, 21, 0.24)',
-          fillOpacity: 0.6,
+          fillColor: 'rgba(245, 158, 11, 0.2)',
+          fillOpacity: 0.56,
           interactive: false,
         }).addTo(postingTimezoneMapLayer);
       };
@@ -3839,17 +4390,15 @@ function renderLocationMap(posts) {
     const name = String(profile.location_name || '').trim();
     const lat = Number(profile.location_latitude);
     const lon = Number(profile.location_longitude);
-    if (name && !Number.isNaN(lat) && !Number.isNaN(lon)) {
+    if (name && _hasUsableGeoPoint(lat, lon)) {
       addMention(name, lat, lon);
       continue;
     }
     if (!name) continue;
-    const loweredName = name.toLowerCase();
-    for (const location of locationPairsByName) {
-      if (loweredName.includes(location.name.toLowerCase())) {
-        addMention(location.name, location.lat, location.lon);
-        break;
-      }
+    const selected = _selectMostSpecificLocationMatch(name, _resolvedLocationsFromText(name, locationPairsByName));
+    if (selected) {
+      addMention(selected.name, selected.lat, selected.lon);
+      continue;
     }
   }
 
@@ -3906,6 +4455,14 @@ function _normalizeLocationProbeText(value) {
     .trim();
 }
 
+function _locationFromCountryCode(rawCode) {
+  const code = String(rawCode || '').trim().toLowerCase();
+  if (!code) return null;
+  const tag = COUNTRY_CODE_TO_LOCATION_TAG[code];
+  if (!tag) return null;
+  return LOCATION_COORDS_BY_TAG[tag] || null;
+}
+
 function _locationCandidateFragments(text) {
   const normalized = _normalizeLocationProbeText(text);
   if (!normalized) return [];
@@ -3914,6 +4471,7 @@ function _locationCandidateFragments(text) {
   const pushCandidate = (candidate) => {
     const clean = _normalizeLocationProbeText(candidate)
       .replace(/^(?:biolocation|bio location|location|loc|city|state|province|region|country)\s*[:=]?\s*/i, '')
+      .replace(/\s+(?:country|region|province|state|city)\s*$/i, '')
       .trim();
     if (!clean || seen.has(clean)) return;
     seen.add(clean);
@@ -3933,11 +4491,19 @@ function _resolvedLocationsFromText(text, pairs) {
   for (const probe of _locationCandidateFragments(normalized)) {
     const aliasTag = LOCATION_ALIAS_TO_TAG[probe];
     const aliasLocation = aliasTag ? LOCATION_COORDS_BY_TAG[aliasTag] : null;
-    if (!aliasLocation) continue;
-    const aliasName = String(aliasLocation.name || '').trim().toLowerCase();
-    if (!aliasName || seen.has(aliasName)) continue;
-    seen.add(aliasName);
-    hits.push(aliasLocation);
+    if (aliasLocation) {
+      const aliasName = String(aliasLocation.name || '').trim().toLowerCase();
+      if (aliasName && !seen.has(aliasName)) {
+        seen.add(aliasName);
+        hits.push(aliasLocation);
+      }
+    }
+    const countryLocation = _locationFromCountryCode(probe);
+    if (!countryLocation) continue;
+    const countryName = String(countryLocation.name || '').trim().toLowerCase();
+    if (!countryName || seen.has(countryName)) continue;
+    seen.add(countryName);
+    hits.push(countryLocation);
   }
   for (const location of pairs) {
     const candidate = String(location.name || '').trim();
@@ -3953,20 +4519,18 @@ function _resolvedLocationsFromText(text, pairs) {
   return hits;
 }
 
+function _locationHierarchyLevel(location) {
+  const name = String(location?.name || '').trim().toLowerCase();
+  if (!name) return 0;
+  const countryNames = new Set(['united states', 'canada', 'ukraine', 'israel', 'palestine']);
+  const regionNames = new Set(['washington', 'texas', 'california', 'florida', 'nova scotia', 'gaza']);
+  if (countryNames.has(name)) return 1;
+  if (regionNames.has(name)) return 2;
+  return 3;
+}
+
 function _selectMostSpecificLocationMatch(rawText, matches) {
   if (!Array.isArray(matches) || !matches.length) return null;
-  const BROAD_LOCATION_NAMES = new Set([
-    'united states',
-    'canada',
-    'washington',
-    'texas',
-    'california',
-    'florida',
-    'ukraine',
-    'israel',
-    'palestine',
-    'gaza',
-  ]);
   const fragments = _locationCandidateFragments(rawText);
   const uniqueMatches = [];
   const seenNames = new Set();
@@ -3983,15 +4547,22 @@ function _selectMostSpecificLocationMatch(rawText, matches) {
   const ranked = uniqueMatches.slice().sort((a, b) => {
     const aName = String(a?.name || '').trim().toLowerCase();
     const bName = String(b?.name || '').trim().toLowerCase();
-    const aBroad = BROAD_LOCATION_NAMES.has(aName) ? 1 : 0;
-    const bBroad = BROAD_LOCATION_NAMES.has(bName) ? 1 : 0;
-    if (aBroad !== bBroad) return aBroad - bBroad;
+    const hierarchyDelta = _locationHierarchyLevel(b) - _locationHierarchyLevel(a);
+    if (hierarchyDelta !== 0) return hierarchyDelta;
     const aWords = aName ? aName.split(/\s+/g).length : 0;
     const bWords = bName ? bName.split(/\s+/g).length : 0;
     if (aWords !== bWords) return bWords - aWords;
     return bName.length - aName.length;
   });
   return ranked[0] || null;
+}
+
+function _hasUsableGeoPoint(lat, lon) {
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return false;
+  if (lat < -90 || lat > 90 || lon < -180 || lon > 180) return false;
+  // Reject Null Island defaults often returned by weak profile enrichments.
+  if (Math.abs(lat) < 0.000001 && Math.abs(lon) < 0.000001) return false;
+  return true;
 }
 
 function _primaryLocationLabel(locationName, fallbackLabel = 'Unknown') {
@@ -4252,19 +4823,27 @@ function collectPatternOfLifeLocationPoints(posts) {
   }
   for (const profile of pdlProfiles) {
     const locName = _primaryLocationLabel(profile?.location_name, '');
-    if (!locName) continue;
     const profileUrl = pdlProfileUrl(profile);
     const label = `PDL: ${String(profile?.full_name || profile?.query_value || 'profile').trim() || 'profile'}`;
-    const detail = `primary location: ${locName}`;
+    const detail = `primary location: ${locName || 'unknown'}`;
+    const countryCode = String(profile?.location_country_code || profile?.country_code || '').trim().toLowerCase();
+    const countryName = String(profile?.location_country || profile?.country || '').trim();
     const lat = Number(profile?.location_latitude);
     const lon = Number(profile?.location_longitude);
-    if (!Number.isNaN(lat) && !Number.isNaN(lon)) {
-      addPoint(locName, lat, lon, { kind: 'pdl', label, detail, profileUrl });
-    } else {
+    if (_hasUsableGeoPoint(lat, lon)) {
+      addPoint(locName || 'PDL location', lat, lon, { kind: 'pdl', label, detail, profileUrl });
+    } else if (locName) {
       // Strict mode avoids low-confidence text-to-city fallbacks for ambiguous labels.
       addFromTextSource(locName, label, detail, 'pdl', profileUrl, { strict: true, preferMostSpecific: true });
     }
+    if (countryCode) {
+      addFromTextSource(countryCode, label, `country_code: ${countryCode}`, 'pdl', profileUrl, { strict: true, preferMostSpecific: true });
+    }
+    if (countryName) {
+      addFromTextSource(countryName, label, `country: ${countryName}`, 'pdl', profileUrl, { strict: true, preferMostSpecific: true });
+    }
     for (const geo of extractCoordinateSignals(profile)) {
+      if (!_hasUsableGeoPoint(geo.lat, geo.lon)) continue;
       addPoint(geo.label || locName || 'PDL location', geo.lat, geo.lon, {
         kind: 'pdl',
         label,
@@ -4337,11 +4916,15 @@ function collectPatternOfLifeLocationPoints(posts) {
     const number = String(profile?.number || profile?.international_format || 'number').trim();
     const location = String(profile?.location || '').trim();
     const country = String(profile?.country_name || '').trim();
+    const countryCode = String(profile?.country_code || '').trim().toLowerCase();
     if (location) {
       addFromTextSource(location, `Numverify: ${number}`, `location: ${location}`, 'numverify', '', { strict: true, preferMostSpecific: true });
     }
     if (country) {
       addFromTextSource(country, `Numverify: ${number}`, `country: ${country}`, 'numverify');
+    }
+    if (countryCode) {
+      addFromTextSource(countryCode, `Numverify: ${number}`, `country_code: ${countryCode}`, 'numverify', '', { strict: true, preferMostSpecific: true });
     }
     for (const geo of extractCoordinateSignals(profile?.raw || profile)) {
       addPoint(geo.label || location || country || number, geo.lat, geo.lon, {
@@ -4379,23 +4962,336 @@ function collectPatternOfLifeLocationPoints(posts) {
   return { points, routes };
 }
 
+function _geoDistanceKm(aLat, aLon, bLat, bLon) {
+  const toRad = (value) => (Number(value) * Math.PI) / 180;
+  const dLat = toRad(Number(bLat) - Number(aLat));
+  const dLon = toRad(Number(bLon) - Number(aLon));
+  const lat1 = toRad(aLat);
+  const lat2 = toRad(bLat);
+  const sinLat = Math.sin(dLat / 2);
+  const sinLon = Math.sin(dLon / 2);
+  const hav = sinLat * sinLat + Math.cos(lat1) * Math.cos(lat2) * sinLon * sinLon;
+  return 6371 * 2 * Math.atan2(Math.sqrt(hav), Math.sqrt(1 - hav));
+}
+
+function _wrappedLongitudeDelta(a, b) {
+  return Math.abs((((Number(a) - Number(b)) % 360) + 540) % 360 - 180);
+}
+
+function _patternLifeTimezoneWeight(lon, rhythm) {
+  if (!rhythm || rhythm.insufficient) return 1;
+  const expectedLon = Math.max(-180, Math.min(180, Number(rhythm.offset || 0) * 15));
+  const delta = _wrappedLongitudeDelta(lon, expectedLon);
+  if (delta <= 15) return 1.16;
+  if (delta <= 30) return 1.06;
+  if (delta <= 45) return 0.94;
+  if (delta <= 75) return 0.84;
+  return 0.74;
+}
+
+function _patternLifeSpecificityWeight(name) {
+  const level = _locationHierarchyLevel({ name });
+  if (level >= 3) return 1.18;
+  if (level === 2) return 0.92;
+  if (level === 1) return 0.68;
+  return 0.86;
+}
+
+function _patternLifeSourceWeight(kind) {
+  const normalized = String(kind || '').trim().toLowerCase();
+  if (normalized === 'pdl') return 1.28;
+  if (normalized === 'post') return 1.1;
+  if (normalized === 'osint_industries') return 1.06;
+  if (normalized === 'numverify') return 0.93;
+  if (normalized === 'other') return 0.85;
+  return 0.9;
+}
+
+function _nearestKnownLocationLabel(lat, lon, maxDistanceKm = 220) {
+  let best = null;
+  let bestDistance = Number.POSITIVE_INFINITY;
+  for (const location of _locationPairsByName()) {
+    const distanceKm = _geoDistanceKm(lat, lon, location.lat, location.lon);
+    if (distanceKm < bestDistance) {
+      bestDistance = distanceKm;
+      best = location;
+    }
+  }
+  if (!best || bestDistance > maxDistanceKm) return '';
+  return String(best.name || '').trim();
+}
+
+function synthesizePatternLifeLikelyLocations(geo, rhythm = null) {
+  const points = Array.isArray(geo?.points) ? geo.points : [];
+  const routes = Array.isArray(geo?.routes) ? geo.routes : [];
+  const clusters = [];
+
+  const attachSignal = (lat, lon, name, weight, signalCount, sourceCounts, routeSignalCount = 0, options = {}) => {
+    let bestCluster = null;
+    let bestDistance = Number.POSITIVE_INFINITY;
+    for (const cluster of clusters) {
+      const distanceKm = _geoDistanceKm(lat, lon, cluster.centerLat, cluster.centerLon);
+      if (distanceKm < 90 && distanceKm < bestDistance) {
+        bestDistance = distanceKm;
+        bestCluster = cluster;
+      }
+    }
+    if (!bestCluster) {
+      bestCluster = {
+        weight: 0,
+        signalCount: 0,
+        routeSignalCount: 0,
+        weightedLat: 0,
+        weightedLonX: 0,
+        weightedLonY: 0,
+        centerLat: Number(lat),
+        centerLon: Number(lon),
+        sourceCounts: new Map(),
+        labelWeights: new Map(),
+      };
+      clusters.push(bestCluster);
+    }
+    const normalizedWeight = Math.max(0.001, Number(weight) || 0.001);
+    bestCluster.weight += normalizedWeight;
+    bestCluster.signalCount += Math.max(0, Number(signalCount) || 0);
+    bestCluster.routeSignalCount += Math.max(0, Number(routeSignalCount) || 0);
+    bestCluster.weightedLat += Number(lat) * normalizedWeight;
+    const lonRad = (Number(lon) * Math.PI) / 180;
+    bestCluster.weightedLonX += Math.cos(lonRad) * normalizedWeight;
+    bestCluster.weightedLonY += Math.sin(lonRad) * normalizedWeight;
+    bestCluster.centerLat = bestCluster.weightedLat / bestCluster.weight;
+    bestCluster.centerLon = (Math.atan2(bestCluster.weightedLonY, bestCluster.weightedLonX) * 180) / Math.PI;
+    const normalizedName = String(name || '').trim();
+    if (normalizedName && options.useLabel !== false) {
+      const score = bestCluster.labelWeights.get(normalizedName) || 0;
+      bestCluster.labelWeights.set(normalizedName, score + normalizedWeight * _patternLifeSpecificityWeight(normalizedName));
+    }
+    for (const [kind, count] of Object.entries(sourceCounts || {})) {
+      bestCluster.sourceCounts.set(kind, (bestCluster.sourceCounts.get(kind) || 0) + Number(count || 0));
+    }
+  };
+
+  for (const point of points) {
+    const pointCount = Math.max(1, Number(point?.count) || 0);
+    const pointName = String(point?.name || '').trim() || 'Unknown';
+    const timezoneWeight = _patternLifeTimezoneWeight(point?.lon, rhythm);
+    const specificityWeight = _patternLifeSpecificityWeight(pointName);
+    const sourceCounts = point?.sourceCounts && typeof point.sourceCounts === 'object' ? point.sourceCounts : {};
+    const totalSourceSignals = Object.values(sourceCounts).reduce((sum, value) => sum + Math.max(0, Number(value) || 0), 0);
+    const weightedSourceSignals = Object.entries(sourceCounts)
+      .reduce((sum, [kind, count]) => sum + Math.max(0, Number(count) || 0) * _patternLifeSourceWeight(kind), 0);
+    const sourceWeight = totalSourceSignals > 0 ? (weightedSourceSignals / totalSourceSignals) : _patternLifeSourceWeight(point?.dominantKind);
+    const score = pointCount * sourceWeight * specificityWeight * timezoneWeight;
+    attachSignal(point?.lat, point?.lon, pointName, score, pointCount, sourceCounts, 0);
+  }
+
+  for (const route of routes) {
+    const routeCount = Math.max(1, Number(route?.count) || 0);
+    const routeName = String(route?.name || '').trim() || 'Route';
+    const timezoneWeight = _patternLifeTimezoneWeight(route?.lon, rhythm);
+    const sourceCounts = route?.sourceCounts && typeof route.sourceCounts === 'object' ? route.sourceCounts : {};
+    const totalSourceSignals = Object.values(sourceCounts).reduce((sum, value) => sum + Math.max(0, Number(value) || 0), 0);
+    const weightedSourceSignals = Object.entries(sourceCounts)
+      .reduce((sum, [kind, count]) => sum + Math.max(0, Number(count) || 0) * _patternLifeSourceWeight(kind), 0);
+    const sourceWeight = totalSourceSignals > 0 ? (weightedSourceSignals / totalSourceSignals) : _patternLifeSourceWeight(route?.dominantKind);
+    const score = routeCount * sourceWeight * timezoneWeight * 0.95;
+    attachSignal(route?.lat, route?.lon, routeName, score, routeCount, sourceCounts, routeCount, { useLabel: false });
+  }
+
+  const ranked = clusters
+    .map((cluster) => {
+      const labelRows = Array.from(cluster.labelWeights.entries())
+        .sort((a, b) => Number(b[1]) - Number(a[1]) || String(a[0]).localeCompare(String(b[0])));
+      const sourceRows = Array.from(cluster.sourceCounts.entries())
+        .sort((a, b) => Number(b[1]) - Number(a[1]) || String(a[0]).localeCompare(String(b[0])));
+      const fallbackLabel = _nearestKnownLocationLabel(cluster.centerLat, cluster.centerLon);
+      return {
+        name: String(labelRows[0]?.[0] || fallbackLabel || 'Likely area'),
+        lat: Number(cluster.centerLat.toFixed(5)),
+        lon: Number(cluster.centerLon.toFixed(5)),
+        score: cluster.weight,
+        signalCount: cluster.signalCount,
+        routeSignalCount: cluster.routeSignalCount,
+        sourceCounts: Object.fromEntries(sourceRows),
+      };
+    })
+    .filter((row) => _hasUsableGeoPoint(row.lat, row.lon) && row.score > 0)
+    .sort((a, b) => Number(b.score) - Number(a.score) || String(a.name).localeCompare(String(b.name)));
+
+  if (!ranked.length) {
+    return { candidates: [] };
+  }
+  const totalScore = ranked.reduce((sum, row) => sum + Math.max(0, Number(row.score) || 0), 0);
+  const candidates = ranked
+    .slice(0, 5)
+    .map((row) => {
+      const probability = totalScore > 0 ? (row.score / totalScore) : 0;
+      return {
+        ...row,
+        confidencePct: Math.max(1, Math.min(99, Math.round(probability * 1000) / 10)),
+      };
+    });
+  return { candidates };
+}
+
+function renderPatternLifeLikelyLocations(synthesis) {
+  if (!(patternLifeLikelyLocations instanceof HTMLElement) || !(patternLifeLikelyLocationsEmpty instanceof HTMLElement)) return;
+  const rows = Array.isArray(synthesis?.candidates) ? synthesis.candidates : [];
+  latestPatternLifeLikelyCandidates = rows.slice();
+  if (!rows.length) {
+    patternLifeLikelyLocations.innerHTML = '';
+    patternLifeLikelyLocationsEmpty.classList.remove('hidden');
+    return;
+  }
+  patternLifeLikelyLocationsEmpty.classList.add('hidden');
+  patternLifeLikelyLocations.innerHTML = rows
+    .map((row, index) => {
+      const sourceMix = Object.entries(row.sourceCounts || {})
+        .slice(0, 3)
+        .map(([kind, count]) => `${kind.replace(/_/g, ' ')} ${count}`)
+        .join(' • ');
+      const routeLabel = Number(row.routeSignalCount || 0) > 0
+        ? `${row.routeSignalCount} route signal${row.routeSignalCount === 1 ? '' : 's'}`
+        : 'no route signals';
+      return `
+        <article class="pattern-life-likely-row">
+          <div class="pattern-life-likely-head">
+            <strong>${index + 1}. ${escapeHtml(row.name)}</strong>
+            <span class="pattern-life-likely-confidence">${row.confidencePct.toFixed(1)}%</span>
+          </div>
+          <div class="pattern-life-likely-meta">${row.signalCount} total signal${row.signalCount === 1 ? '' : 's'} • ${escapeHtml(routeLabel)} • lat ${row.lat.toFixed(4)}, lon ${row.lon.toFixed(4)}</div>
+          <div class="pattern-life-likely-bar"><span style="width:${Math.max(4, row.confidencePct)}%"></span></div>
+          <div class="pattern-life-likely-sources">${escapeHtml(sourceMix || 'source mix unavailable')}</div>
+        </article>
+      `;
+    })
+    .join('');
+}
+
+function inferMostLikelyLocationForCaseNotes(posts) {
+  const geo = collectPatternOfLifeLocationPoints(posts);
+  const rhythm = summarizePostingRhythm(posts);
+  const synthesis = synthesizePatternLifeLikelyLocations(geo, rhythm);
+  const top = Array.isArray(synthesis?.candidates) ? synthesis.candidates[0] : null;
+  const name = String(top?.name || '').trim();
+  return name;
+}
+
 function patternLifeMarkerStyle(point, maxCount) {
   const sizeRatio = maxCount > 0 ? Number(point?.count || 0) / maxCount : 0;
   const radius = 4 + Math.max(0.1, sizeRatio) * 8;
   const kind = String(point?.dominantKind || 'other').toLowerCase();
   if (kind === 'post') {
-    return { radius, color: '#86efac', fillColor: '#16a34a', fillOpacity: 0.86 };
+    return {
+      radius,
+      color: '#a5f3fc',
+      fillColor: '#06b6d4',
+      fillOpacity: 0.86,
+      haloColor: 'rgba(34, 211, 238, 0.34)',
+      haloWeight: 9,
+    };
   }
   if (kind === 'pdl') {
-    return { radius, color: '#bfdbfe', fillColor: '#3b82f6', fillOpacity: 0.84 };
+    return {
+      radius,
+      color: '#bfdbfe',
+      fillColor: '#3b82f6',
+      fillOpacity: 0.84,
+      haloColor: 'rgba(59, 130, 246, 0.34)',
+      haloWeight: 9,
+    };
   }
   if (kind === 'osint_industries') {
-    return { radius, color: '#e9d5ff', fillColor: '#a855f7', fillOpacity: 0.84 };
+    return {
+      radius,
+      color: '#93c5fd',
+      fillColor: '#2563eb',
+      fillOpacity: 0.84,
+      haloColor: 'rgba(37, 99, 235, 0.33)',
+      haloWeight: 9,
+    };
   }
   if (kind === 'numverify') {
-    return { radius, color: '#fef3c7', fillColor: '#f59e0b', fillOpacity: 0.85 };
+    return {
+      radius,
+      color: '#c7d2fe',
+      fillColor: '#4f46e5',
+      fillOpacity: 0.85,
+      haloColor: 'rgba(79, 70, 229, 0.34)',
+      haloWeight: 9,
+    };
   }
-  return { radius, color: '#d1d5db', fillColor: '#6b7280', fillOpacity: 0.8 };
+  return {
+    radius,
+    color: '#d1d5db',
+    fillColor: '#6b7280',
+    fillOpacity: 0.8,
+    haloColor: 'rgba(148, 163, 184, 0.3)',
+    haloWeight: 8,
+  };
+}
+
+function patternLifeRouteStyle(route) {
+  const kind = String(route?.dominantKind || '').trim().toLowerCase();
+  if (kind === 'osint_industries') {
+    return {
+      haloColor: 'rgba(59, 130, 246, 0.26)',
+      color: '#93c5fd',
+      dashArray: '4 6',
+    };
+  }
+  if (kind === 'pdl') {
+    return {
+      haloColor: 'rgba(34, 211, 238, 0.24)',
+      color: '#67e8f9',
+      dashArray: '6 7',
+    };
+  }
+  return {
+    haloColor: 'rgba(14, 165, 233, 0.24)',
+    color: '#7dd3fc',
+    dashArray: '5 7',
+  };
+}
+
+function patternLifeTargetingOverlayForCandidate(candidate) {
+  if (!candidate) return null;
+  const lat = Number(candidate.lat);
+  const lon = Number(candidate.lon);
+  if (!_hasUsableGeoPoint(lat, lon)) return null;
+  const confidence = Math.max(1, Math.min(99, Number(candidate.confidencePct) || 0));
+  const hierarchy = _locationHierarchyLevel({ name: candidate.name });
+  const hierarchyBonus = hierarchy <= 1 ? 1.9 : hierarchy === 2 ? 0.95 : 0.3;
+  const baseHalfSpan = 0.22 + ((100 - confidence) / 100) * 4.6 + hierarchyBonus;
+  const latHalfSpan = Math.max(0.12, Math.min(12, baseHalfSpan));
+  const lonScale = Math.max(0.2, Math.cos((Math.abs(lat) * Math.PI) / 180));
+  const lonHalfSpan = Math.max(0.2, Math.min(20, latHalfSpan / lonScale));
+  const south = Math.max(-85, lat - latHalfSpan);
+  const north = Math.min(85, lat + latHalfSpan);
+  let west = lon - lonHalfSpan;
+  let east = lon + lonHalfSpan;
+  if (west < -180) west += 360;
+  if (east > 180) east -= 360;
+  const wrapsDateline = west > east;
+  return { lat, lon, south, north, west, east, wrapsDateline };
+}
+
+function patternLifeTargetBoxFillOpacityForZoom(zoom) {
+  const z = Number(zoom);
+  if (!Number.isFinite(z)) return 0.5;
+  const clamped = Math.max(2, Math.min(12, z));
+  const ratio = (clamped - 2) / 10;
+  return Number((0.5 - (ratio * 0.34)).toFixed(2));
+}
+
+function updatePatternLifeTargetBoxTransparency() {
+  if (!patternLifeMapInstance || !Array.isArray(patternLifeTargetBoxLayers) || !patternLifeTargetBoxLayers.length) return;
+  const fillOpacity = patternLifeTargetBoxFillOpacityForZoom(patternLifeMapInstance.getZoom());
+  for (const layer of patternLifeTargetBoxLayers) {
+    if (layer && typeof layer.setStyle === 'function') {
+      layer.setStyle({ fillOpacity });
+    }
+  }
 }
 
 function patternLifePopupPlacement(mapInstance, point) {
@@ -4503,11 +5399,25 @@ function ensurePatternLifeMapInstance() {
         attributionControl: false,
         worldCopyJump: true,
       }).setView([20, 0], 2);
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-        subdomains: 'abcd',
+      L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
         maxZoom: 19,
       }).addTo(patternLifeMapInstance);
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png', {
+        subdomains: 'abcd',
+        maxZoom: 20,
+        opacity: 0.68,
+        pane: 'overlayPane',
+      }).addTo(patternLifeMapInstance);
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png', {
+        subdomains: 'abcd',
+        maxZoom: 20,
+        opacity: 0.9,
+        pane: 'overlayPane',
+      }).addTo(patternLifeMapInstance);
       patternLifeMapLayer = L.layerGroup().addTo(patternLifeMapInstance);
+      patternLifeMapInstance.on('zoomend', () => {
+        updatePatternLifeTargetBoxTransparency();
+      });
     }
     return L;
   });
@@ -4552,6 +5462,9 @@ function renderPatternLifeMap(posts, analysis = null) {
   const geo = collectPatternOfLifeLocationPoints(posts);
   const points = Array.isArray(geo?.points) ? geo.points : [];
   const routes = Array.isArray(geo?.routes) ? geo.routes : [];
+  const synthesis = synthesizePatternLifeLikelyLocations(geo, rhythm);
+  renderPatternLifeLikelyLocations(synthesis);
+  const topLikelyCandidate = Array.isArray(synthesis?.candidates) ? synthesis.candidates[0] : null;
   latestPatternLifeMapPoints = points;
   latestPatternLifeMapRoutes = routes;
   const totalMentions = points.reduce((sum, point) => sum + point.count, 0) + routes.reduce((sum, route) => sum + route.count, 0);
@@ -4562,6 +5475,7 @@ function renderPatternLifeMap(posts, analysis = null) {
     .then((L) => {
       if (!L || !patternLifeMapLayer || !patternLifeMapInstance) return;
       patternLifeMapLayer.clearLayers();
+      patternLifeTargetBoxLayers = [];
 
       if (!rhythm?.insufficient) {
         const minOffset = -12;
@@ -4572,10 +5486,10 @@ function renderPatternLifeMap(posts, analysis = null) {
         const east = centerLongitude + 15;
         const addCorridor = (westBound, eastBound) => {
           L.rectangle([[-85, westBound], [85, eastBound]], {
-            color: 'rgba(59, 130, 246, 0.82)',
+            color: 'rgba(217, 119, 6, 0.9)',
             weight: 1,
-            fillColor: 'rgba(59, 130, 246, 0.17)',
-            fillOpacity: 0.5,
+            fillColor: 'rgba(245, 158, 11, 0.18)',
+            fillOpacity: 0.52,
             interactive: false,
           }).addTo(patternLifeMapLayer);
         };
@@ -4588,6 +5502,55 @@ function renderPatternLifeMap(posts, analysis = null) {
         } else {
           addCorridor(west, east);
         }
+      }
+
+      const targetingOverlay = patternLifeTargetingOverlayForCandidate(topLikelyCandidate);
+      if (targetingOverlay) {
+        L.polyline([[-85, targetingOverlay.lon], [85, targetingOverlay.lon]], {
+          color: 'rgba(253, 224, 71, 0.94)',
+          weight: 1.2,
+          opacity: 0.95,
+          dashArray: '8 6',
+          interactive: false,
+          className: 'pattern-life-target-line',
+          lineCap: 'round',
+        }).addTo(patternLifeMapLayer);
+        L.polyline([[targetingOverlay.lat, -180], [targetingOverlay.lat, 180]], {
+          color: 'rgba(253, 224, 71, 0.94)',
+          weight: 1.2,
+          opacity: 0.95,
+          dashArray: '8 6',
+          interactive: false,
+          className: 'pattern-life-target-line',
+          lineCap: 'round',
+        }).addTo(patternLifeMapLayer);
+        const addTargetBox = (west, east) => {
+          const targetBox = L.rectangle([[targetingOverlay.south, west], [targetingOverlay.north, east]], {
+            color: 'rgba(254, 240, 138, 0.96)',
+            weight: 2.1,
+            fillColor: 'rgba(250, 204, 21, 0.22)',
+            fillOpacity: 0.5,
+            interactive: false,
+            className: 'pattern-life-target-box',
+          }).addTo(patternLifeMapLayer);
+          patternLifeTargetBoxLayers.push(targetBox);
+        };
+        if (targetingOverlay.wrapsDateline) {
+          addTargetBox(targetingOverlay.west, 180);
+          addTargetBox(-180, targetingOverlay.east);
+        } else {
+          addTargetBox(targetingOverlay.west, targetingOverlay.east);
+        }
+        L.circleMarker([targetingOverlay.lat, targetingOverlay.lon], {
+          radius: 8.4,
+          color: 'rgba(254, 240, 138, 0.98)',
+          weight: 1.6,
+          fillColor: 'rgba(250, 204, 21, 0.4)',
+          fillOpacity: 0.9,
+          interactive: false,
+          className: 'pattern-life-target-center',
+        }).addTo(patternLifeMapLayer);
+        updatePatternLifeTargetBoxTransparency();
       }
 
       for (const route of routes.slice(0, 30)) {
@@ -4626,10 +5589,24 @@ function renderPatternLifeMap(posts, analysis = null) {
             return `<div class="pattern-life-popup-row">${patternLifeSourceHeaderMarkup(label, profileUrl)}<small>${escapeHtml(detail || 'route signal')}${linkMarkup ? ` • ${linkMarkup}` : ''}</small></div>`;
           })
           .join('');
+        const routeStyle = patternLifeRouteStyle(route);
+        L.polyline(latLngs, {
+          color: routeStyle.haloColor,
+          weight: 7.4,
+          opacity: 0.9,
+          interactive: false,
+          className: 'pattern-life-route-halo',
+          lineCap: 'round',
+          lineJoin: 'round',
+        }).addTo(patternLifeMapLayer);
         const routeLine = L.polyline(latLngs, {
-          color: '#c084fc',
-          weight: 2.4,
-          opacity: 0.78,
+          color: routeStyle.color,
+          weight: 2.8,
+          opacity: 0.92,
+          dashArray: routeStyle.dashArray,
+          className: 'pattern-life-route-core',
+          lineCap: 'round',
+          lineJoin: 'round',
         });
         routeLine.bindTooltip(
           `<div class="pattern-life-tooltip"><strong>${escapeHtml(route.name || 'Route')}</strong><div>${route.count} signal${route.count === 1 ? '' : 's'}</div>${sourceBreakdown ? `<div>${escapeHtml(sourceBreakdown)}</div>` : ''}${hoverRows}</div>`,
@@ -4650,20 +5627,14 @@ function renderPatternLifeMap(posts, analysis = null) {
       const maxCount = Math.max(...points.map((point) => point.count), 1);
       for (const point of points.slice(0, 80)) {
         const markerStyle = patternLifeMarkerStyle(point, maxCount);
-        const sourceBreakdown = Object.entries(point.sourceCounts || {})
-          .sort((a, b) => Number(b[1]) - Number(a[1]))
-          .slice(0, 4)
-          .map(([kind, count]) => `${kind.replace(/_/g, ' ')}: ${count}`)
-          .join(' • ');
-        const hasNerLinkedPosts = point.references.some((ref) => String(ref?.kind || '').toLowerCase() === 'post_ner');
-        const hoverRows = point.references
-          .slice(0, 3)
-          .map((ref) => {
-            const label = String(ref?.label || '').trim() || 'source';
-            const detail = String(ref?.detail || '').trim();
-            return `<div><strong>${escapeHtml(label)}</strong>${detail ? `<div>${escapeHtml(detail)}</div>` : ''}</div>`;
-          })
-          .join('');
+        L.circleMarker([point.lat, point.lon], {
+          radius: markerStyle.radius + 2.8,
+          stroke: false,
+          fillColor: markerStyle.haloColor,
+          fillOpacity: 0.82,
+          interactive: false,
+          className: 'pattern-life-marker-halo',
+        }).addTo(patternLifeMapLayer);
         const popupRows = point.references
           .slice(0, 8)
           .map((ref) => {
@@ -4683,16 +5654,11 @@ function renderPatternLifeMap(posts, analysis = null) {
         const marker = L.circleMarker([point.lat, point.lon], {
           radius: markerStyle.radius,
           color: markerStyle.color,
-          weight: 1.2,
+          weight: 1.4,
           fillColor: markerStyle.fillColor,
           fillOpacity: markerStyle.fillOpacity,
+          className: 'pattern-life-marker-core',
         });
-        if (!hasNerLinkedPosts) {
-          marker.bindTooltip(
-            `<div class="pattern-life-tooltip"><strong>${escapeHtml(point.name)}</strong><div>${point.count} signal${point.count === 1 ? '' : 's'}</div>${sourceBreakdown ? `<div>${escapeHtml(sourceBreakdown)}</div>` : ''}${hoverRows}</div>`,
-            { sticky: true, direction: 'top', opacity: 0.96 },
-          );
-        }
         marker
           .bindPopup(
             `<div class="pattern-life-popup"><h4>${escapeHtml(point.name)}</h4><p>${point.count} signal${point.count === 1 ? '' : 's'} mapped</p><div class="pattern-life-popup-list">${popupRows}</div></div>`,
@@ -5208,17 +6174,20 @@ function applyResultsViewButtonState() {
   const footprintMode = activeResultsView === 'footprint';
   const patternLifeMode = activeResultsView === 'pattern';
   const timelineMode = activeResultsView === 'timeline';
+  const entityGraphMode = activeResultsView === 'entitygraph';
   viewPostsBtn?.classList.toggle('is-active', postView);
   viewMediaBtn?.classList.toggle('is-active', mediaView);
   viewFootprintBtn?.classList.toggle('is-active', footprintMode);
   viewPatternLifeBtn?.classList.toggle('is-active', patternLifeMode);
   viewTimelineBtn?.classList.toggle('is-active', timelineMode);
+  viewEntityGraphBtn?.classList.toggle('is-active', entityGraphMode);
   viewPostsBtn?.setAttribute('aria-pressed', String(postView));
   viewMediaBtn?.setAttribute('aria-pressed', String(mediaView));
   viewFootprintBtn?.setAttribute('aria-pressed', String(footprintMode));
   viewPatternLifeBtn?.setAttribute('aria-pressed', String(patternLifeMode));
   viewTimelineBtn?.setAttribute('aria-pressed', String(timelineMode));
-  const hideStandardLayout = footprintMode || patternLifeMode || timelineMode;
+  viewEntityGraphBtn?.setAttribute('aria-pressed', String(entityGraphMode));
+  const hideStandardLayout = footprintMode || patternLifeMode || timelineMode || entityGraphMode;
   resultsEl?.classList.toggle('hidden', hideStandardLayout);
   dashboardContent?.classList.toggle('media-grid-mode', mediaView);
   const insightsEl = dashboardContent?.querySelector('.insights');
@@ -5226,6 +6195,7 @@ function applyResultsViewButtonState() {
   footprintView?.classList.toggle('hidden', !footprintMode);
   patternLifeView?.classList.toggle('hidden', !patternLifeMode);
   timelineView?.classList.toggle('hidden', !timelineMode);
+  entityGraphView?.classList.toggle('hidden', !entityGraphMode);
   if (filterMenu instanceof HTMLElement) filterMenu.classList.toggle('hidden', hideStandardLayout);
 }
 
@@ -5235,7 +6205,11 @@ function setResultsView(mode) {
     ? 'media'
     : (normalized === 'footprint'
       ? 'footprint'
-      : (normalized === 'pattern' ? 'pattern' : (normalized === 'timeline' ? 'timeline' : 'posts')));
+      : (normalized === 'pattern'
+        ? 'pattern'
+        : (normalized === 'timeline'
+          ? 'timeline'
+          : ((normalized === 'entitygraph' || normalized === 'entity_graph' || normalized === 'graph') ? 'entitygraph' : 'posts'))));
   if (activeResultsView === next) return;
   activeResultsView = next;
   if (activeResultsView === 'footprint') {
@@ -5243,12 +6217,17 @@ function setResultsView(mode) {
   }
   applyResultsViewButtonState();
   if (activeResultsView === 'pattern') {
+    activePatternLifePlatforms.clear();
+    for (const platform of SOURCE_ORDER) activePatternLifePlatforms.add(platform);
     renderPatternOfLife(latestPosts);
     refreshMapLayout();
     window.setTimeout(refreshMapLayout, 80);
   }
   if (activeResultsView === 'timeline') {
     renderFootprintTimeline();
+  }
+  if (activeResultsView === 'entitygraph') {
+    renderFootprintEntityGraph();
   }
   renderPosts(latestPosts);
 }
@@ -5926,6 +6905,15 @@ function filteredReconPayload(payload) {
   return output;
 }
 
+function isHibpModuleName(value) {
+  const moduleName = String(value || '').trim().toLowerCase();
+  if (!moduleName) return false;
+  return moduleName === 'hibp'
+    || moduleName.includes('haveibeenpwned')
+    || moduleName.includes('have_i_been_pwned')
+    || moduleName.includes('pwned');
+}
+
 function pivotSelectorActionMarkup(type, value, title = 'Pivot Search') {
   const cleanType = String(type || '').trim().toLowerCase();
   const cleanValue = String(value || '').trim();
@@ -5935,6 +6923,119 @@ function pivotSelectorActionMarkup(type, value, title = 'Pivot Search') {
       <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="11" cy="11" r="6.5"></circle><path d="M16.5 16.5L21 21"></path></svg>
     </button>
   `;
+}
+
+function selectorConfidenceLevel(selectorType) {
+  const cleanType = String(selectorType || '').trim().toLowerCase();
+  if (cleanType === 'email' || cleanType === 'phone' || cleanType === 'wallet') return 'high';
+  if (cleanType === 'profile') return 'medium';
+  if (cleanType === 'username' || cleanType === 'name' || cleanType === 'location') return 'low';
+  return 'low';
+}
+
+function selectorConfidenceOverrideKey(selectorType, selectorValue, scopeId = '') {
+  const type = String(selectorType || '').trim().toLowerCase();
+  const value = String(selectorValue || '').trim().toLowerCase();
+  const scope = String(scopeId || '').trim().toLowerCase();
+  return scope ? `${scope}|${type}|${value}` : `${type}|${value}`;
+}
+
+function loadSelectorConfidenceOverrides() {
+  try {
+    if (!window?.localStorage) return;
+    const raw = String(window.localStorage.getItem(SELECTOR_CONFIDENCE_OVERRIDE_STORAGE_KEY) || '').trim();
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return;
+    for (const [key, value] of Object.entries(parsed)) {
+      const cleanKey = String(key || '').trim().toLowerCase();
+      const level = String(value || '').trim().toLowerCase();
+      if (!cleanKey || !cleanKey.includes('|')) continue;
+      if (!SELECTOR_CONFIDENCE_LEVELS.includes(level)) continue;
+      selectorConfidenceOverrides.set(cleanKey, level);
+    }
+  } catch (error) {
+    console.warn('Unable to load selector confidence overrides:', error);
+  }
+}
+
+function saveSelectorConfidenceOverrides() {
+  try {
+    if (!window?.localStorage) return;
+    const payload = Object.fromEntries(selectorConfidenceOverrides.entries());
+    window.localStorage.setItem(SELECTOR_CONFIDENCE_OVERRIDE_STORAGE_KEY, JSON.stringify(payload));
+  } catch (error) {
+    console.warn('Unable to save selector confidence overrides:', error);
+  }
+}
+
+function selectorConfidenceLevelEffective(selectorType, selectorValue = '', scopeId = '') {
+  const key = selectorConfidenceOverrideKey(selectorType, selectorValue, scopeId);
+  const override = selectorConfidenceOverrides.get(key);
+  if (override && SELECTOR_CONFIDENCE_LEVELS.includes(override)) return override;
+  return selectorConfidenceLevel(selectorType);
+}
+
+function selectorConfidenceMeta(selectorType, selectorValue = '', scopeId = '') {
+  const level = selectorConfidenceLevelEffective(selectorType, selectorValue, scopeId);
+  if (level === 'high') {
+    return { level, label: 'High Confidence', short: 'High', guidance: 'Unique selector; stronger identity linkage.' };
+  }
+  if (level === 'medium') {
+    return { level, label: 'Medium Confidence', short: 'Medium', guidance: 'Handle reuse is possible across people/platforms.' };
+  }
+  return { level, label: 'Low Confidence', short: 'Low', guidance: 'Non-unique selector; corroborate with additional evidence.' };
+}
+
+function selectorConfidenceDisplayValue(selectorType, selectorValue) {
+  const type = String(selectorType || '').trim().toLowerCase();
+  const value = String(selectorValue || '').trim();
+  if (!value) return 'unknown';
+  if (type === 'username') return value.startsWith('@') ? value : `@${value}`;
+  return value;
+}
+
+function selectorConfidenceTooltip(selectorType, selectorValue, scopeId = '') {
+  const level = selectorConfidenceLevelEffective(selectorType, selectorValue, scopeId);
+  const displayValue = selectorConfidenceDisplayValue(selectorType, selectorValue);
+  if (level === 'high') {
+    return `Result is high confidence as it was returned by a unique selector >${displayValue}<`;
+  }
+  if (level === 'low') {
+    return `Result is low confidence since it was discovered via a nonunique selector >${displayValue}<`;
+  }
+  return `Result confidence is medium because selector uniqueness is mixed for >${displayValue}<`;
+}
+
+function selectorConfidenceBadgeMarkup(selectorType, selectorValue = '', options = {}) {
+  const scopeId = String(options?.scopeId || '').trim();
+  const meta = selectorConfidenceMeta(selectorType, selectorValue, scopeId);
+  const compact = options?.compact === true;
+  const label = compact ? meta.short : meta.label;
+  const tooltip = selectorConfidenceTooltip(selectorType, selectorValue, scopeId);
+  const key = selectorConfidenceOverrideKey(selectorType, selectorValue, scopeId);
+  return `<button type="button" class="selector-confidence-badge is-${escapeAttr(meta.level)}" data-confidence-key="${escapeAttr(key)}" data-confidence-type="${escapeAttr(String(selectorType || '').trim().toLowerCase())}" data-confidence-value="${escapeAttr(String(selectorValue || '').trim())}" title="${escapeAttr(tooltip)}">${escapeHtml(label)}</button>`;
+}
+
+function cycleSelectorConfidenceLevel(level) {
+  const clean = String(level || '').trim().toLowerCase();
+  const index = SELECTOR_CONFIDENCE_LEVELS.indexOf(clean);
+  if (index < 0) return SELECTOR_CONFIDENCE_LEVELS[0];
+  return SELECTOR_CONFIDENCE_LEVELS[(index + 1) % SELECTOR_CONFIDENCE_LEVELS.length];
+}
+
+function selectorConfidenceLevelFromOverrideKey(overrideKey, fallbackSelectorType = '') {
+  const cleanKey = String(overrideKey || '').trim().toLowerCase();
+  const override = selectorConfidenceOverrides.get(cleanKey);
+  if (override && SELECTOR_CONFIDENCE_LEVELS.includes(override)) return override;
+  return selectorConfidenceLevel(fallbackSelectorType);
+}
+
+function rerenderConfidenceOverriddenViews() {
+  const payload = latestReconPayload && typeof latestReconPayload === 'object' ? latestReconPayload : emptyReconPayload();
+  renderReconResults(payload, footprintReconResults);
+  renderReconResults(payload, reconResults);
+  renderKnownSelectorsPanel(payload);
 }
 
 function toReconBadge(row, clsName = 'lead', options = {}) {
@@ -5953,18 +7054,21 @@ function toReconBadge(row, clsName = 'lead', options = {}) {
   const classes = source === 'pdl' ? `${clsName} pdl` : clsName;
   const selectorType = String(row?.selector_type || '').trim().toLowerCase();
   const selectorValue = String(row?.selector || '').trim();
+  const selectorTypeClass = selectorTypeColorToken(selectorType);
   const selectorKey = sourceSelectorKey(selectorType, selectorValue);
   const selectorAttr = selectorKey ? ` data-source-selector-key="${escapeAttr(selectorKey)}"` : '';
+  const confidenceBadge = selectorConfidenceBadgeMarkup(selectorType, selectorValue, { compact: true, scopeId: rowKey });
   const pivotMarkup = options?.pivotable === false ? '' : pivotSelectorActionMarkup(selectorType, selectorValue, 'Pivot from selector');
   const removeMarkup = removable
     ? `<button type="button" class="known-selector-action recon-pill-remove recon-pill-action" data-recon-remove="${escapeAttr(rowKey)}" title="Remove result">×</button>`
     : '';
-  if (!url) return `<span class="recon-pill ${escapeHtml(classes)}"${selectorAttr}>${content}${pivotMarkup}${removeMarkup}</span>`;
+  if (!url) return `<span class="recon-pill ${escapeHtml(classes)} recon-pill-${escapeAttr(selectorTypeClass)}"${selectorAttr}>${content}${confidenceBadge}${pivotMarkup}${removeMarkup}</span>`;
   const previewAttr = screenshotUrl ? ` data-preview-image="${escapeAttr(screenshotUrl)}"` : '';
   const previewLabelAttr = screenshotUrl ? ` data-preview-label="${escapeAttr(label)}"` : '';
   return `
-    <span class="recon-pill ${escapeHtml(classes)}"${selectorAttr}${previewAttr}${previewLabelAttr}>
+    <span class="recon-pill ${escapeHtml(classes)} recon-pill-${escapeAttr(selectorTypeClass)}"${selectorAttr}${previewAttr}${previewLabelAttr}>
       <a class="lead-link recon-pill-link" target="_blank" rel="noopener noreferrer" href="${escapeHtml(url)}">${content}</a>
+      ${confidenceBadge}
       ${pivotMarkup}
       ${removeMarkup}
     </span>
@@ -5972,9 +7076,21 @@ function toReconBadge(row, clsName = 'lead', options = {}) {
 }
 
 function formatSelectorLabel(selectorType, selectorValue) {
-  const type = String(selectorType || '').trim().toLowerCase() || 'selector';
   const value = String(selectorValue || '').trim() || 'unknown';
-  return `${type}: ${value}`;
+  return value;
+}
+
+function selectorTypeDisplayLabel(selectorType) {
+  const clean = String(selectorType || '').trim().toLowerCase();
+  if (!clean) return 'Selector';
+  return clean.charAt(0).toUpperCase() + clean.slice(1);
+}
+
+function footprintSelectorEvidenceLabel(selectorType, selectorValue) {
+  const typeLabel = selectorTypeDisplayLabel(selectorType);
+  const value = String(selectorValue || '').trim();
+  if (!value) return `Identified via ${typeLabel} selector`;
+  return `Identified via ${typeLabel} selector: ${value}`;
 }
 
 function sourceSelectorKey(selectorType, selectorValue) {
@@ -5995,17 +7111,27 @@ function sourceSelectorParts(key) {
 function collectSourceSelectorFilterOptions(results) {
   const rows = Array.isArray(results) ? results : [];
   const counts = new Map();
-  const labels = new Map();
+  const metaByKey = new Map();
   for (const row of rows) {
     const type = String(row?.selector_type || '').trim().toLowerCase();
     const value = String(row?.selector || '').trim();
     const key = sourceSelectorKey(type, value);
     if (!key) continue;
     counts.set(key, (counts.get(key) || 0) + 1);
-    if (!labels.has(key)) labels.set(key, formatSelectorLabel(type, value));
+    if (!metaByKey.has(key)) {
+      metaByKey.set(key, {
+        label: formatSelectorLabel(type, value),
+        confidenceLevel: selectorConfidenceMeta(type, value).level,
+      });
+    }
   }
   return Array.from(counts.entries())
-    .map(([key, count]) => ({ key, count, label: labels.get(key) || key }))
+    .map(([key, count]) => ({
+      key,
+      count,
+      label: metaByKey.get(key)?.label || key,
+      confidenceLevel: metaByKey.get(key)?.confidenceLevel || 'low',
+    }))
     .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
 }
 
@@ -6029,6 +7155,14 @@ function normalizeKnownSelectorValue(type, value) {
   const normalizedType = String(type || '').trim().toLowerCase();
   const raw = String(value || '').trim();
   if (!raw) return '';
+  if (normalizedType === 'location') {
+    // Remove categorical prefixes from location payload fragments (e.g., "Country: CA City: Halifax").
+    const stripped = raw
+      .replace(/\b(?:country|state|city|raw)\s*:\s*/gi, '')
+      .replace(/\s{2,}/g, ' ')
+      .trim();
+    return stripped;
+  }
   if (normalizedType === 'email') return raw.toLowerCase();
   if (normalizedType === 'phone') return raw.replace(/[^\d+]/g, '');
   if (normalizedType === 'username') return raw.replace(/^@+/, '');
@@ -6073,13 +7207,14 @@ function isLikelyUsername(value) {
 
 function addKnownSelector(map, type, value) {
   const normalizedType = String(type || '').trim().toLowerCase();
-  if (!KNOWN_SELECTOR_GROUPS.includes(normalizedType)) return;
+  if (!KNOWN_SELECTOR_GROUPS.includes(normalizedType)) return '';
   const normalizedValue = normalizeKnownSelectorValue(normalizedType, value);
-  if (!normalizedValue) return;
-  if (normalizedType === 'name' && !isLikelyPersonName(normalizedValue)) return;
-  if (normalizedType === 'username' && !isLikelyUsername(normalizedValue)) return;
+  if (!normalizedValue) return '';
+  if (normalizedType === 'name' && !isLikelyPersonName(normalizedValue)) return '';
+  if (normalizedType === 'username' && !isLikelyUsername(normalizedValue)) return '';
   if (!map.has(normalizedType)) map.set(normalizedType, new Set());
   map.get(normalizedType).add(normalizedValue);
+  return normalizedValue;
 }
 
 function inferKnownSelectorType(raw) {
@@ -6093,8 +7228,363 @@ function inferKnownSelectorType(raw) {
   return 'name';
 }
 
+function selectorQueryPriorityWeight(selectorType) {
+  const cleanType = String(selectorType || '').trim().toLowerCase();
+  if (cleanType === 'email' || cleanType === 'phone') return 6;
+  if (cleanType === 'username' || cleanType === 'name') return 2;
+  if (cleanType === 'location') return 1;
+  return 1;
+}
+
+function toLikelyNameCase(value) {
+  return String(value || '')
+    .trim()
+    .split(/\s+/g)
+    .filter(Boolean)
+    .map((token) => token.charAt(0).toUpperCase() + token.slice(1).toLowerCase())
+    .join(' ');
+}
+
+function buildLikelyNameFromHandle(rawHandle, knownNameTokens = []) {
+  const handle = String(rawHandle || '').trim().replace(/^@+/, '');
+  if (!handle) return '';
+  const direct = handle.replace(/[._-]+/g, ' ').replace(/\s+/g, ' ').trim();
+  const directParts = direct.split(' ').filter(Boolean);
+  if (directParts.length >= 2 && directParts.every((part) => /^[a-z][a-z'-]{1,}$/i.test(part))) {
+    const candidate = toLikelyNameCase(directParts.join(' '));
+    return isLikelyPersonName(candidate) ? candidate : '';
+  }
+  let compact = handle.toLowerCase().replace(/[^a-z]/g, '');
+  if (!compact || compact.length < 4) return '';
+  compact = compact.replace(/(?:official|real|thereal|the|_)+$/g, '');
+  compact = compact.replace(/(?:usa|canada|can|uk|ca|us)+$/g, '');
+  if (compact.length < 4) return '';
+  const tokenPool = (Array.isArray(knownNameTokens) ? knownNameTokens : [])
+    .map((token) => String(token || '').trim().toLowerCase())
+    .filter((token) => token.length >= 3);
+  tokenPool.sort((a, b) => b.length - a.length);
+  for (const first of tokenPool) {
+    const idx = compact.indexOf(first);
+    if (idx < 0) continue;
+    const remaining = `${compact.slice(0, idx)} ${compact.slice(idx + first.length)}`.trim().replace(/\s+/g, ' ');
+    if (!remaining) continue;
+    const second = tokenPool.find((token) => remaining.includes(token) && token !== first);
+    if (!second) continue;
+    const candidate = toLikelyNameCase(`${first} ${second}`);
+    if (isLikelyPersonName(candidate)) return candidate;
+  }
+  return '';
+}
+
+function collectLikelyNameSummary(payload) {
+  const rows = Array.isArray(payload?.results) ? payload.results : [];
+  const selectors = Array.isArray(payload?.selectors) ? payload.selectors : [];
+  const osintProfiles = Array.isArray(payload?.osint_profiles) ? payload.osint_profiles : [];
+  const personDataProfiles = Array.isArray(payload?.person_data_profiles) ? payload.person_data_profiles : [];
+  const leads = Array.isArray(payload?.leads) ? payload.leads : [];
+  const stats = new Map();
+  const explicitNameTokens = new Set();
+
+  const statKey = (name) => String(name || '').trim().toLowerCase();
+  const ensure = (name) => {
+    const key = statKey(name);
+    if (!key) return null;
+    if (!stats.has(key)) {
+      stats.set(key, {
+        name: toLikelyNameCase(name),
+        score: 0,
+        sources: new Set(),
+        profiles: new Set(),
+        evidence: new Set(),
+      });
+    }
+    return stats.get(key);
+  };
+
+  const nameFieldWeight = (fieldType) => {
+    const kind = String(fieldType || '').trim().toLowerCase();
+    if (kind === 'name') return 18;
+    if (kind === 'username') return 7;
+    if (kind === 'email') return 6;
+    return 2;
+  };
+
+  const addNameEvidence = (
+    rawName,
+    {
+      fieldType = 'name',
+      queryType = '',
+      sourceKey = '',
+      profileKey = '',
+      evidenceKey = '',
+    } = {},
+  ) => {
+    const normalized = normalizeKnownSelectorValue('name', rawName);
+    if (!normalized || !isLikelyPersonName(normalized)) return;
+    const record = ensure(normalized);
+    if (!record) return;
+    const base = nameFieldWeight(fieldType);
+    const queryWeight = selectorQueryPriorityWeight(queryType);
+    const weighted = base * (1 + (queryWeight * 0.35));
+    record.score += weighted;
+    const src = String(sourceKey || '').trim().toLowerCase();
+    if (src) record.sources.add(src);
+    const profile = String(profileKey || '').trim().toLowerCase();
+    if (profile) record.profiles.add(profile);
+    const evidence = String(evidenceKey || '').trim().toLowerCase();
+    if (evidence) record.evidence.add(evidence);
+    for (const token of normalized.toLowerCase().split(/\s+/g)) {
+      if (token.length >= 3) explicitNameTokens.add(token);
+    }
+  };
+
+  const addHandleEvidence = (rawHandle, options = {}) => {
+    const candidate = buildLikelyNameFromHandle(rawHandle, Array.from(explicitNameTokens));
+    if (!candidate) return;
+    addNameEvidence(candidate, options);
+  };
+
+  const addEmailEvidence = (rawEmail, options = {}) => {
+    const email = String(rawEmail || '').trim().toLowerCase();
+    if (!isValidReconEmail(email)) return;
+    const local = email.split('@')[0] || '';
+    if (!local) return;
+    addHandleEvidence(local, { ...options, fieldType: 'email' });
+  };
+
+  for (const selector of selectors) {
+    const selectorType = String(selector?.type || '').trim().toLowerCase();
+    const selectorValue = String(selector?.value || '').trim();
+    const profileKey = `query|${selectorType}|${selectorValue.toLowerCase()}`;
+    if (selectorType === 'name') addNameEvidence(selectorValue, { fieldType: 'name', queryType: selectorType, sourceKey: 'query_input', profileKey, evidenceKey: profileKey });
+    else if (selectorType === 'username') addHandleEvidence(selectorValue, { fieldType: 'username', queryType: selectorType, sourceKey: 'query_input', profileKey, evidenceKey: profileKey });
+    else if (selectorType === 'email') addEmailEvidence(selectorValue, { queryType: selectorType, sourceKey: 'query_input', profileKey, evidenceKey: profileKey });
+  }
+
+  for (const profile of personDataProfiles) {
+    const queryType = String(profile?.query_type || '').trim().toLowerCase();
+    const profileKey = [
+      String(profile?.id || '').trim().toLowerCase(),
+      String(profile?.full_name || '').trim().toLowerCase(),
+      String(profile?.query_value || '').trim().toLowerCase(),
+    ].join('|');
+    addNameEvidence(profile?.full_name, { fieldType: 'name', queryType, sourceKey: 'pdl', profileKey, evidenceKey: `pdl|name|${profileKey}` });
+    addEmailEvidence(profile?.professional_email || profile?.work_email, { queryType, sourceKey: 'pdl', profileKey, evidenceKey: `pdl|professional_email|${profileKey}` });
+    for (const email of (Array.isArray(profile?.personal_emails) ? profile.personal_emails : [])) {
+      addEmailEvidence(email, { queryType, sourceKey: 'pdl', profileKey, evidenceKey: `pdl|personal_email|${profileKey}|${String(email || '').trim().toLowerCase()}` });
+    }
+    const usernames = [profile?.username, profile?.linkedin_username, profile?.twitter_username];
+    for (const handle of usernames) {
+      addHandleEvidence(handle, { fieldType: 'username', queryType, sourceKey: 'pdl', profileKey, evidenceKey: `pdl|username|${profileKey}|${String(handle || '').trim().toLowerCase()}` });
+    }
+  }
+
+  for (const profile of osintProfiles) {
+    const moduleName = String(profile?.module || '').trim().toLowerCase() || 'osint';
+    const queryType = String(profile?.query_type || '').trim().toLowerCase();
+    const profileKey = [
+      moduleName,
+      String(profile?.profile_url || '').trim().toLowerCase(),
+      String(profile?.website || '').trim().toLowerCase(),
+      String(profile?.username || '').trim().toLowerCase(),
+      String(profile?.email || '').trim().toLowerCase(),
+    ].join('|');
+    addNameEvidence(profile?.name, { fieldType: 'name', queryType, sourceKey: `osint:${moduleName}`, profileKey, evidenceKey: `osint:${moduleName}|name|${profileKey}` });
+    addNameEvidence(`${profile?.first_name || ''} ${profile?.last_name || ''}`, { fieldType: 'name', queryType, sourceKey: `osint:${moduleName}`, profileKey, evidenceKey: `osint:${moduleName}|first_last|${profileKey}` });
+    addHandleEvidence(profile?.username, { fieldType: 'username', queryType, sourceKey: `osint:${moduleName}`, profileKey, evidenceKey: `osint:${moduleName}|username|${profileKey}` });
+    addEmailEvidence(profile?.email, { queryType, sourceKey: `osint:${moduleName}`, profileKey, evidenceKey: `osint:${moduleName}|email|${profileKey}` });
+    addEmailEvidence(profile?.email_hint, { queryType, sourceKey: `osint:${moduleName}`, profileKey, evidenceKey: `osint:${moduleName}|email_hint|${profileKey}` });
+  }
+
+  for (const row of rows) {
+    const source = String(row?.source || row?.site || row?.site_key || 'result').trim().toLowerCase();
+    const selectorType = String(row?.selector_type || '').trim().toLowerCase();
+    const selectorValue = String(row?.selector || '').trim();
+    const profileKey = String(row?.profile_url || `${source}|${selectorType}|${selectorValue}`).trim().toLowerCase();
+    addNameEvidence(row?.profile_name || row?.title, { fieldType: 'name', queryType: selectorType, sourceKey: `result:${source}`, profileKey, evidenceKey: `result:${source}|name|${profileKey}` });
+    if (selectorType === 'name') addNameEvidence(selectorValue, { fieldType: 'name', queryType: selectorType, sourceKey: `result:${source}`, profileKey, evidenceKey: `result:${source}|selector_name|${profileKey}` });
+    if (selectorType === 'username') addHandleEvidence(selectorValue, { fieldType: 'username', queryType: selectorType, sourceKey: `result:${source}`, profileKey, evidenceKey: `result:${source}|selector_username|${profileKey}` });
+    if (selectorType === 'email') addEmailEvidence(selectorValue, { queryType: selectorType, sourceKey: `result:${source}`, profileKey, evidenceKey: `result:${source}|selector_email|${profileKey}` });
+  }
+
+  for (const lead of leads) {
+    const leadType = String(lead?.lead_type || '').trim().toLowerCase();
+    if (leadType !== 'attribute') continue;
+    const attribute = String(lead?.attribute || '').trim().toLowerCase();
+    const value = String(lead?.value || '').trim();
+    if (!value) continue;
+    const source = String(lead?.source || 'lead').trim().toLowerCase();
+    const profileKey = `${source}|${String(lead?.profile_name || lead?.profile_url || '').trim().toLowerCase() || value.toLowerCase()}`;
+    if (attribute.includes('name')) addNameEvidence(value, { fieldType: 'name', sourceKey: `lead:${source}`, profileKey, evidenceKey: `lead:${source}|name|${value.toLowerCase()}|${profileKey}` });
+    else if (attribute.includes('username') || attribute.includes('handle')) addHandleEvidence(value, { fieldType: 'username', sourceKey: `lead:${source}`, profileKey, evidenceKey: `lead:${source}|username|${value.toLowerCase()}|${profileKey}` });
+    else if (attribute.includes('email')) addEmailEvidence(value, { sourceKey: `lead:${source}`, profileKey, evidenceKey: `lead:${source}|email|${value.toLowerCase()}|${profileKey}` });
+  }
+
+  const ranked = Array.from(stats.values())
+    .map((item) => {
+      const diversityBonus = (item.sources.size * 16) + (item.profiles.size * 7) + (item.evidence.size * 1.5);
+      return { ...item, totalScore: item.score + diversityBonus };
+    })
+    .sort((a, b) => b.totalScore - a.totalScore || b.profiles.size - a.profiles.size || a.name.localeCompare(b.name));
+  const top = ranked[0] || null;
+  return {
+    name: top?.name || '',
+    candidates: ranked,
+  };
+}
+
+function formatLikelyNameForCaseNotes(rawName) {
+  const normalized = normalizeKnownSelectorValue('name', rawName);
+  if (!normalized || !isLikelyPersonName(normalized)) return '';
+  const parts = normalized.split(/\s+/g).filter(Boolean);
+  if (parts.length < 2) return toLikelyNameCase(normalized);
+  const lastName = String(parts[parts.length - 1] || '').replace(/[^A-Za-z'-]/g, '');
+  const firstNames = parts.slice(0, -1).join(' ').trim();
+  if (!lastName || !firstNames) return toLikelyNameCase(normalized);
+  return `${lastName.toUpperCase()}, ${toLikelyNameCase(firstNames)}`;
+}
+
+function calculatedLikelyNameForCaseNotes() {
+  const payload = latestReconPayload && typeof latestReconPayload === 'object' ? latestReconPayload : emptyReconPayload();
+  const summary = collectLikelyNameSummary(payload);
+  return formatLikelyNameForCaseNotes(summary?.name || '');
+}
+
+function maybeAutofillCaseNotesLikelyName(options = {}) {
+  if (!(caseNotesNameInput instanceof HTMLInputElement)) return;
+  if (!(caseNotesModal instanceof HTMLElement) || caseNotesModal.classList.contains('hidden')) return;
+  const force = options?.force === true;
+  const candidate = calculatedLikelyNameForCaseNotes();
+  if (!candidate) return;
+  const current = String(caseNotesNameInput.value || '').trim();
+  const previousAuto = String(lastAutofilledCaseNotesName || '').trim();
+  const canReplace = force
+    || !current
+    || (previousAuto && current.toLowerCase() === previousAuto.toLowerCase());
+  if (!canReplace) return;
+  caseNotesNameInput.value = candidate;
+  lastAutofilledCaseNotesName = candidate;
+  caseNotesNameInput.classList.add('case-notes-name-autofill');
+}
+
+function maybeAutofillCaseNotesLikelyLocation(options = {}) {
+  if (!(caseNotesLocationInput instanceof HTMLInputElement)) return;
+  if (!(caseNotesModal instanceof HTMLElement) || caseNotesModal.classList.contains('hidden')) return;
+  const force = options?.force === true;
+  const candidate = inferMostLikelyLocationForCaseNotes(Array.isArray(latestFetchedPosts) && latestFetchedPosts.length ? latestFetchedPosts : latestPosts);
+  if (!candidate) return;
+  const current = String(caseNotesLocationInput.value || '').trim();
+  const previousAuto = String(lastAutofilledCaseNotesLocation || '').trim();
+  const canReplace = force
+    || !current
+    || (previousAuto && current.toLowerCase() === previousAuto.toLowerCase());
+  if (!canReplace) return;
+  caseNotesLocationInput.value = candidate;
+  lastAutofilledCaseNotesLocation = candidate;
+}
+
+function syncOpenCaseNotesKnownProfilesFromRecon() {
+  if (!(caseNotesModal instanceof HTMLElement) || caseNotesModal.classList.contains('hidden')) return;
+  if (!(caseNotesProfilesList instanceof HTMLElement)) return;
+  syncKnownProfilesFromForm();
+  const discoveredFromRecon = caseNotesMajorProfiles(defaultKnownProfilesFromRecon());
+  const discoveredFromPosts = caseNotesMajorProfiles(discoverKnownProfilesFromPosts(Array.isArray(latestFetchedPosts) && latestFetchedPosts.length ? latestFetchedPosts : latestPosts));
+  const discoveredKnownProfiles = mergeDiscoveredKnownProfiles(discoveredFromRecon, discoveredFromPosts);
+  const manualProfiles = caseNotesMajorProfiles(caseNotesKnownProfiles).filter((profile) => {
+    const key = normalizeProfileKey(profile.site, profile.url);
+    return !caseNotesAutoProfileKeys.has(key);
+  });
+  const mergedProfiles = mergeDiscoveredKnownProfiles(manualProfiles, discoveredKnownProfiles);
+  caseNotesKnownProfiles = caseNotesMajorProfiles(enrichKnownProfilesWithExtractedImages(mergedProfiles, Array.isArray(latestFetchedPosts) && latestFetchedPosts.length ? latestFetchedPosts : latestPosts));
+  caseNotesAutoProfileKeys.clear();
+  for (const key of profileKeySetForKnownProfiles(discoveredKnownProfiles)) caseNotesAutoProfileKeys.add(key);
+  const currentSubjectValue = caseNotesSubjectImageSelect instanceof HTMLSelectElement
+    ? String(caseNotesSubjectImageSelect.value || '').trim()
+    : '';
+  const selectedSubject = currentSubjectValue || USER_PLACEHOLDER_AVATAR_URL;
+  renderCaseNotesSubjectImageOptions(selectedSubject);
+  renderCaseNotesSubjectImagePreview(selectedSubject);
+  renderCaseNotesProfiles();
+}
+
 function collectKnownSelectors(payload) {
   const selectorMap = new Map(KNOWN_SELECTOR_GROUPS.map((type) => [type, new Set()]));
+  const selectorStats = new Map();
+  const confidenceScoreForType = (selectorType) => {
+    const level = selectorConfidenceLevel(selectorType);
+    if (level === 'high') return 3;
+    if (level === 'medium') return 2;
+    return 1;
+  };
+  const statKeyFor = (type, value) => `${String(type || '').trim().toLowerCase()}|${String(value || '').trim().toLowerCase()}`;
+  const ensureStat = (type, value) => {
+    const key = statKeyFor(type, value);
+    if (!selectorStats.has(key)) {
+      selectorStats.set(key, {
+        queried: false,
+        queryHits: 0,
+        querySignal: 0,
+        sourceKeys: new Set(),
+        profileKeys: new Set(),
+        evidenceKeys: new Set(),
+        queryConfidenceScore: 0,
+        queryConfidenceType: '',
+        queryConfidenceValue: '',
+      });
+    }
+    return selectorStats.get(key);
+  };
+  const trackKnownSelector = (
+    type,
+    rawValue,
+    {
+      queried = false,
+      queryWeight = 1,
+      querySelectorType = '',
+      querySelectorValue = '',
+      sourceKey = '',
+      profileKey = '',
+      evidenceKey = '',
+    } = {},
+  ) => {
+    const normalizedType = String(type || '').trim().toLowerCase();
+    const normalizedValue = addKnownSelector(selectorMap, normalizedType, rawValue);
+    if (!normalizedType || !normalizedValue) return;
+    const stat = ensureStat(normalizedType, normalizedValue);
+    if (queried) {
+      stat.queried = true;
+      stat.queryHits += 1;
+      stat.querySignal += Number.isFinite(Number(queryWeight)) ? Math.max(0, Number(queryWeight)) : 1;
+      const confidenceType = String(querySelectorType || normalizedType).trim().toLowerCase();
+      const confidenceValue = String(querySelectorValue || rawValue || '').trim();
+      const confidenceScore = confidenceScoreForType(confidenceType);
+      if (confidenceScore >= stat.queryConfidenceScore) {
+        stat.queryConfidenceScore = confidenceScore;
+        stat.queryConfidenceType = confidenceType;
+        stat.queryConfidenceValue = confidenceValue;
+      }
+    }
+    const cleanSourceKey = String(sourceKey || '').trim().toLowerCase();
+    if (cleanSourceKey) stat.sourceKeys.add(cleanSourceKey);
+    const cleanProfileKey = String(profileKey || '').trim().toLowerCase();
+    if (cleanProfileKey) stat.profileKeys.add(cleanProfileKey);
+    const cleanEvidenceKey = String(evidenceKey || '').trim().toLowerCase();
+    if (cleanEvidenceKey) stat.evidenceKeys.add(cleanEvidenceKey);
+  };
+  const sortByPriority = (type, values) => {
+    const typed = String(type || '').trim().toLowerCase();
+    const scoreFor = (value) => {
+      const stat = selectorStats.get(statKeyFor(typed, value));
+      if (!stat) return 0;
+      const queriedBoost = stat.queried ? 1_000_000 : 0;
+      const queryWeight = Math.min(10_000, stat.querySignal) * 100;
+      const sourceDiversity = stat.sourceKeys.size * 1_000;
+      const profileFrequency = stat.profileKeys.size * 100;
+      const evidenceFrequency = stat.evidenceKeys.size;
+      return queriedBoost + queryWeight + sourceDiversity + profileFrequency + evidenceFrequency;
+    };
+    return [...values].sort((a, b) => scoreFor(b) - scoreFor(a) || a.localeCompare(b));
+  };
   const rows = Array.isArray(payload?.results) ? payload.results : [];
   const selectors = Array.isArray(payload?.selectors) ? payload.selectors : [];
   const osintProfiles = Array.isArray(payload?.osint_profiles) ? payload.osint_profiles : [];
@@ -6102,34 +7592,108 @@ function collectKnownSelectors(payload) {
   const personDataProfiles = Array.isArray(payload?.person_data_profiles) ? payload.person_data_profiles : [];
   const leads = Array.isArray(payload?.leads) ? payload.leads : [];
 
-  for (const selector of selectors) addKnownSelector(selectorMap, selector?.type, selector?.value);
-  for (const row of rows) addKnownSelector(selectorMap, row?.selector_type, row?.selector);
+  for (const selector of selectors) {
+    const selectorType = String(selector?.type || '').trim().toLowerCase();
+    const selectorValue = String(selector?.value || '').trim();
+    trackKnownSelector(selector?.type, selector?.value, {
+      queried: true,
+      queryWeight: selectorQueryPriorityWeight(selectorType),
+      querySelectorType: selectorType,
+      querySelectorValue: selectorValue,
+      sourceKey: 'query_input',
+      profileKey: `query_input|${selectorType}|${selectorValue.toLowerCase()}`,
+      evidenceKey: `query_input|${selectorType}|${selectorValue.toLowerCase()}`,
+    });
+  }
+  for (const row of rows) {
+    const source = String(row?.source || row?.site_key || row?.site || 'result').trim().toLowerCase();
+    const selectorType = String(row?.selector_type || '').trim().toLowerCase();
+    const selectorValue = String(row?.selector || '').trim();
+    const profileUrl = String(row?.profile_url || '').trim().toLowerCase();
+    const profileIdentity = profileUrl || `${source}|${selectorType}|${selectorValue.toLowerCase()}`;
+    trackKnownSelector(selectorType, selectorValue, {
+      queried: true,
+      queryWeight: selectorQueryPriorityWeight(selectorType),
+      querySelectorType: selectorType,
+      querySelectorValue: selectorValue,
+      sourceKey: `result:${source}`,
+      profileKey: `result:${profileIdentity}`,
+      evidenceKey: `result:${source}|${profileIdentity}`,
+    });
+  }
 
   for (const profile of osintProfiles) {
     const moduleName = String(profile?.module || '').trim().toLowerCase();
-    if (moduleName === 'hibp') continue;
-    addKnownSelector(selectorMap, 'email', profile?.email);
-    addKnownSelector(selectorMap, 'phone', profile?.phone);
-    addKnownSelector(selectorMap, 'username', profile?.username);
-    addKnownSelector(selectorMap, 'name', profile?.name);
-    addKnownSelector(selectorMap, 'location', profile?.location);
-    addKnownSelector(selectorMap, 'phone', profile?.phone_hint);
-    addKnownSelector(selectorMap, 'email', profile?.email_hint);
+    if (isHibpModuleName(moduleName)) continue;
+    const queryType = String(profile?.query_type || '').trim().toLowerCase();
+    const queryValue = String(profile?.query_value || '').trim();
+    const profileKey = [
+      moduleName || 'osint',
+      String(profile?.profile_url || '').trim().toLowerCase(),
+      String(profile?.website || '').trim().toLowerCase(),
+      String(profile?.username || '').trim().toLowerCase(),
+      String(profile?.email || '').trim().toLowerCase(),
+      String(profile?.phone || '').trim().toLowerCase(),
+      String(profile?.name || '').trim().toLowerCase(),
+      String(profile?.title || '').trim().toLowerCase(),
+    ].join('|');
+    trackKnownSelector('email', profile?.email, { queried: true, querySelectorType: queryType, querySelectorValue: queryValue, sourceKey: `osint:${moduleName || 'unknown'}`, profileKey, evidenceKey: `osint:${moduleName}|email|${profileKey}` });
+    trackKnownSelector('phone', profile?.phone, { queried: true, querySelectorType: queryType, querySelectorValue: queryValue, sourceKey: `osint:${moduleName || 'unknown'}`, profileKey, evidenceKey: `osint:${moduleName}|phone|${profileKey}` });
+    trackKnownSelector('username', profile?.username, { queried: true, querySelectorType: queryType, querySelectorValue: queryValue, sourceKey: `osint:${moduleName || 'unknown'}`, profileKey, evidenceKey: `osint:${moduleName}|username|${profileKey}` });
+    trackKnownSelector('name', profile?.name, { queried: true, querySelectorType: queryType, querySelectorValue: queryValue, sourceKey: `osint:${moduleName || 'unknown'}`, profileKey, evidenceKey: `osint:${moduleName}|name|${profileKey}` });
+    trackKnownSelector('location', profile?.location, { queried: true, querySelectorType: queryType, querySelectorValue: queryValue, sourceKey: `osint:${moduleName || 'unknown'}`, profileKey, evidenceKey: `osint:${moduleName}|location|${profileKey}` });
+    trackKnownSelector('phone', profile?.phone_hint, { queried: true, querySelectorType: queryType, querySelectorValue: queryValue, sourceKey: `osint:${moduleName || 'unknown'}`, profileKey, evidenceKey: `osint:${moduleName}|phone_hint|${profileKey}` });
+    trackKnownSelector('email', profile?.email_hint, { queried: true, querySelectorType: queryType, querySelectorValue: queryValue, sourceKey: `osint:${moduleName || 'unknown'}`, profileKey, evidenceKey: `osint:${moduleName}|email_hint|${profileKey}` });
   }
 
   for (const profile of personDataProfiles) {
-    addKnownSelector(selectorMap, 'name', profile?.full_name);
-    addKnownSelector(selectorMap, 'location', profile?.location_name);
-    addKnownSelector(selectorMap, 'email', profile?.professional_email || profile?.work_email);
-    for (const row of (Array.isArray(profile?.personal_emails) ? profile.personal_emails : [])) addKnownSelector(selectorMap, 'email', row);
-    addKnownSelector(selectorMap, 'phone', profile?.mobile_phone);
-    for (const row of (Array.isArray(profile?.personal_phones) ? profile.personal_phones : [])) addKnownSelector(selectorMap, 'phone', row);
-    for (const row of (Array.isArray(profile?.professional_phones) ? profile.professional_phones : [])) addKnownSelector(selectorMap, 'phone', row);
+    const queryType = String(profile?.query_type || '').trim().toLowerCase();
+    const queryValue = String(profile?.query_value || '').trim();
+    const profileKey = [
+      String(profile?.id || '').trim().toLowerCase(),
+      String(profile?.full_name || '').trim().toLowerCase(),
+      String(profile?.query_type || '').trim().toLowerCase(),
+      String(profile?.query_value || '').trim().toLowerCase(),
+    ].join('|');
+    trackKnownSelector('name', profile?.full_name, { queried: true, querySelectorType: queryType, querySelectorValue: queryValue, sourceKey: 'pdl', profileKey, evidenceKey: `pdl|name|${profileKey}` });
+    trackKnownSelector('location', profile?.location_name, { queried: true, querySelectorType: queryType, querySelectorValue: queryValue, sourceKey: 'pdl', profileKey, evidenceKey: `pdl|location|${profileKey}` });
+    trackKnownSelector('email', profile?.professional_email || profile?.work_email, { queried: true, querySelectorType: queryType, querySelectorValue: queryValue, sourceKey: 'pdl', profileKey, evidenceKey: `pdl|professional_email|${profileKey}` });
+    for (const row of (Array.isArray(profile?.personal_emails) ? profile.personal_emails : [])) {
+      trackKnownSelector('email', row, { queried: true, querySelectorType: queryType, querySelectorValue: queryValue, sourceKey: 'pdl', profileKey, evidenceKey: `pdl|personal_email|${profileKey}|${String(row || '').trim().toLowerCase()}` });
+    }
+    trackKnownSelector('phone', profile?.mobile_phone, { queried: true, querySelectorType: queryType, querySelectorValue: queryValue, sourceKey: 'pdl', profileKey, evidenceKey: `pdl|mobile_phone|${profileKey}` });
+    for (const row of (Array.isArray(profile?.personal_phones) ? profile.personal_phones : [])) {
+      trackKnownSelector('phone', row, { queried: true, querySelectorType: queryType, querySelectorValue: queryValue, sourceKey: 'pdl', profileKey, evidenceKey: `pdl|personal_phone|${profileKey}|${String(row || '').trim().toLowerCase()}` });
+    }
+    for (const row of (Array.isArray(profile?.professional_phones) ? profile.professional_phones : [])) {
+      trackKnownSelector('phone', row, { queried: true, querySelectorType: queryType, querySelectorValue: queryValue, sourceKey: 'pdl', profileKey, evidenceKey: `pdl|professional_phone|${profileKey}|${String(row || '').trim().toLowerCase()}` });
+    }
   }
 
   for (const profile of numverifyProfiles) {
-    addKnownSelector(selectorMap, 'phone', profile?.number || profile?.international_format || profile?.e164);
-    addKnownSelector(selectorMap, 'location', profile?.location);
+    const queryType = String(profile?.query_type || 'phone').trim().toLowerCase();
+    const queryValue = String(profile?.query_value || profile?.number || profile?.international_format || '').trim();
+    const profileKey = [
+      String(profile?.number || profile?.international_format || profile?.e164 || '').trim().toLowerCase(),
+      String(profile?.country_code || '').trim().toLowerCase(),
+      String(profile?.carrier || '').trim().toLowerCase(),
+    ].join('|');
+    trackKnownSelector('phone', profile?.number || profile?.international_format || profile?.e164, {
+      queried: true,
+      querySelectorType: queryType,
+      querySelectorValue: queryValue,
+      sourceKey: 'numverify',
+      profileKey,
+      evidenceKey: `numverify|phone|${profileKey}`,
+    });
+    trackKnownSelector('location', profile?.location, {
+      queried: true,
+      querySelectorType: queryType,
+      querySelectorValue: queryValue,
+      sourceKey: 'numverify',
+      profileKey,
+      evidenceKey: `numverify|location|${profileKey}`,
+    });
   }
 
   for (const lead of leads) {
@@ -6139,15 +7703,31 @@ function collectKnownSelectors(payload) {
     const value = String(lead?.value || '').trim();
     if (!value) continue;
     if (attr.includes('company') || attr.includes('breach') || attr.includes('site') || attr.includes('job title') || attr === 'title') continue;
-    if (attr.includes('email')) addKnownSelector(selectorMap, 'email', value);
-    else if (attr.includes('phone')) addKnownSelector(selectorMap, 'phone', value);
-    else if (attr.includes('name')) addKnownSelector(selectorMap, 'name', value);
-    else if (attr.includes('location')) addKnownSelector(selectorMap, 'location', value);
-    else addKnownSelector(selectorMap, inferKnownSelectorType(value), value);
+    const leadSource = String(lead?.source || 'lead').trim().toLowerCase();
+    const profileName = String(lead?.profile_name || '').trim().toLowerCase();
+    const leadProfileUrl = String(lead?.profile_url || '').trim().toLowerCase();
+    const profileKey = `${leadSource}|${profileName || leadProfileUrl || value.toLowerCase()}`;
+    const evidenceKey = `${leadSource}|${attr}|${value.toLowerCase()}|${profileKey}`;
+    if (attr.includes('email')) trackKnownSelector('email', value, { sourceKey: `lead:${leadSource}`, profileKey, evidenceKey });
+    else if (attr.includes('phone')) trackKnownSelector('phone', value, { sourceKey: `lead:${leadSource}`, profileKey, evidenceKey });
+    else if (attr.includes('name')) trackKnownSelector('name', value, { sourceKey: `lead:${leadSource}`, profileKey, evidenceKey });
+    else if (attr.includes('location')) trackKnownSelector('location', value, { sourceKey: `lead:${leadSource}`, profileKey, evidenceKey });
+    else trackKnownSelector(inferKnownSelectorType(value), value, { sourceKey: `lead:${leadSource}`, profileKey, evidenceKey });
   }
 
   return Object.fromEntries(
-    KNOWN_SELECTOR_GROUPS.map((type) => [type, Array.from(selectorMap.get(type) || []).sort((a, b) => a.localeCompare(b))]),
+    KNOWN_SELECTOR_GROUPS.map((type) => [
+      type,
+      sortByPriority(type, Array.from(selectorMap.get(type) || []))
+        .map((value) => {
+          const stat = selectorStats.get(statKeyFor(type, value));
+          return {
+            value,
+            confidence_source_type: String(stat?.queryConfidenceType || type).trim().toLowerCase(),
+            confidence_source_value: String(stat?.queryConfidenceValue || value).trim(),
+          };
+        }),
+    ]),
   );
 }
 
@@ -6269,6 +7849,31 @@ function firstHttpUrlFromObject(value) {
     }
   }
   return '';
+}
+
+function entityGraphExternalUrlsFromPdlProfile(profile) {
+  if (!profile || typeof profile !== 'object') return [];
+  const candidates = [
+    profile?.linkedin_url,
+    profile?.facebook_url,
+    profile?.twitter_url,
+    profile?.github_url,
+    profile?.work_email_provider_url,
+  ];
+  if (Array.isArray(profile?.profile_urls)) {
+    for (const item of profile.profile_urls) candidates.push(item);
+  }
+  const values = [];
+  const seen = new Set();
+  for (const candidate of candidates) {
+    const url = normalizeExternalUrl(candidate);
+    if (!url) continue;
+    const key = url.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    values.push(url);
+  }
+  return values;
 }
 
 function timelineSourceDisplayName(event) {
@@ -6763,6 +8368,991 @@ function renderFootprintTimeline() {
   `;
 }
 
+function entityGraphNodeTypeLabel(nodeType) {
+  if (nodeType === 'selector') return 'Selector';
+  if (nodeType === 'site') return 'Platform';
+  if (nodeType === 'profile') return 'Profile';
+  if (nodeType === 'image') return 'Profile Image';
+  return 'Entity';
+}
+
+function selectorTypeColorToken(selectorType) {
+  const clean = String(selectorType || '').trim().toLowerCase();
+  if (clean === 'email') return 'email';
+  if (clean === 'phone') return 'phone';
+  if (clean === 'username') return 'username';
+  if (clean === 'name') return 'name';
+  if (clean === 'location') return 'location';
+  return 'default';
+}
+
+function profileImageHashKey(profile, row) {
+  const candidates = [
+    profile?.picture_hash, profile?.avatar_hash, profile?.image_hash, profile?.profile_image_hash,
+    row?.picture_hash, row?.avatar_hash, row?.image_hash, row?.profile_image_hash,
+  ];
+  for (const candidate of candidates) {
+    const value = String(candidate || '').trim().toLowerCase();
+    if (value) return value;
+  }
+  const imageUrl = normalizeExternalUrl(profile?.picture_url || profile?.avatar_url || row?.picture_url || row?.avatar_url || '');
+  if (!imageUrl) return '';
+  return `urlhash:${entityGraphHash(imageUrl).toString(16)}`;
+}
+
+function entityGraphPlatformLabel(value) {
+  const normalized = normalizePlatformName(value);
+  if (normalized) return platformDisplayName(normalized);
+  return titleCaseLabel(String(value || '').replace(/[_-]+/g, ' ')) || 'Platform';
+}
+
+function entityGraphIconKind(value) {
+  const clean = String(value || '').trim().toLowerCase();
+  if (!clean) return '';
+  if (clean.startsWith('email')) return 'email';
+  if (clean.startsWith('phone')) return 'phone';
+  if (clean === 'username') return 'username';
+  if (clean === 'name') return 'name';
+  return '';
+}
+
+function entityGraphIconMarkup(kind, options = {}) {
+  const clean = entityGraphIconKind(kind);
+  if (!clean) return '';
+  const compact = options?.compact === true;
+  const transform = compact ? ' scale(0.8)' : '';
+  if (clean === 'username') {
+    return `<text class="entity-graph-node-icon entity-graph-node-icon-at${compact ? ' is-compact' : ''}" text-anchor="middle" dominant-baseline="central">@</text>`;
+  }
+  if (clean === 'email') {
+    return `
+      <g class="entity-graph-glyph${compact ? ' is-compact' : ''}" transform="${transform}">
+        <rect x="-7" y="-4.5" width="14" height="9" rx="1.6" ry="1.6"></rect>
+        <path d="M-6.2 -3.2L0 1.1 6.2 -3.2"></path>
+      </g>
+    `;
+  }
+  if (clean === 'phone') {
+    return `
+      <g class="entity-graph-glyph${compact ? ' is-compact' : ''}" transform="${transform}">
+        <path d="M-3.8 -6.2c.8-1 2.1-1.2 3.1-.5l1.4 1c.9.6 1.1 1.8.6 2.7l-.8 1.2c1.3 2.1 3.1 3.8 5.2 5.2l1.2-.8c.9-.6 2.1-.3 2.7.6l1 1.4c.7 1 .5 2.3-.5 3.1l-1.2.9c-1 .8-2.3 1.1-3.5.7-2.3-.8-4.8-2.5-7-4.8-2.3-2.3-4-4.7-4.8-7-.4-1.2-.2-2.5.7-3.5z"></path>
+      </g>
+    `;
+  }
+  return `
+    <g class="entity-graph-glyph${compact ? ' is-compact' : ''}" transform="${transform}">
+      <circle cx="0" cy="-3.7" r="3.2"></circle>
+      <path d="M-6 6.3c0-3.1 2.7-5.4 6-5.4s6 2.3 6 5.4"></path>
+    </g>
+  `;
+}
+
+function shouldSkipEntityGraphField(fieldName) {
+  const clean = String(fieldName || '').trim().toLowerCase();
+  if (!clean) return false;
+  if (clean === 'title') return true;
+  if (clean.includes('creation_date') || clean.includes('created') || clean.includes('creation')) return true;
+  if (clean.includes('last_seen') || clean.includes('last seen')) return true;
+  return false;
+}
+
+function entityGraphAttributeKind(field, value) {
+  const cleanField = String(field || '').trim().toLowerCase();
+  const cleanValue = String(value || '').trim();
+  if (!cleanValue) return 'attribute';
+  if (cleanField.includes('url') || cleanField.includes('site') || isHttpUrl(cleanValue)) return 'url';
+  if (cleanField.includes('email') || isValidReconEmail(cleanValue)) return 'email';
+  if (cleanField.includes('phone') || cleanField.includes('mobile') || cleanField.includes('tel') || isValidReconPhone(cleanValue.replace(/[^\d+]/g, ''))) return 'phone';
+  if (cleanField.includes('loc') || cleanField.includes('city') || cleanField.includes('country') || cleanField.includes('address')) return 'location';
+  if (cleanField.includes('date') || cleanField.includes('seen') || cleanField.includes('created') || parseTimelineDateValue(cleanValue)) return 'date';
+  if (cleanField.includes('name') || cleanField.includes('title')) return 'name';
+  if (cleanField.includes('user') || cleanField.includes('handle')) return 'username';
+  return 'attribute';
+}
+
+function entityGraphAttributeKeyValue(kind, value) {
+  const cleanValue = String(value || '').trim();
+  if (!cleanValue) return '';
+  if (kind === 'url') {
+    const normalized = normalizeExternalUrl(cleanValue);
+    if (normalized) return profileDomain(normalized) || normalized.toLowerCase();
+  }
+  if (kind === 'date') {
+    const parsed = parseTimelineDateValue(cleanValue);
+    if (parsed) return dayKey(parsed.toISOString()) || parsed.toISOString();
+  }
+  if (kind === 'location') {
+    const cleanLocation = _cleanLocationEntityLabel(cleanValue);
+    if (!cleanLocation) return '';
+    const matches = _resolvedLocationsFromText(cleanLocation, _locationPairsByName());
+    const selected = _selectMostSpecificLocationMatch(cleanLocation, matches) || matches[0] || null;
+    if (selected?.name) return String(selected.name).trim().toLowerCase();
+    return cleanLocation.toLowerCase();
+  }
+  if (kind === 'phone') return cleanValue.replace(/[^\d+]/g, '');
+  return cleanValue.toLowerCase();
+}
+
+function entityGraphAttributeLabel(kind, value) {
+  const cleanValue = String(value || '').trim();
+  if (!cleanValue) return '';
+  if (kind === 'url') {
+    const normalized = normalizeExternalUrl(cleanValue);
+    if (normalized) return profileDomain(normalized) || normalized;
+  }
+  if (kind === 'date') {
+    const parsed = parseTimelineDateValue(cleanValue);
+    if (parsed) return formatIsoDateTime(parsed.toISOString());
+  }
+  if (kind === 'location') {
+    const cleanLocation = _cleanLocationEntityLabel(cleanValue);
+    if (!cleanLocation) return '';
+    const matches = _resolvedLocationsFromText(cleanLocation, _locationPairsByName());
+    const selected = _selectMostSpecificLocationMatch(cleanLocation, matches) || matches[0] || null;
+    if (selected?.name) return String(selected.name).trim();
+    return cleanLocation;
+  }
+  if (cleanValue.length > 56) return `${cleanValue.slice(0, 53)}...`;
+  return cleanValue;
+}
+
+function entityGraphHintKeyValue(kind, value) {
+  const cleanValue = String(value || '').trim().toLowerCase();
+  if (!cleanValue) return '';
+  if (kind === 'email') return cleanValue.replace(/\s+/g, '');
+  if (kind === 'phone') return cleanValue.replace(/[^\dx+*]/gi, '').replace(/^0+(?=\d)/, '');
+  return cleanValue;
+}
+
+function entityGraphEmailHintMatches(hintValue, emailValue) {
+  const hint = String(hintValue || '').trim().toLowerCase().replace(/\s+/g, '');
+  const email = String(emailValue || '').trim().toLowerCase();
+  if (!hint || !email || !isValidReconEmail(email) || hint === email) return false;
+  const hasMask = /[*xX\u2022\u00B7]/.test(hint);
+  const literal = hint.replace(/[*xX\u2022\u00B7]/g, '');
+  if (literal.length < 4 || !hint.includes('@')) return false;
+  if (!hasMask) return email.includes(hint);
+  const escaped = hint.replace(/[.+?^${}()|[\]\\]/g, '\\$&');
+  const patternSource = escaped.replace(/[*xX\u2022\u00B7]+/g, '.*');
+  if (!patternSource || patternSource === '.*') return false;
+  const pattern = new RegExp(`^${patternSource}$`, 'i');
+  return pattern.test(email);
+}
+
+function entityGraphPhoneHintMatches(hintValue, phoneValue) {
+  const hintRaw = String(hintValue || '').trim();
+  const phoneDigits = String(phoneValue || '').replace(/[^\d]/g, '');
+  if (!hintRaw || !phoneDigits) return false;
+  const hint = hintRaw.replace(/\s+/g, '');
+  const digitsInHint = hint.replace(/[^\d]/g, '');
+  if (digitsInHint.length < 4) return false;
+  const hasMask = /[*xX\u2022\u00B7]/.test(hint);
+  if (!hasMask) return phoneDigits.includes(digitsInHint);
+  const normalizedMask = hint.replace(/[^\dxX*\u2022\u00B7+]/g, '').replace(/[xX\u2022\u00B7]/g, '*').replace(/\+/g, '');
+  const escaped = normalizedMask.replace(/[.+?^${}()|[\]\\]/g, '\\$&');
+  const patternSource = escaped.replace(/\*+/g, '\\d*').replace(/[^\d\\*]/g, '');
+  if (!patternSource || patternSource === '\\d*') return false;
+  const pattern = new RegExp(`^${patternSource}$`);
+  return pattern.test(phoneDigits);
+}
+
+function collectEntityGraphFieldValues(value, path = '', output = []) {
+  if (output.length > 64) return output;
+  if (value === null || value === undefined) return output;
+  if (Array.isArray(value)) {
+    const max = Math.min(8, value.length);
+    for (let idx = 0; idx < max; idx += 1) collectEntityGraphFieldValues(value[idx], path, output);
+    return output;
+  }
+  if (typeof value === 'object') {
+    const entries = Object.entries(value).slice(0, 20);
+    for (const [key, child] of entries) {
+      const nextPath = path ? `${path}.${key}` : String(key || '').trim();
+      if (!nextPath) continue;
+      collectEntityGraphFieldValues(child, nextPath, output);
+    }
+    return output;
+  }
+  const text = String(value).trim();
+  if (!text) return output;
+  const lowerPath = String(path || '').toLowerCase();
+  if (
+    lowerPath.includes('user')
+    || lowerPath.includes('name')
+    || lowerPath.includes('email')
+    || lowerPath.includes('phone')
+    || lowerPath.includes('title')
+    || lowerPath.includes('location')
+    || lowerPath.includes('city')
+    || lowerPath.includes('country')
+    || lowerPath.includes('url')
+    || lowerPath.includes('site')
+    || lowerPath.includes('date')
+    || lowerPath.includes('seen')
+    || lowerPath.includes('create')
+  ) {
+    output.push({ field: path || 'attribute', value: text });
+  }
+  return output;
+}
+
+function collectEntityGraphModel() {
+  if (entityGraphModelCache) return entityGraphModelCache;
+  const payload = latestReconPayload && typeof latestReconPayload === 'object' ? latestReconPayload : emptyReconPayload();
+  const selectors = Array.isArray(payload?.selectors) ? payload.selectors : [];
+  const resultRows = Array.isArray(payload?.results) ? payload.results : [];
+  const numverifyProfiles = Array.isArray(payload?.numverify_profiles) ? payload.numverify_profiles : [];
+  const personDataProfiles = Array.isArray(payload?.person_data_profiles) ? payload.person_data_profiles : [];
+  const profiles = (Array.isArray(reconOsintProfiles) ? reconOsintProfiles : [])
+    .filter((row) => !isHibpModuleName(row?.module));
+  const specRows = (Array.isArray(reconOsintSpecResults) ? reconOsintSpecResults : [])
+    .filter((row) => !isHibpModuleName(row?.module));
+  const nodeMap = new Map();
+  const edgeMap = new Map();
+  const selectorNodeByKey = new Map();
+  const siteNodeBySelectorModule = new Map();
+  const profileRowByCompositeKey = new Map();
+  const selectorIdentityMap = new Map();
+  const contactExactNodes = {
+    email: new Map(),
+    phone: new Map(),
+  };
+  const contactHintNodes = {
+    email: [],
+    phone: [],
+  };
+
+  const addNode = (id, init = {}) => {
+    const cleanId = String(id || '').trim();
+    if (!cleanId) return null;
+    if (!nodeMap.has(cleanId)) {
+      nodeMap.set(cleanId, {
+        id: cleanId,
+        type: String(init.type || 'attribute').trim().toLowerCase(),
+        label: String(init.label || '').trim() || cleanId,
+        subType: String(init.subType || '').trim().toLowerCase(),
+        detail: String(init.detail || '').trim(),
+        url: normalizeExternalUrl(init.url || ''),
+        site: String(init.site || '').trim(),
+        iconUrl: normalizeExternalUrl(init.iconUrl || ''),
+        pictureUrl: normalizeExternalUrl(init.pictureUrl || ''),
+        colorToken: String(init.colorToken || '').trim().toLowerCase(),
+        degree: 0,
+      });
+    }
+    const node = nodeMap.get(cleanId);
+    if (init.label && !node.label) node.label = String(init.label).trim();
+    if (init.subType && !node.subType) node.subType = String(init.subType).trim().toLowerCase();
+    if (init.detail && !node.detail) node.detail = String(init.detail).trim();
+    if (init.url && !node.url) node.url = normalizeExternalUrl(init.url);
+    if (init.site && !node.site) node.site = String(init.site).trim();
+    if (init.iconUrl && !node.iconUrl) node.iconUrl = normalizeExternalUrl(init.iconUrl);
+    if (init.pictureUrl && !node.pictureUrl) node.pictureUrl = normalizeExternalUrl(init.pictureUrl);
+    if (init.colorToken && !node.colorToken) node.colorToken = String(init.colorToken).trim().toLowerCase();
+    return node;
+  };
+
+  const addEdge = (source, target, relation = '', weight = 1) => {
+    const sourceId = String(source || '').trim();
+    const targetId = String(target || '').trim();
+    if (!sourceId || !targetId || sourceId === targetId) return;
+    const left = sourceId < targetId ? sourceId : targetId;
+    const right = sourceId < targetId ? targetId : sourceId;
+    const key = `${left}|${right}|${String(relation || '').trim().toLowerCase()}`;
+    const existing = edgeMap.get(key);
+    if (existing) {
+      existing.weight = Math.max(Number(existing.weight) || 1, Number(weight) || 1);
+      return;
+    }
+    edgeMap.set(key, {
+      source: sourceId,
+      target: targetId,
+      relation: String(relation || '').trim(),
+      weight: Number.isFinite(Number(weight)) ? Number(weight) : 1,
+    });
+  };
+
+  const selectorNodeIdFor = (selectorType, selectorValue) => {
+    const type = String(selectorType || '').trim().toLowerCase() || 'selector';
+    const value = String(selectorValue || '').trim() || 'unknown';
+    const key = `${type}|${value.toLowerCase()}`;
+    if (selectorNodeByKey.has(key)) return selectorNodeByKey.get(key);
+    const nodeId = `selector:${key}`;
+    addNode(nodeId, {
+      type: 'selector',
+      subType: type,
+      label: value,
+      detail: `${titleCaseLabel(type)} query`,
+      colorToken: selectorTypeColorToken(type),
+    });
+    selectorNodeByKey.set(key, nodeId);
+    selectorIdentityMap.set(nodeId, { type, value });
+    return nodeId;
+  };
+
+  const siteNodeIdFor = (selectorType, selectorValue, moduleName, profileUrl = '') => {
+    const selectorKey = `${String(selectorType || '').trim().toLowerCase()}|${String(selectorValue || '').trim().toLowerCase()}`;
+    const siteKey = `${selectorKey}|${String(moduleName || '').trim().toLowerCase()}`;
+    if (siteNodeBySelectorModule.has(siteKey)) {
+      const existing = siteNodeBySelectorModule.get(siteKey);
+      const existingNode = nodeMap.get(existing);
+      if (existingNode && profileUrl && !existingNode.url) existingNode.url = normalizeExternalUrl(profileUrl);
+      return existing;
+    }
+    const selectorNodeId = selectorNodeIdFor(selectorType, selectorValue);
+    const nodeId = `site:${siteKey}`;
+    addNode(nodeId, {
+      type: 'site',
+      subType: String(moduleName || '').trim().toLowerCase(),
+      label: entityGraphPlatformLabel(moduleName),
+      detail: 'Identified platform',
+      url: profileUrl,
+      iconUrl: faviconUrl(moduleName, profileUrl || ''),
+    });
+    addEdge(selectorNodeId, nodeId, 'identified_platform', 2.4);
+    siteNodeBySelectorModule.set(siteKey, nodeId);
+    return nodeId;
+  };
+
+  const addProfileAttribute = (parentNodeId, fieldName, rawValue) => {
+    if (shouldSkipEntityGraphField(fieldName)) return;
+    if (!parentNodeId) return;
+    const cleanFieldName = String(fieldName || '').trim().toLowerCase();
+    const hintField = cleanFieldName.includes('hint');
+    const values = Array.isArray(rawValue) ? rawValue : [rawValue];
+    const maxValues = Math.min(values.length, 8);
+    for (let idx = 0; idx < maxValues; idx += 1) {
+      const value = values[idx];
+      const clean = String(value || '').trim();
+      if (!clean) continue;
+      const kind = entityGraphAttributeKind(fieldName, clean);
+      const keyValue = hintField
+        ? entityGraphHintKeyValue(kind, clean)
+        : entityGraphAttributeKeyValue(kind, clean);
+      if (!keyValue) continue;
+      const nodeId = hintField
+        ? `attr:${kind}_hint|${keyValue}`
+        : `attr:${kind}|${keyValue}`;
+      addNode(nodeId, {
+        type: 'attribute',
+        subType: hintField ? `${kind}_hint` : kind,
+        label: entityGraphAttributeLabel(kind, clean),
+        detail: titleCaseLabel(fieldName.replace(/[_-]+/g, ' ')),
+        iconUrl: kind === 'url' ? faviconUrl(fieldName, clean) : '',
+      });
+      addEdge(parentNodeId, nodeId, fieldName);
+      if ((kind === 'email' || kind === 'phone') && !hintField) {
+        contactExactNodes[kind].set(keyValue, { nodeId, value: clean });
+      }
+      if ((kind === 'email' || kind === 'phone') && hintField) {
+        contactHintNodes[kind].push({ nodeId, value: clean });
+      }
+    }
+  };
+
+  for (const row of resultRows) {
+    const source = String(row?.source || '').trim().toLowerCase();
+    if (source !== 'osint_industries') continue;
+    const moduleName = String(row?.site_key || row?.site || row?.module || '').trim().toLowerCase();
+    if (isHibpModuleName(moduleName)) continue;
+    const profileUrl = normalizeExternalUrl(row?.profile_url || row?.website || '');
+    const selectorType = String(row?.selector_type || '').trim().toLowerCase();
+    const selectorValue = String(row?.selector || '').trim().toLowerCase();
+    const key = `${selectorType}|${selectorValue}|${moduleName}|${profileUrl.toLowerCase()}`;
+    if (!profileRowByCompositeKey.has(key)) profileRowByCompositeKey.set(key, row);
+  }
+
+  for (const selector of selectors) {
+    selectorNodeIdFor(selector?.type, selector?.value);
+  }
+
+  for (const profile of profiles) {
+    const moduleName = String(profile?.module || '').trim() || 'OSINT';
+    const profileUrl = normalizeExternalUrl(profile?.profile_url || profile?.website || '');
+    const siteNodeId = siteNodeIdFor(profile?.query_type, profile?.query_value, moduleName, profileUrl);
+    const selectorTypeKey = String(profile?.query_type || '').trim().toLowerCase();
+    const selectorValueKey = String(profile?.query_value || '').trim().toLowerCase();
+    const moduleKey = moduleName.toLowerCase();
+    const profileRow = profileRowByCompositeKey.get(`${selectorTypeKey}|${selectorValueKey}|${moduleKey}|${profileUrl.toLowerCase()}`) || null;
+    const pictureUrl = normalizeExternalUrl(profile?.picture_url || profile?.avatar_url || profileRow?.picture_url || profileRow?.avatar_url || '');
+    const selectorKey = `${String(profile?.query_type || '').trim().toLowerCase()}|${String(profile?.query_value || '').trim().toLowerCase()}`;
+    siteNodeBySelectorModule.set(`${selectorKey}|${moduleName.toLowerCase()}`, siteNodeId);
+    addProfileAttribute(siteNodeId, 'username', profile?.username);
+    addProfileAttribute(siteNodeId, 'name', profile?.name);
+    addProfileAttribute(siteNodeId, 'email', profile?.email);
+    addProfileAttribute(siteNodeId, 'phone', profile?.phone);
+    addProfileAttribute(siteNodeId, 'location', profile?.location);
+    addProfileAttribute(siteNodeId, 'website', profile?.website);
+    addProfileAttribute(siteNodeId, 'profile_url', profile?.profile_url);
+    addProfileAttribute(siteNodeId, 'email_hint', profile?.email_hint);
+    addProfileAttribute(siteNodeId, 'phone_hint', profile?.phone_hint);
+    const geoSignals = Array.isArray(profile?.geo_signals) ? profile.geo_signals : [];
+    for (const signal of geoSignals.slice(0, 8)) {
+      addProfileAttribute(siteNodeId, 'geo_location', signal?.name || signal?.city || signal?.detail || signal?.path);
+    }
+    const imageHash = profileImageHashKey(profile, profileRow);
+    if (imageHash && pictureUrl) {
+      const imageNodeId = `image:${imageHash}`;
+      addNode(imageNodeId, {
+        type: 'image',
+        subType: 'profile_image',
+        label: '',
+        detail: 'Shared profile picture hash',
+        pictureUrl,
+      });
+      addEdge(siteNodeId, imageNodeId, 'profile_image');
+    }
+  }
+
+  for (const row of specRows) {
+    const moduleName = String(row?.module || '').trim() || 'osint';
+    const selectorKey = `${String(row?.query_type || '').trim().toLowerCase()}|${String(row?.query_value || '').trim().toLowerCase()}`;
+    const siteNodeId = siteNodeBySelectorModule.get(`${selectorKey}|${moduleName.toLowerCase()}`)
+      || siteNodeIdFor(
+        row?.query_type,
+        row?.query_value,
+        moduleName,
+        firstHttpUrlFromObject(row?.parsed_values) || firstHttpUrlFromObject(row?.spec_format),
+      );
+    const values = [];
+    collectEntityGraphFieldValues(row?.parsed_values, 'parsed', values);
+    if (!values.length) collectEntityGraphFieldValues(row?.spec_format, 'spec', values);
+    for (const item of values) {
+      addProfileAttribute(siteNodeId, item.field, item.value);
+    }
+  }
+
+  for (const profile of personDataProfiles) {
+    const queryType = String(profile?.query_type || '').trim().toLowerCase();
+    const queryValue = String(profile?.query_value || '').trim();
+    if (!queryType || !queryValue) continue;
+    const externalUrls = entityGraphExternalUrlsFromPdlProfile(profile);
+    const primaryUrl = externalUrls[0] || '';
+    const siteNodeId = siteNodeIdFor(queryType, queryValue, 'people_data_labs', primaryUrl);
+    addProfileAttribute(siteNodeId, 'full_name', profile?.full_name);
+    addProfileAttribute(siteNodeId, 'location_name', profile?.location_name);
+    addProfileAttribute(siteNodeId, 'job_title', profile?.job_title);
+    addProfileAttribute(siteNodeId, 'job_company_name', profile?.job_company_name);
+    addProfileAttribute(siteNodeId, 'professional_email', profile?.professional_email || profile?.work_email || profile?.email);
+    addProfileAttribute(siteNodeId, 'personal_emails', Array.isArray(profile?.personal_emails) ? profile.personal_emails : []);
+    addProfileAttribute(siteNodeId, 'mobile_phone', profile?.mobile_phone || profile?.phone);
+    addProfileAttribute(siteNodeId, 'personal_phones', Array.isArray(profile?.personal_phones) ? profile.personal_phones : []);
+    addProfileAttribute(siteNodeId, 'professional_phones', Array.isArray(profile?.professional_phones) ? profile.professional_phones : []);
+    addProfileAttribute(siteNodeId, 'linkedin_url', profile?.linkedin_url);
+    addProfileAttribute(siteNodeId, 'facebook_url', profile?.facebook_url);
+    addProfileAttribute(siteNodeId, 'twitter_url', profile?.twitter_url);
+    addProfileAttribute(siteNodeId, 'github_url', profile?.github_url);
+    addProfileAttribute(siteNodeId, 'profile_urls', externalUrls);
+  }
+
+  for (const profile of numverifyProfiles) {
+    const queryType = String(profile?.query_type || 'phone').trim().toLowerCase() || 'phone';
+    const queryValue = String(profile?.query_value || profile?.number || profile?.international_format || '').trim();
+    if (!queryValue) continue;
+    const siteNodeId = siteNodeIdFor(queryType, queryValue, 'numverify', '');
+    addProfileAttribute(siteNodeId, 'number', profile?.number || profile?.international_format || profile?.e164 || profile?.local_format);
+    addProfileAttribute(siteNodeId, 'international_format', profile?.international_format);
+    addProfileAttribute(siteNodeId, 'local_format', profile?.local_format);
+    addProfileAttribute(siteNodeId, 'e164', profile?.e164);
+    addProfileAttribute(siteNodeId, 'location', profile?.location);
+    addProfileAttribute(siteNodeId, 'country_name', profile?.country_name);
+    addProfileAttribute(siteNodeId, 'country_code', profile?.country_code);
+    addProfileAttribute(siteNodeId, 'carrier', profile?.carrier);
+    addProfileAttribute(siteNodeId, 'line_type', profile?.line_type);
+  }
+
+  for (const [selectorNodeId, selectorIdentity] of selectorIdentityMap.entries()) {
+    const selectorType = String(selectorIdentity?.type || '').trim().toLowerCase();
+    const selectorValue = String(selectorIdentity?.value || '').trim();
+    if (!selectorType || !selectorValue) continue;
+    const exactKey = entityGraphAttributeKeyValue(selectorType, selectorValue);
+    if (!exactKey) continue;
+    const exactNodeId = `attr:${selectorType}|${exactKey}`;
+    if (nodeMap.has(exactNodeId)) {
+      addEdge(selectorNodeId, exactNodeId, 'queried_match', 2.1);
+      continue;
+    }
+    const hintKey = entityGraphHintKeyValue(selectorType, selectorValue);
+    if (!hintKey) continue;
+    const hintNodeId = `attr:${selectorType}_hint|${hintKey}`;
+    if (nodeMap.has(hintNodeId)) addEdge(selectorNodeId, hintNodeId, 'queried_match', 1.4);
+  }
+
+  for (const hint of contactHintNodes.email) {
+    for (const exact of contactExactNodes.email.values()) {
+      if (!hint?.nodeId || !exact?.nodeId || hint.nodeId === exact.nodeId) continue;
+      if (!entityGraphEmailHintMatches(hint.value, exact.value)) continue;
+      addEdge(hint.nodeId, exact.nodeId, 'partial_match', 0.72);
+    }
+  }
+  for (const hint of contactHintNodes.phone) {
+    for (const exact of contactExactNodes.phone.values()) {
+      if (!hint?.nodeId || !exact?.nodeId || hint.nodeId === exact.nodeId) continue;
+      if (!entityGraphPhoneHintMatches(hint.value, exact.value)) continue;
+      addEdge(hint.nodeId, exact.nodeId, 'partial_match', 0.72);
+    }
+  }
+
+  const nodes = Array.from(nodeMap.values());
+  const edges = Array.from(edgeMap.values());
+  for (const edge of edges) {
+    const source = nodeMap.get(edge.source);
+    const target = nodeMap.get(edge.target);
+    if (source) source.degree += 1;
+    if (target) target.degree += 1;
+  }
+
+  const maxAttributeNodes = 180;
+  const attributeNodes = nodes.filter((node) => node.type === 'attribute');
+  if (attributeNodes.length > maxAttributeNodes) {
+    const keepSet = new Set(attributeNodes
+      .sort((a, b) => b.degree - a.degree || a.label.localeCompare(b.label))
+      .slice(0, maxAttributeNodes)
+      .map((node) => node.id));
+    const keepNodeIds = new Set(nodes.filter((node) => node.type !== 'attribute').map((node) => node.id));
+    for (const id of keepSet) keepNodeIds.add(id);
+    const trimmedEdges = edges.filter((edge) => keepNodeIds.has(edge.source) && keepNodeIds.has(edge.target));
+    const trimmedNodeMap = new Map(nodes.filter((node) => keepNodeIds.has(node.id)).map((node) => [node.id, { ...node, degree: 0 }]));
+    for (const edge of trimmedEdges) {
+      const source = trimmedNodeMap.get(edge.source);
+      const target = trimmedNodeMap.get(edge.target);
+      if (source) source.degree += 1;
+      if (target) target.degree += 1;
+    }
+    const trimmedNodes = Array.from(trimmedNodeMap.values());
+    entityGraphModelCache = {
+      nodes: trimmedNodes,
+      edges: trimmedEdges,
+      sharedAttributes: trimmedNodes.filter((node) => node.type === 'attribute' && node.degree > 1).length,
+    };
+    return entityGraphModelCache;
+  }
+
+  entityGraphModelCache = {
+    nodes,
+    edges,
+    sharedAttributes: nodes.filter((node) => node.type === 'attribute' && node.degree > 1).length,
+  };
+  return entityGraphModelCache;
+}
+
+function entityGraphHash(value) {
+  let hash = 2166136261;
+  const text = String(value || '');
+  for (let idx = 0; idx < text.length; idx += 1) {
+    hash ^= text.charCodeAt(idx);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0);
+}
+
+function entityGraphSelectorBoxWidth(node) {
+  const fullLabel = String(node?.label || '').trim();
+  return Math.max(104, (fullLabel.length * 8.9) + 34);
+}
+
+function entityGraphNodeCollisionRadius(node) {
+  if (!node || typeof node !== 'object') return 16;
+  if (node.type === 'selector') {
+    const w = entityGraphSelectorBoxWidth(node);
+    const h = 28;
+    return Math.max(34, Math.sqrt((w * w) + (h * h)) * 0.38);
+  }
+  if (node.type === 'site') return 24;
+  if (node.type === 'profile') return 19;
+  if (node.type === 'image') return 18;
+  return 14;
+}
+
+function computeEntityGraphLayout(model, width, height) {
+  const nodeSig = (Array.isArray(model?.nodes) ? model.nodes : []).map((node) => node.id).sort().join(',');
+  const edgeSig = (Array.isArray(model?.edges) ? model.edges : []).map((edge) => `${edge.source}>${edge.target}`).sort().join(',');
+  const cacheKey = `${nodeSig}|${edgeSig}|${Math.round(width)}|${Math.round(height)}`;
+  if (entityGraphLayoutCache?.key === cacheKey) return entityGraphLayoutCache.positions;
+  const nodes = Array.isArray(model?.nodes) ? model.nodes : [];
+  const edges = Array.isArray(model?.edges) ? model.edges : [];
+  const positions = new Map();
+  if (!nodes.length) return positions;
+  const minX = 48;
+  const minY = 36;
+  const maxX = Math.max(minX + 1, width - 48);
+  const maxY = Math.max(minY + 1, height - 36);
+  const nodeById = new Map(nodes.map((node) => [node.id, node]));
+  const adjacency = new Map(nodes.map((node) => [node.id, new Set()]));
+  const siteParentByNodeId = new Map();
+  const selectorParentBySiteId = new Map();
+  for (const edge of edges) {
+    adjacency.get(edge.source)?.add(edge.target);
+    adjacency.get(edge.target)?.add(edge.source);
+    const sourceNode = nodeById.get(edge.source);
+    const targetNode = nodeById.get(edge.target);
+    if (sourceNode?.type === 'site' && (targetNode?.type === 'attribute' || targetNode?.type === 'image')) {
+      siteParentByNodeId.set(targetNode.id, sourceNode.id);
+    } else if (targetNode?.type === 'site' && (sourceNode?.type === 'attribute' || sourceNode?.type === 'image')) {
+      siteParentByNodeId.set(sourceNode.id, targetNode.id);
+    }
+    if (sourceNode?.type === 'selector' && targetNode?.type === 'site') {
+      selectorParentBySiteId.set(targetNode.id, sourceNode.id);
+    } else if (targetNode?.type === 'selector' && sourceNode?.type === 'site') {
+      selectorParentBySiteId.set(sourceNode.id, targetNode.id);
+    }
+  }
+
+  const rankForNode = (node) => {
+    if (node.type === 'selector') return 0;
+    if (node.type === 'site') return 1;
+    if (node.type === 'image') return 3;
+    return 2;
+  };
+
+  const rankNodes = [[], [], [], []];
+  for (const node of nodes) {
+    const rank = rankForNode(node);
+    rankNodes[rank].push(node);
+  }
+
+  const sortRank = (items, neighborRank) => {
+    const ranked = items.map((node) => {
+      const neighborIndexes = Array.from(adjacency.get(node.id) || [])
+        .map((id) => rankNodes[neighborRank].findIndex((item) => item.id === id))
+        .filter((index) => index >= 0);
+      const barycenter = neighborIndexes.length
+        ? neighborIndexes.reduce((sum, index) => sum + index, 0) / neighborIndexes.length
+        : Number.MAX_SAFE_INTEGER;
+      return { node, barycenter };
+    });
+    ranked.sort((a, b) => {
+      if (a.barycenter !== b.barycenter) return a.barycenter - b.barycenter;
+      return b.node.degree - a.node.degree || a.node.label.localeCompare(b.node.label);
+    });
+    return ranked.map((item) => item.node);
+  };
+
+  rankNodes[1] = sortRank(rankNodes[1], 0);
+  rankNodes[2] = sortRank(rankNodes[2], 1);
+  rankNodes[3] = sortRank(rankNodes[3], 1);
+  for (let pass = 0; pass < 4; pass += 1) {
+    rankNodes[2] = sortRank(rankNodes[2], 1);
+    rankNodes[1] = sortRank(rankNodes[1], 2);
+    rankNodes[3] = sortRank(rankNodes[3], 1);
+  }
+
+  const columnX = [
+    minX + ((maxX - minX) * 0.12),
+    minX + ((maxX - minX) * 0.4),
+    minX + ((maxX - minX) * 0.72),
+    minX + ((maxX - minX) * 0.88),
+  ];
+
+  const placeRank = (items, rank) => {
+    if (!items.length) return;
+    const radii = items.map((node) => entityGraphNodeCollisionRadius(node));
+    const totalHeight = radii.reduce((sum, radius) => sum + (radius * 2), 0);
+    const totalGap = Math.max(0, items.length - 1) * 18;
+    const availableHeight = maxY - minY;
+    const startY = minY + Math.max(0, (availableHeight - (totalHeight + totalGap)) / 2);
+    let cursorY = startY;
+    items.forEach((node, index) => {
+      const manual = entityGraphManualPositions.get(node.id);
+      const radius = radii[index];
+      const y = manual?.y ?? (cursorY + radius);
+      const x = manual?.x ?? columnX[rank];
+      positions.set(node.id, {
+        x: Math.min(maxX, Math.max(minX, x)),
+        y: Math.min(maxY, Math.max(minY, y)),
+        vx: 0,
+        vy: 0,
+      });
+      cursorY += (radius * 2) + 18;
+    });
+  };
+
+  placeRank(rankNodes[0], 0);
+  placeRank(rankNodes[1], 1);
+  placeRank(rankNodes[2], 2);
+  placeRank(rankNodes[3], 3);
+
+  for (let pass = 0; pass < 12; pass += 1) {
+    for (let rank = 1; rank < rankNodes.length; rank += 1) {
+      const items = rankNodes[rank];
+      if (!items.length) continue;
+      items.sort((a, b) => {
+        const posA = positions.get(a.id);
+        const posB = positions.get(b.id);
+        const neighborsA = Array.from(adjacency.get(a.id) || []).map((id) => positions.get(id)?.y).filter(Number.isFinite);
+        const neighborsB = Array.from(adjacency.get(b.id) || []).map((id) => positions.get(id)?.y).filter(Number.isFinite);
+        let targetA = neighborsA.length ? neighborsA.reduce((sum, y) => sum + y, 0) / neighborsA.length : (posA?.y || 0);
+        let targetB = neighborsB.length ? neighborsB.reduce((sum, y) => sum + y, 0) / neighborsB.length : (posB?.y || 0);
+        if (rank === 1) {
+          const selectorA = selectorParentBySiteId.get(a.id);
+          const selectorB = selectorParentBySiteId.get(b.id);
+          const selectorAY = selectorA ? positions.get(selectorA)?.y : null;
+          const selectorBY = selectorB ? positions.get(selectorB)?.y : null;
+          if (Number.isFinite(selectorAY)) targetA = (targetA * 0.52) + (selectorAY * 0.48);
+          if (Number.isFinite(selectorBY)) targetB = (targetB * 0.52) + (selectorBY * 0.48);
+        }
+        if (rank >= 2) {
+          const siteA = siteParentByNodeId.get(a.id);
+          const siteB = siteParentByNodeId.get(b.id);
+          const siteAY = siteA ? positions.get(siteA)?.y : null;
+          const siteBY = siteB ? positions.get(siteB)?.y : null;
+          if (Number.isFinite(siteAY)) targetA = (targetA * 0.28) + (siteAY * 0.72);
+          if (Number.isFinite(siteBY)) targetB = (targetB * 0.28) + (siteBY * 0.72);
+          if (siteA && siteB && siteA !== siteB) {
+            const siteCompare = (positions.get(siteA)?.y || 0) - (positions.get(siteB)?.y || 0);
+            if (Math.abs(siteCompare) > 1) return siteCompare;
+          }
+        }
+        return targetA - targetB || b.degree - a.degree || a.label.localeCompare(b.label);
+      });
+      let cursorY = minY;
+      for (const node of items) {
+        const pos = positions.get(node.id);
+        if (!pos || entityGraphManualPositions.has(node.id)) continue;
+        const radius = entityGraphNodeCollisionRadius(node);
+        const neighbors = Array.from(adjacency.get(node.id) || []).map((id) => positions.get(id)?.y).filter(Number.isFinite);
+        let targetY = neighbors.length ? neighbors.reduce((sum, y) => sum + y, 0) / neighbors.length : pos.y;
+        if (rank === 1) {
+          const selectorId = selectorParentBySiteId.get(node.id);
+          const selectorY = selectorId ? positions.get(selectorId)?.y : null;
+          if (Number.isFinite(selectorY)) targetY = (targetY * 0.52) + (selectorY * 0.48);
+        }
+        if (rank >= 2) {
+          const siteId = siteParentByNodeId.get(node.id);
+          const siteY = siteId ? positions.get(siteId)?.y : null;
+          if (Number.isFinite(siteY)) {
+            const siblingIds = items.filter((item) => siteParentByNodeId.get(item.id) === siteId).map((item) => item.id);
+            const siblingIndex = siblingIds.indexOf(node.id);
+            const siblingCenter = (siblingIds.length - 1) / 2;
+            const bandOffset = (siblingIndex - siblingCenter) * ((radius * 2) + 8);
+            targetY = (targetY * 0.22) + ((siteY + bandOffset) * 0.78);
+          }
+        }
+        pos.y = Math.max(cursorY + radius, Math.min(maxY - radius, targetY));
+        cursorY = pos.y + radius + (rank >= 2 ? 10 : 14);
+      }
+      for (let idx = items.length - 2; idx >= 0; idx -= 1) {
+        const current = positions.get(items[idx].id);
+        const next = positions.get(items[idx + 1].id);
+        if (!current || !next || entityGraphManualPositions.has(items[idx].id)) continue;
+        const currentRadius = entityGraphNodeCollisionRadius(items[idx]);
+        const nextRadius = entityGraphNodeCollisionRadius(items[idx + 1]);
+        const currentSite = siteParentByNodeId.get(items[idx].id);
+        const nextSite = siteParentByNodeId.get(items[idx + 1].id);
+        const gap = rank >= 2 && currentSite && nextSite && currentSite === nextSite ? 8 : 14;
+        const maxAllowedY = next.y - nextRadius - currentRadius - gap;
+        current.y = Math.min(current.y, maxAllowedY);
+      }
+    }
+  }
+
+  for (const [nodeId, pos] of positions.entries()) {
+    if (!entityGraphManualPositions.has(nodeId)) continue;
+    entityGraphManualPositions.set(nodeId, { x: pos.x, y: pos.y });
+  }
+  entityGraphLayoutCache = { key: cacheKey, positions };
+  return positions;
+}
+
+function applyEntityGraphTransform() {
+  const panGroup = footprintEntityGraphCanvas?.querySelector('[data-entity-graph-pan]');
+  if (!(panGroup instanceof SVGGElement)) return;
+  const zoom = Number.isFinite(entityGraphViewport.zoom) ? Math.max(0.35, Math.min(2.8, entityGraphViewport.zoom)) : 1;
+  const offsetX = Number.isFinite(entityGraphViewport.offsetX) ? entityGraphViewport.offsetX : 0;
+  const offsetY = Number.isFinite(entityGraphViewport.offsetY) ? entityGraphViewport.offsetY : 0;
+  panGroup.setAttribute('transform', `translate(${offsetX.toFixed(2)} ${offsetY.toFixed(2)}) scale(${zoom.toFixed(3)})`);
+}
+
+function entityGraphEdgePath(edge, sourcePos, targetPos) {
+  const relation = String(edge?.relation || '').trim().toLowerCase();
+  if (relation === 'partial_match') {
+    const dx = targetPos.x - sourcePos.x;
+    const sweep = sourcePos.y <= targetPos.y ? 1 : 0;
+    const radius = Math.max(26, Math.abs(dx) * 0.45);
+    return `M ${sourcePos.x.toFixed(2)} ${sourcePos.y.toFixed(2)} A ${radius.toFixed(2)} ${radius.toFixed(2)} 0 0 ${sweep} ${targetPos.x.toFixed(2)} ${targetPos.y.toFixed(2)}`;
+  }
+  const dx = targetPos.x - sourcePos.x;
+  const controlOffset = Math.max(26, Math.abs(dx) * 0.42);
+  const c1x = sourcePos.x + controlOffset;
+  const c1y = sourcePos.y;
+  const c2x = targetPos.x - controlOffset;
+  const c2y = targetPos.y;
+  return `M ${sourcePos.x.toFixed(2)} ${sourcePos.y.toFixed(2)} C ${c1x.toFixed(2)} ${c1y.toFixed(2)}, ${c2x.toFixed(2)} ${c2y.toFixed(2)}, ${targetPos.x.toFixed(2)} ${targetPos.y.toFixed(2)}`;
+}
+
+function renderFootprintEntityGraph() {
+  if (
+    !(footprintEntityGraphSummary instanceof HTMLElement)
+    || !(footprintEntityGraphSummaryText instanceof HTMLElement)
+    || !(footprintEntityGraphCanvas instanceof HTMLElement)
+    || !(footprintEntityGraphDetails instanceof HTMLElement)
+    || !(footprintEntityGraphEmpty instanceof HTMLElement)
+  ) return;
+  const model = collectEntityGraphModel();
+  const allNodes = Array.isArray(model?.nodes) ? model.nodes : [];
+  const allEdges = Array.isArray(model?.edges) ? model.edges : [];
+  if (!allNodes.length || !allEdges.length) {
+    footprintEntityGraphSummary.textContent = 'No graph data';
+    footprintEntityGraphSummaryText.textContent = 'Run Digital Footprint recon to map queried selectors, identified platforms, and linked entities.';
+    footprintEntityGraphCanvas.innerHTML = '';
+    footprintEntityGraphDetails.innerHTML = '';
+    footprintEntityGraphEmpty.classList.remove('hidden');
+    entityGraphSelectedNodeId = '';
+    return;
+  }
+
+  const query = entityGraphQuery.trim().toLowerCase();
+  let nodes = allNodes;
+  let edges = allEdges;
+  if (query) {
+    const matchedIds = new Set(allNodes.filter((node) => {
+      const haystack = `${node.label} ${node.detail} ${node.subType} ${node.site}`.toLowerCase();
+      return haystack.includes(query);
+    }).map((node) => node.id));
+    if (matchedIds.size) {
+      const expanded = new Set(matchedIds);
+      for (const edge of allEdges) {
+        if (matchedIds.has(edge.source) || matchedIds.has(edge.target)) {
+          expanded.add(edge.source);
+          expanded.add(edge.target);
+        }
+      }
+      nodes = allNodes.filter((node) => expanded.has(node.id));
+      edges = allEdges.filter((edge) => expanded.has(edge.source) && expanded.has(edge.target));
+    } else {
+      nodes = [];
+      edges = [];
+    }
+  }
+
+  if (!nodes.length || !edges.length) {
+    footprintEntityGraphSummary.textContent = `${allNodes.length} nodes • ${allEdges.length} links`;
+    footprintEntityGraphSummaryText.textContent = 'No nodes match the current search query.';
+    footprintEntityGraphCanvas.innerHTML = '';
+    footprintEntityGraphDetails.innerHTML = '';
+    footprintEntityGraphEmpty.classList.remove('hidden');
+    return;
+  }
+
+  const canvasRect = footprintEntityGraphCanvas.getBoundingClientRect();
+  const width = Math.max(520, Math.round(canvasRect.width || 980));
+  const height = Math.max(360, Math.min(820, Math.round(window.innerHeight * 0.62)));
+  const scopedModel = { nodes, edges };
+  const positions = computeEntityGraphLayout(scopedModel, width, height);
+  const byId = new Map(nodes.map((node) => [node.id, node]));
+  const neighborMap = new Map(nodes.map((node) => [node.id, new Set()]));
+  for (const edge of edges) {
+    neighborMap.get(edge.source)?.add(edge.target);
+    neighborMap.get(edge.target)?.add(edge.source);
+  }
+  if (!byId.has(entityGraphSelectedNodeId)) {
+    entityGraphSelectedNodeId = nodes.find((node) => node.type === 'selector')?.id || nodes[0]?.id || '';
+  }
+  const selectedNeighbors = new Set(neighborMap.get(entityGraphSelectedNodeId) || []);
+  const selectedNode = byId.get(entityGraphSelectedNodeId) || null;
+
+  const selectorCount = allNodes.filter((node) => node.type === 'selector').length;
+  const platformCount = allNodes.filter((node) => node.type === 'site').length;
+  footprintEntityGraphSummary.textContent = `${allNodes.length} nodes • ${allEdges.length} links`;
+  footprintEntityGraphSummaryText.textContent = `${selectorCount} selector${selectorCount === 1 ? '' : 's'} • ${platformCount} platform${platformCount === 1 ? '' : 's'} • ${model.sharedAttributes} shared entit${model.sharedAttributes === 1 ? 'y' : 'ies'}`;
+  footprintEntityGraphEmpty.classList.add('hidden');
+
+  const edgeMarkup = edges.map((edge) => {
+    const sourcePos = positions.get(edge.source);
+    const targetPos = positions.get(edge.target);
+    if (!sourcePos || !targetPos) return '';
+    const active = edge.source === entityGraphSelectedNodeId || edge.target === entityGraphSelectedNodeId;
+    const partial = String(edge?.relation || '').trim().toLowerCase() === 'partial_match';
+    return `<path class="entity-graph-edge${partial ? ' is-partial' : ''}${active ? ' is-active' : ''}" d="${entityGraphEdgePath(edge, sourcePos, targetPos)}"></path>`;
+  }).join('');
+
+  const nodeMarkup = nodes.map((node) => {
+    const pos = positions.get(node.id);
+    if (!pos) return '';
+    const radiusBase = node.type === 'selector' ? 13 : (node.type === 'profile' ? 10.5 : (node.type === 'site' ? 12.4 : 8.6));
+    const radius = Math.min(24, radiusBase + Math.min(10, node.degree * 0.52));
+    const isSelected = node.id === entityGraphSelectedNodeId;
+    const isNeighbor = selectedNeighbors.has(node.id);
+    const selectorColorClass = node.type === 'selector' ? ` entity-graph-selector-${escapeAttr(selectorTypeColorToken(node.subType || node.colorToken))}` : '';
+    const nodeClass = `entity-graph-node entity-graph-node-${escapeAttr(node.type)}${selectorColorClass}${isSelected ? ' is-selected' : ''}${isNeighbor ? ' is-neighbor' : ''}${node.type === 'attribute' && node.degree > 1 ? ' is-shared' : ''}`;
+    const icon = node.type === 'selector' ? 'S' : (node.type === 'profile' ? 'P' : (node.type === 'site' ? 'W' : (node.type === 'image' ? 'I' : 'E')));
+    const label = String(node.label || '').trim();
+    const iconImage = normalizeExternalUrl(node.pictureUrl || node.iconUrl || '');
+    const imageSize = radius * 1.72;
+    const imageOffset = imageSize / 2;
+    const iconKind = entityGraphIconKind(node.subType);
+    const nodeImageMarkup = iconImage
+      ? `<image class="entity-graph-node-thumb" href="${escapeAttr(iconImage)}" x="${(-imageOffset).toFixed(2)}" y="${(-imageOffset).toFixed(2)}" width="${imageSize.toFixed(2)}" height="${imageSize.toFixed(2)}" preserveAspectRatio="xMidYMid slice" />`
+      : (entityGraphIconMarkup(iconKind) || `<text class="entity-graph-node-icon" text-anchor="middle" dominant-baseline="central">${escapeHtml(icon)}</text>`);
+    if (node.type === 'selector') {
+      const token = String(selectorTypeColorToken(node.subType || node.colorToken) || 'default');
+      const fullLabel = String(node.label || '').trim();
+      const displayLabel = fullLabel;
+      const selectorIcon = entityGraphIconMarkup(node.subType || node.colorToken, { compact: true });
+      const hasSelectorIcon = Boolean(selectorIcon);
+      const boxWidth = Math.max(104, (displayLabel.length * 8.9) + (hasSelectorIcon ? 50 : 34));
+      const boxHeight = 36;
+      return `
+        <g class="${nodeClass}" data-entity-node-id="${escapeAttr(node.id)}" transform="translate(${pos.x.toFixed(2)} ${pos.y.toFixed(2)})">
+          <rect class="entity-graph-selector-box entity-graph-selector-box-${escapeAttr(token)}" x="${(-boxWidth / 2).toFixed(2)}" y="${(-boxHeight / 2).toFixed(2)}" width="${boxWidth.toFixed(2)}" height="${boxHeight}" rx="8" ry="8"></rect>
+          ${hasSelectorIcon ? `<g class="entity-graph-selector-icon" transform="translate(${(-boxWidth / 2) + 19} 0)">${selectorIcon}</g>` : ''}
+          <text class="entity-graph-selector-text" x="${hasSelectorIcon ? 11 : 0}" text-anchor="middle" dominant-baseline="central">${escapeHtml(displayLabel)}</text>
+        </g>
+      `;
+    }
+    return `
+      <g class="${nodeClass}" data-entity-node-id="${escapeAttr(node.id)}" transform="translate(${pos.x.toFixed(2)} ${pos.y.toFixed(2)})">
+        <circle r="${radius.toFixed(2)}"></circle>
+        ${nodeImageMarkup}
+        ${node.type === 'image' ? '' : `<text class="entity-graph-node-label" y="${(radius + 16).toFixed(2)}" text-anchor="middle">${escapeHtml(label)}</text>`}
+      </g>
+    `;
+  }).join('');
+
+  footprintEntityGraphCanvas.innerHTML = `
+    <svg class="entity-graph-svg" viewBox="0 0 ${width} ${height}" aria-hidden="true">
+      <g data-entity-graph-pan>
+        ${edgeMarkup}
+        ${nodeMarkup}
+      </g>
+    </svg>
+  `;
+  applyEntityGraphTransform();
+
+  if (!selectedNode) {
+    footprintEntityGraphDetails.innerHTML = '';
+    return;
+  }
+  const connected = Array.from(selectedNeighbors)
+    .map((id) => byId.get(id))
+    .filter(Boolean)
+    .sort((a, b) => b.degree - a.degree || a.label.localeCompare(b.label))
+    .slice(0, 18);
+  const detailType = selectedNode.subType ? `${entityGraphNodeTypeLabel(selectedNode.type)} • ${titleCaseLabel(selectedNode.subType)}` : entityGraphNodeTypeLabel(selectedNode.type);
+  const selectedNodeTitle = String(selectedNode.label || '').trim() || entityGraphNodeTypeLabel(selectedNode.type);
+  const urlMarkup = selectedNode.url
+    ? `<a class="lead-link" href="${escapeAttr(selectedNode.url)}" target="_blank" rel="noopener noreferrer">open profile</a>`
+    : '';
+  footprintEntityGraphDetails.innerHTML = `
+    <div class="entity-graph-detail-card">
+      <div class="viz-head">
+        <h3>${escapeHtml(selectedNodeTitle)}</h3>
+        <span class="viz-total">${escapeHtml(detailType)}</span>
+      </div>
+      <p class="posting-rhythm-summary">${escapeHtml(selectedNode.detail || 'Entity node')}</p>
+      <div class="recon-pills">
+        <span class="recon-pill">${selectedNode.degree} connection${selectedNode.degree === 1 ? '' : 's'}</span>
+        ${urlMarkup}
+      </div>
+      <div class="entity-graph-neighbors">
+        ${connected.length
+    ? connected.map((node) => `<button type="button" class="mix-pill mix-filter-pill" data-entity-focus-id="${escapeAttr(node.id)}"><span>${escapeHtml(String(node.label || '').trim() || entityGraphNodeTypeLabel(node.type))}</span><strong>${node.degree}</strong></button>`).join('')
+    : '<span class="recon-pill">No linked nodes</span>'}
+      </div>
+    </div>
+  `;
+}
+
 function ensureReconPreviewTooltip() {
   if (reconPreviewTooltipEl instanceof HTMLElement) return reconPreviewTooltipEl;
   const el = document.createElement('div');
@@ -6847,6 +9437,7 @@ function personDataProfileMarkup(profile, totalProfiles = 0, pdlProfiles = [], o
   const location = String(profile.location_name || '').trim();
   const queryType = String(profile.query_type || '').trim() || 'unknown';
   const queryValue = String(profile.query_value || '').trim() || 'unknown';
+  const profileConfidenceBadge = selectorConfidenceBadgeMarkup(queryType, queryValue, { compact: true, scopeId: profileKey });
   const profileSelectorKey = sourceSelectorKey(queryType, queryValue);
   const profileSelectorAttr = profileSelectorKey ? ` data-source-selector-key="${escapeAttr(profileSelectorKey)}"` : '';
   const proEmail = String(profile.professional_email || profile.work_email || '').trim();
@@ -6884,6 +9475,7 @@ function personDataProfileMarkup(profile, totalProfiles = 0, pdlProfiles = [], o
         ${values.length ? values.map((value) => `
           <span class="recon-pill">
             <span>${escapeHtml(value)}</span>
+            ${selectorConfidenceBadgeMarkup(contactSelectorType(heading) || queryType, value, { compact: true, scopeId: pdlContactVisibilityKey(profile, heading.replace(/s$/, ''), value) })}
             ${pivotSelectorActionMarkup(contactSelectorType(heading), value, 'Pivot Search')}
             ${removable ? `<button type="button" class="known-selector-action recon-pill-remove recon-pill-action" data-pdl-contact-remove="${escapeAttr(pdlContactVisibilityKey(profile, heading.replace(/s$/, ''), value))}" title="Remove value">×</button>` : ''}
           </span>
@@ -6969,6 +9561,7 @@ function personDataProfileMarkup(profile, totalProfiles = 0, pdlProfiles = [], o
         ${removable ? `<button type="button" class="known-selector-action recon-tile-remove" data-pdl-profile-remove="${escapeAttr(profileKey)}" title="Remove Person Data Profile">×</button>` : ''}
         <div class="recon-pills">
           <span class="recon-pill">${escapeHtml(fullName || `${queryType}: ${queryValue}`)}</span>
+          ${profileConfidenceBadge}
         </div>
         <div class="pdl-poi-grid">
           <div class="pdl-poi-field">
@@ -6990,7 +9583,7 @@ function personDataProfileMarkup(profile, totalProfiles = 0, pdlProfiles = [], o
           <div class="recon-pills">
             ${mergedProfileRows.length
     ? mergedProfileRows.map((row) => {
-      const rowWithSelector = { ...row, selector_type: 'username', selector: String(profile?.query_value || '').trim() };
+      const rowWithSelector = { ...row, selector_type: queryType, selector: String(queryValue || '').trim() };
       if (!removable) return toReconBadge(rowWithSelector, 'lead', { pivotable: false });
       return toReconBadge(rowWithSelector, 'lead', {
         removable: true,
@@ -7001,10 +9594,10 @@ function personDataProfileMarkup(profile, totalProfiles = 0, pdlProfiles = [], o
           </div>
         </div>
         <div class="pdl-contact-sections">
-          ${contactGroupMarkup('Professional Emails', professionalEmailValues)}
           ${contactGroupMarkup('Personal Emails', personalEmailValues)}
-          ${contactGroupMarkup('Professional Phones', professionalPhoneValues)}
+          ${contactGroupMarkup('Professional Emails', professionalEmailValues)}
           ${contactGroupMarkup('Personal Phones', personalPhoneValues)}
+          ${contactGroupMarkup('Professional Phones', professionalPhoneValues)}
         </div>
         <div class="recon-pills">
           <span class="recon-pill">${escapeHtml(identificationText)}</span>
@@ -7041,11 +9634,12 @@ function osintProfilesMarkup(profiles, rows = [], options = {}) {
     const classAttr = cls ? ` ${cls}` : '';
     return `<a class="recon-pill lead-link${classAttr}" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer"${previewAttr}${previewLabelAttr}>${escapeHtml(label)}</a>`;
   };
-  const valueItem = (label, value) => {
+  const valueItem = (label, value, options = {}) => {
     if (value === null || value === undefined) return '';
     const clean = typeof value === 'string' ? value.trim() : String(value).trim();
     if (!clean) return '';
-    return `<div class="osint-value"><span class="osint-key">${escapeHtml(label)}</span><strong>${escapeHtml(clean)}</strong></div>`;
+    const wideClass = options?.wide ? ' osint-value-wide' : '';
+    return `<div class="osint-value${wideClass}"><span class="osint-key">${escapeHtml(label)}</span><strong>${escapeHtml(clean)}</strong></div>`;
   };
   const rowsByUrl = new Map();
   for (const row of resultRows) {
@@ -7089,9 +9683,28 @@ function osintProfilesMarkup(profiles, rows = [], options = {}) {
       profile?.query_type || row?.selector_type,
       profile?.query_value || row?.selector,
     );
+    const selectorType = String(profile?.query_type || row?.selector_type || '').trim().toLowerCase() || 'name';
+    const confidenceBadge = selectorConfidenceBadgeMarkup(selectorType, String(profile?.query_value || row?.selector || '').trim(), { compact: true, scopeId: profileKey });
     const selectorAttr = selectorKey ? ` data-source-selector-key="${escapeAttr(selectorKey)}"` : '';
-    const profileLink = profileUrl ? linkPill('Profile', profileUrl, title, 'osint-profile-link') : '';
     const websiteLink = website && website !== profileUrl ? linkPill('Website', website, `${title} website`, 'osint-website-link') : '';
+    const confidenceAction = `<div class="osint-profile-confidence">${confidenceBadge}</div>`;
+    const profileAction = profileUrl
+      ? `
+        <a class="known-selector-action osint-profile-open" href="${escapeHtml(profileUrl)}" target="_blank" rel="noopener noreferrer" title="Open profile URL" aria-label="Open profile URL">
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M14 4h6v6"></path>
+            <path d="M10 14L20 4"></path>
+            <path d="M20 13v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h6"></path>
+          </svg>
+        </a>
+      `
+      : '';
+    const removeAction = removable
+      ? `<button type="button" class="known-selector-action recon-tile-remove" data-osint-remove="${escapeAttr(profileKey)}" title="Remove OSINT tile">×</button>`
+      : '';
+    const topActions = confidenceAction || profileAction || removeAction
+      ? `<div class="osint-profile-actions">${confidenceAction}${profileAction}${removeAction}</div>`
+      : '';
     const imageUrl = normalizeExternalUrl(profile?.picture_url || profile?.avatar_url || '') || normalizeExternalUrl(row?.picture_url || '');
     const siteIcon = faviconMarkup(siteLabel, profileUrl || website);
     const avatarMarkup = imageUrl
@@ -7104,38 +9717,47 @@ function osintProfilesMarkup(profiles, rows = [], options = {}) {
           </svg>
         </div>
       `;
+    const valueRows = [
+      ['location', profile?.location],
+      ['biolocation', profile?.biolocation],
+      ['gender', profile?.gender],
+      ['age', profile?.age],
+      ['email', profile?.email],
+      ['phone', profile?.phone],
+      ['email_hint', profile?.email_hint],
+      ['phone_hint', profile?.phone_hint],
+      ['language', profile?.language],
+      ['bio', profile?.bio],
+      ['breach', profile?.breach],
+    ];
+    const isLongEntityText = (rawValue) => {
+      if (rawValue === null || rawValue === undefined) return false;
+      const clean = typeof rawValue === 'string' ? rawValue.trim() : String(rawValue).trim();
+      if (!clean) return false;
+      return clean.length >= 96 || /\S{45,}/.test(clean);
+    };
+    const stackValues = valueRows.some(([, value]) => isLongEntityText(value));
+    const valuesMarkup = valueRows
+      .map(([label, value]) => valueItem(label, value, { wide: stackValues }))
+      .join('');
     return `
       <article class="osint-profile-card"${selectorAttr}>
+        ${topActions}
         <div class="osint-profile-head">
           ${avatarMarkup}
           <div>
             <p class="osint-profile-site">${siteIcon}<span>${escapeHtml(siteLabel)}</span></p>
             <h4>${escapeHtml(title)}</h4>
-            <p>${escapeHtml(displayName)}</p>
-            ${username ? `<p>@${escapeHtml(username)}</p>` : ''}
+            ${displayName && displayName.toLowerCase() !== title.toLowerCase() ? `<p>${escapeHtml(displayName)}</p>` : ''}
+            ${username && username.toLowerCase() !== title.toLowerCase() && username.toLowerCase() !== displayName.toLowerCase()
+    ? `<p>@${escapeHtml(username)}</p>`
+    : ''}
           </div>
-          ${removable ? `<button type="button" class="known-selector-action recon-tile-remove" data-osint-remove="${escapeAttr(profileKey)}" title="Remove OSINT tile">×</button>` : ''}
         </div>
-        <div class="osint-profile-grid">
-          ${valueItem('name', profile?.name)}
-          ${valueItem('username', profile?.username)}
-          ${valueItem('location', profile?.location)}
-          ${valueItem('email', profile?.email)}
-          ${valueItem('phone', profile?.phone)}
-          ${valueItem('email_hint', profile?.email_hint)}
-          ${valueItem('phone_hint', profile?.phone_hint)}
-          ${valueItem('registered', profile?.registered)}
-          ${valueItem('followers', profile?.followers)}
-          ${valueItem('following', profile?.following)}
-          ${valueItem('language', profile?.language)}
-          ${valueItem('bio', profile?.bio)}
-          ${valueItem('verified', profile?.verified)}
-          ${valueItem('premium', profile?.premium)}
-          ${valueItem('private', profile?.private)}
-          ${valueItem('breach', profile?.breach)}
+        <div class="osint-profile-grid${stackValues ? ' osint-profile-grid-stacked' : ''}">
+          ${valuesMarkup}
         </div>
         <div class="osint-profile-links">
-          ${profileLink}
           ${websiteLink}
         </div>
       </article>
@@ -7153,8 +9775,8 @@ function osintProfilesMarkup(profiles, rows = [], options = {}) {
 function hibpAggregateMarkup(profiles, specRows = []) {
   const items = Array.isArray(profiles) ? profiles : [];
   const rows = Array.isArray(specRows) ? specRows : [];
-  const hibpProfiles = items.filter((row) => String(row?.module || '').trim().toLowerCase() === 'hibp');
-  const hibpSpecs = rows.filter((row) => String(row?.module || '').trim().toLowerCase() === 'hibp');
+  const hibpProfiles = items.filter((row) => isHibpModuleName(row?.module));
+  const hibpSpecs = rows.filter((row) => isHibpModuleName(row?.module));
   if (!hibpProfiles.length && !hibpSpecs.length) return '';
 
   const bySelector = new Map();
@@ -7163,48 +9785,118 @@ function hibpAggregateMarkup(profiles, specRows = []) {
     const value = String(selectorValue || '').trim() || 'unknown';
     const key = `${type}|${value.toLowerCase()}`;
     if (!bySelector.has(key)) {
-      bySelector.set(key, { selectorType: type, selectorValue: value, breaches: new Set() });
+      bySelector.set(key, { selectorType: type, selectorValue: value, breaches: new Map() });
     }
     return bySelector.get(key);
   };
+  const sanitizeBreachName = (raw) => {
+    let normalized = String(raw || '').trim();
+    if (!normalized) return '';
+    normalized = normalized.replace(/^["']+|["']+$/g, '').trim();
+    if (/:\s*\d/.test(normalized)) normalized = normalized.split(':')[0].trim();
+    if (!normalized) return '';
+    if (/^\d+$/.test(normalized)) return '';
+    if (/^\d{4}-\d{2}-\d{2}/.test(normalized)) return '';
+    if (normalized.length > 96) return '';
+    if (!/[A-Za-z]/.test(normalized)) return '';
+    return normalized;
+  };
+  const formatBreachMonthYear = (raw) => {
+    const clean = String(raw || '').trim();
+    if (!clean) return '';
+    const parsed = new Date(clean);
+    if (Number.isNaN(parsed.getTime())) return '';
+    return new Intl.DateTimeFormat('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' }).format(parsed);
+  };
+  const breachEntry = (nameRaw, dateRaw = '', logoRaw = '') => {
+    const name = sanitizeBreachName(nameRaw);
+    if (!name) return null;
+    const dateLabel = formatBreachMonthYear(dateRaw);
+    const logo = normalizeExternalUrl(logoRaw);
+    const key = `${String(name).toLowerCase()}|${String(dateLabel).toLowerCase()}`;
+    return { key, name, dateLabel, logo };
+  };
   const parseBreachesFromValue = (value) => {
     const output = [];
-    const append = (raw) => {
-      const clean = String(raw || '').trim();
-      if (!clean) return;
-      output.push(clean);
+    const append = (nameRaw, dateRaw = '', logoRaw = '') => {
+      const entry = breachEntry(nameRaw, dateRaw, logoRaw);
+      if (!entry) return;
+      output.push(entry);
     };
-    if (Array.isArray(value)) {
-      for (const item of value) append(item?.name || item?.title || item);
-      return output;
-    }
-    if (typeof value === 'string') {
-      for (const part of value.split(/[,;\n]+/g)) append(part);
-      return output;
-    }
-    if (value && typeof value === 'object') {
-      for (const item of Object.values(value)) append(item?.name || item?.title || item);
-    }
+    const parseMaybeJson = (text) => {
+      const raw = String(text || '').trim();
+      if (!raw) return null;
+      if (!((raw.startsWith('{') && raw.endsWith('}')) || (raw.startsWith('[') && raw.endsWith(']')))) return null;
+      try {
+        return JSON.parse(raw);
+      } catch (_error) {
+        return null;
+      }
+    };
+    const objectValue = (node, aliases) => {
+      if (!node || typeof node !== 'object') return undefined;
+      const lookup = new Set(aliases.map((item) => String(item || '').toLowerCase()));
+      for (const [key, val] of Object.entries(node)) {
+        if (lookup.has(String(key || '').toLowerCase())) return val;
+      }
+      return undefined;
+    };
+    const walk = (node) => {
+      if (node === null || node === undefined) return;
+      if (Array.isArray(node)) {
+        for (const item of node) walk(item);
+        return;
+      }
+      if (typeof node === 'string') {
+        const parsed = parseMaybeJson(node);
+        if (parsed !== null) {
+          walk(parsed);
+          return;
+        }
+        for (const part of node.split(/[,;\n]+/g)) append(part);
+        return;
+      }
+      if (typeof node === 'object') {
+        const nameValue = objectValue(node, ['name', 'title', 'breach', 'breach_name', 'breachname']);
+        const dateValue = objectValue(node, ['creation_date', 'breach_date', 'date', 'added_date', 'modified_date', 'creation date', 'breach date', 'added date', 'modified date']);
+        const logoValue = objectValue(node, ['picture_url', 'picture url', 'logo', 'logo_url', 'logo url', 'favicon', 'icon']);
+        if (nameValue !== undefined) append(nameValue, dateValue, logoValue);
+        for (const item of Object.values(node)) walk(item);
+        return;
+      }
+      // Ignore primitive numeric/boolean values (e.g. PwnCount) that are not breach names.
+    };
+    walk(value);
     return output;
   };
 
   for (const profile of hibpProfiles) {
     const bucket = ensureSelector(profile?.query_type, profile?.query_value);
-    for (const breach of parseBreachesFromValue(profile?.breach)) bucket.breaches.add(breach);
+    const directProfileBreach = breachEntry(
+      profile?.title || profile?.name || profile?.breach,
+      profile?.creation_date,
+      profile?.picture_url,
+    );
+    if (directProfileBreach) bucket.breaches.set(directProfileBreach.key, directProfileBreach);
+    for (const breach of parseBreachesFromValue(profile?.breach)) bucket.breaches.set(breach.key, breach);
+    for (const breach of parseBreachesFromValue(profile?.parsed_values)) bucket.breaches.set(breach.key, breach);
+    for (const breach of parseBreachesFromValue(profile?.spec_format)) bucket.breaches.set(breach.key, breach);
     const parsedValues = profile?.parsed_values && typeof profile.parsed_values === 'object' ? profile.parsed_values : {};
     for (const [key, value] of Object.entries(parsedValues)) {
       const lowered = String(key || '').toLowerCase();
       if (!lowered.includes('breach') && !lowered.includes('pwn')) continue;
-      for (const breach of parseBreachesFromValue(value)) bucket.breaches.add(breach);
+      for (const breach of parseBreachesFromValue(value)) bucket.breaches.set(breach.key, breach);
     }
   }
   for (const row of hibpSpecs) {
     const bucket = ensureSelector(row?.query_type, row?.query_value);
+    for (const breach of parseBreachesFromValue(row?.parsed_values)) bucket.breaches.set(breach.key, breach);
+    for (const breach of parseBreachesFromValue(row?.spec_format)) bucket.breaches.set(breach.key, breach);
     const parsedValues = row?.parsed_values && typeof row.parsed_values === 'object' ? row.parsed_values : {};
     for (const [key, value] of Object.entries(parsedValues)) {
       const lowered = String(key || '').toLowerCase();
       if (!lowered.includes('breach') && !lowered.includes('pwn')) continue;
-      for (const breach of parseBreachesFromValue(value)) bucket.breaches.add(breach);
+      for (const breach of parseBreachesFromValue(value)) bucket.breaches.set(breach.key, breach);
     }
   }
 
@@ -7212,19 +9904,19 @@ function hibpAggregateMarkup(profiles, specRows = []) {
   if (!selectorRows.length) return '';
   const cards = selectorRows.map((row) => {
     const selectorLabel = formatSelectorLabel(row.selectorType, row.selectorValue);
-    const breaches = Array.from(row.breaches).sort((a, b) => a.localeCompare(b));
+    const breaches = Array.from(row.breaches.values()).sort((a, b) => a.name.localeCompare(b.name));
     return `
-      <article class="osint-profile-card">
-        <div class="osint-profile-head">
-          <div class="osint-profile-avatar empty">HIBP</div>
-          <div>
-            <h4>${escapeHtml(selectorLabel)}</h4>
-            <p>${breaches.length} breach${breaches.length === 1 ? '' : 'es'}</p>
-          </div>
-        </div>
+      <article class="hibp-selector-result">
+        <p>${escapeHtml(selectorLabel)}</p>
         <div class="recon-pills">
           ${breaches.length
-    ? breaches.map((name) => `<span class="recon-pill">${escapeHtml(name)}</span>`).join('')
+    ? breaches.map((breach) => {
+      const label = breach.dateLabel ? `${breach.name} (${breach.dateLabel})` : breach.name;
+      const logoMarkup = breach.logo
+        ? `<img class="site-favicon" src="${escapeHtml(breach.logo)}" alt="" aria-hidden="true" loading="lazy" referrerpolicy="no-referrer" />`
+        : '';
+      return `<span class="recon-pill">${logoMarkup}<span>${escapeHtml(label)}</span></span>`;
+    }).join('')
     : '<span class="recon-pill">No breach names returned.</span>'}
         </div>
       </article>
@@ -7233,7 +9925,7 @@ function hibpAggregateMarkup(profiles, specRows = []) {
   return `
     <div class="recon-group recon-group-low-priority">
       <p>HIBP Breach Summary (Deprioritized)</p>
-      <div class="osint-profiles-list">${cards}</div>
+      <div>${cards}</div>
     </div>
   `;
 }
@@ -7248,11 +9940,17 @@ function numverifyProfilesMarkup(profiles) {
   };
   const cards = items.map((profile, index) => {
     const title = String(profile?.title || profile?.number || `Phone Result ${index + 1}`).trim();
+    const queryType = String(profile?.query_type || 'phone').trim().toLowerCase() || 'phone';
+    const confidenceBadge = selectorConfidenceBadgeMarkup(queryType, String(profile?.query_value || profile?.number || '').trim(), {
+      compact: true,
+      scopeId: `numverify|${String(profile?.number || profile?.international_format || profile?.e164 || title || '').trim().toLowerCase()}`,
+    });
     return `
       <article class="osint-profile-card">
         <div class="osint-profile-head">
           <div class="osint-profile-avatar empty">Phone</div>
           <div>
+            <div class="osint-profile-confidence">${confidenceBadge}</div>
             <h4>${escapeHtml(title)}</h4>
             <p>${profile?.valid ? 'Valid number' : 'Invalid or not recognized'}</p>
           </div>
@@ -7280,12 +9978,20 @@ function numverifyProfilesMarkup(profiles) {
   `;
 }
 
-function knownSelectorPillMarkup(type, value) {
+function knownSelectorPillMarkup(type, value, confidenceSourceType = '', confidenceSourceValue = '') {
   const key = `${type}|${String(value || '').toLowerCase()}`;
   if (hiddenKnownSelectorKeys.has(key)) return '';
+  const confidenceType = String(confidenceSourceType || type).trim().toLowerCase();
+  const confidenceValue = String(confidenceSourceValue || value).trim();
+  const confidence = selectorConfidenceMeta(confidenceType, confidenceValue);
+  const typeLabel = selectorTypeDisplayLabel(type);
   return `
-    <span class="known-selector-pill known-selector-pill-${escapeAttr(type)}" data-known-focus-key="${escapeAttr(key)}">
-      <span class="known-selector-value">${escapeHtml(value)}</span>
+    <span class="known-selector-pill known-selector-pill-${escapeAttr(type)}" data-known-focus-key="${escapeAttr(key)}" title="${escapeAttr(confidence.guidance)}">
+      <span class="known-selector-main">
+        <span class="known-selector-type">${escapeHtml(typeLabel)}</span>
+        <span class="known-selector-value">${escapeHtml(value)}</span>
+      </span>
+      ${selectorConfidenceBadgeMarkup(confidenceType, confidenceValue, { compact: true, scopeId: `known_selector|${key}` })}
       <button type="button" class="known-selector-action pivot" data-known-pivot-type="${escapeAttr(type)}" data-known-pivot-value="${escapeAttr(value)}" title="Pivot Search" aria-label="Pivot Search">
         <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="11" cy="11" r="6.5"></circle><path d="M16.5 16.5L21 21"></path></svg>
       </button>
@@ -7384,6 +10090,16 @@ function focusKnownSelectorInstances(selectorKey) {
   return true;
 }
 
+function renderFootprintLikelyName(payload) {
+  if (!(footprintLikelyNameValue instanceof HTMLElement)) return;
+  const summary = collectLikelyNameSummary(payload || {});
+  const value = String(summary?.name || '').trim();
+  footprintLikelyNameValue.textContent = value || 'Unknown';
+  if (footprintLikelyName instanceof HTMLElement) {
+    footprintLikelyName.classList.toggle('is-empty', !value);
+  }
+}
+
 function renderKnownSelectorsPanel(payload) {
   if (!(footprintKnownSelectorsGroups instanceof HTMLElement) || !(footprintKnownSelectorsTotal instanceof HTMLElement)) return;
   const known = collectKnownSelectors(payload || {});
@@ -7397,9 +10113,12 @@ function renderKnownSelectorsPanel(payload) {
   let total = 0;
   const sections = KNOWN_SELECTOR_GROUPS
     .map((type) => {
-      const values = Array.isArray(known?.[type]) ? known[type] : [];
-      const pills = values.map((value) => knownSelectorPillMarkup(type, value)).filter(Boolean).join('');
-      const count = pills ? values.filter((value) => !hiddenKnownSelectorKeys.has(`${type}|${String(value || '').toLowerCase()}`)).length : 0;
+      const items = Array.isArray(known?.[type]) ? known[type] : [];
+      const pills = items
+        .map((item) => knownSelectorPillMarkup(type, item?.value, item?.confidence_source_type, item?.confidence_source_value))
+        .filter(Boolean)
+        .join('');
+      const count = pills ? items.filter((item) => !hiddenKnownSelectorKeys.has(`${type}|${String(item?.value || '').toLowerCase()}`)).length : 0;
       total += Math.max(0, count);
       return `
         <section class="known-selector-group">
@@ -7522,7 +10241,7 @@ function collectionTargetsFromReconResults(results) {
 }
 
 function applyReconPayload(payload, options = {}) {
-  const { statusPrefix = 'Recon complete', footprintOnly = false } = options;
+  const { statusPrefix = 'Recon complete', footprintOnly = false, notifyModules = false } = options;
   const rawPayload = payload && typeof payload === 'object' ? payload : emptyReconPayload();
   latestReconPayload = rawPayload;
   const normalized = filteredReconPayload(rawPayload);
@@ -7547,17 +10266,25 @@ function applyReconPayload(payload, options = {}) {
   reconOsintProfiles = Array.isArray(normalized?.osint_profiles) ? normalized.osint_profiles : [];
   reconOsintSpecResults = Array.isArray(normalized?.osint_spec_results) ? normalized.osint_spec_results : [];
   reconNumverifyProfiles = Array.isArray(normalized?.numverify_profiles) ? normalized.numverify_profiles : [];
-  notifyReconApiModules(normalized);
+  entityGraphModelCache = null;
+  entityGraphLayoutCache = null;
+  entityGraphManualPositions.clear();
+  if (notifyModules) notifyReconApiModules(normalized);
   renderReconResults(normalized, footprintReconResults);
   if (!footprintOnly) renderReconResults(normalized);
+  renderFootprintLikelyName(normalized);
   renderKnownSelectorsPanel(normalized);
   renderLeadsList();
   renderFootprintTimeline();
+  renderFootprintEntityGraph();
   renderPatternOfLife(latestPosts);
   renderLocationMap(latestPosts);
   const statusText = `${statusPrefix}: ${normalized.present_count || 0} account match(es) found across ${normalized.checked || 0} checks.`;
   if (footprintReconStatus) footprintReconStatus.textContent = statusText;
   if (!footprintOnly) reconStatus.textContent = statusText;
+  maybeAutofillCaseNotesLikelyName();
+  maybeAutofillCaseNotesLikelyLocation();
+  syncOpenCaseNotesKnownProfilesFromRecon();
 }
 
 function renderReconResults(payload, targetEl = reconResults) {
@@ -7604,7 +10331,7 @@ function renderReconResults(payload, targetEl = reconResults) {
     }
     return deduped;
   })();
-  const osintProfiles = allOsintProfiles.filter((item) => String(item?.module || '').trim().toLowerCase() !== 'hibp');
+  const osintProfiles = allOsintProfiles.filter((item) => !isHibpModuleName(item?.module));
   const numverifyProfiles = Array.isArray(payload?.numverify_profiles) ? payload.numverify_profiles : [];
   const personDataProfile = payload?.person_data_profile && typeof payload.person_data_profile === 'object'
     ? payload.person_data_profile
@@ -7633,6 +10360,23 @@ function renderReconResults(payload, targetEl = reconResults) {
     ? payload.known_present_without_url
     : results.filter((row) => row.status === 'present' && !String(row.profile_url || '').trim());
   const unknown = results.filter((row) => row.status === 'unknown');
+  const querySelectors = Array.isArray(payload?.selectors) ? payload.selectors : [];
+  const confidenceCounts = { high: 0, medium: 0, low: 0 };
+  for (const selector of querySelectors) {
+    const level = selectorConfidenceLevel(selector?.type);
+    confidenceCounts[level] = (confidenceCounts[level] || 0) + 1;
+  }
+  const confidenceNote = (() => {
+    const total = querySelectors.length;
+    if (!total) return '';
+    if (confidenceCounts.low > 0) {
+      return `<div class="recon-confidence-note warn">Confidence warning: ${confidenceCounts.low} low-confidence selector(s) queried (non-unique, e.g. names/usernames). Validate matches with unique selectors like email/phone.</div>`;
+    }
+    if (confidenceCounts.medium > 0) {
+      return `<div class="recon-confidence-note medium">Confidence caution: ${confidenceCounts.medium} medium-confidence selector(s) queried (usernames can be reused). Corroborate with other evidence.</div>`;
+    }
+    return '<div class="recon-confidence-note high">High-confidence query set detected (unique selectors such as email/phone/wallet).</div>';
+  })();
   const showHibpAggregate = targetEl === footprintReconResults;
   const activeSelectorLabel = activeFootprintSourceSelectorKey === 'all'
     ? ''
@@ -7647,7 +10391,7 @@ function renderReconResults(payload, targetEl = reconResults) {
             <strong>${rawResults.length}</strong>
           </button>
           ${sourceSelectorOptions.map((item) => `
-            <div class="mix-pill mix-filter-pill mix-filter-pill-with-clear${item.key === activeFootprintSourceSelectorKey ? ' is-active' : ''}">
+            <div class="mix-pill mix-filter-pill mix-filter-pill-with-clear mix-filter-pill-confidence-${escapeAttr(item.confidenceLevel)}${item.key === activeFootprintSourceSelectorKey ? ' is-active' : ''}">
               <button type="button" class="mix-pill-select" data-footprint-source-selector="${escapeAttr(item.key)}">
                 <span>${escapeHtml(item.label)}</span>
                 <strong>${item.count}</strong>
@@ -7667,6 +10411,7 @@ function renderReconResults(payload, targetEl = reconResults) {
       ${activeSelectorLabel ? `Filtered by ${escapeHtml(activeSelectorLabel)} • ` : ''}
       Checked ${results.length} records • ${nonPdlSupportedPresent.length} collection-ready with URL • ${nonPdlLeadPresent.length} unsupported with URL • ${knownPresentNoUrl.length} known without URL • ${unknown.length} unknown
     </div>
+    ${confidenceNote}
     ${osintProfilesMarkup(osintProfiles, results, { removable: targetEl === footprintReconResults })}
     <div class="recon-status-stack">
     <div class="recon-group">
@@ -8481,7 +11226,8 @@ function reconExampleText(selectorType) {
     name: 'Example: Jane Doe',
     wallet: 'Example: 0x742d35Cc6634C0532925a3b844Bc454e4438f44e',
   };
-  return exampleByType[normalizedType] || exampleByType.username;
+  const confidence = selectorConfidenceMeta(normalizedType);
+  return `${exampleByType[normalizedType] || exampleByType.username} • ${confidence.label}: ${confidence.guidance}`;
 }
 
 function selectorOptionsMarkup(selectedType = 'username') {
@@ -8739,7 +11485,7 @@ async function runRecon(event) {
     const payload = await response.json();
     latestReconPayload = payload;
     setReconSnapshotFromPayload(payload);
-    applyReconPayload(payload, { statusPrefix: 'Recon complete' });
+    applyReconPayload(payload, { statusPrefix: 'Recon complete', notifyModules: true });
     if (reconTargets.length > 0) {
       useReconTargetsBtn.classList.remove('hidden');
       useReconTargetsBtn.disabled = false;
@@ -8831,13 +11577,13 @@ async function runFootprintRecon(event) {
         setReconSnapshotFromPayload(aggregate);
         const idx = Number(event?.selector_index) || selectors.length;
         const total = Number(event?.selectors_total) || selectors.length;
-        applyReconPayload(aggregate, { statusPrefix: `Recon streaming (${idx}/${total})`, footprintOnly: true });
+        applyReconPayload(aggregate, { statusPrefix: `Recon streaming (${idx}/${total})`, footprintOnly: true, notifyModules: true });
       },
       onDone: () => {},
     });
     latestReconPayload = aggregate;
     setReconSnapshotFromPayload(aggregate);
-    applyReconPayload(aggregate, { statusPrefix: 'Recon complete', footprintOnly: true });
+    applyReconPayload(aggregate, { statusPrefix: 'Recon complete', footprintOnly: true, notifyModules: true });
     if (reconTargets.length > 0) {
       footprintUseTargetsBtn?.classList.remove('hidden');
       if (footprintUseTargetsBtn instanceof HTMLButtonElement) footprintUseTargetsBtn.disabled = false;
@@ -8898,14 +11644,14 @@ async function pivotKnownSelector(selectorType, selectorValue) {
         setReconSnapshotFromPayload(aggregate);
         const idx = Number(event?.selector_index) || 1;
         const total = Number(event?.selectors_total) || 1;
-        applyReconPayload(aggregate, { statusPrefix: `Pivot appended (${idx}/${total})`, footprintOnly: true });
+        applyReconPayload(aggregate, { statusPrefix: `Pivot appended (${idx}/${total})`, footprintOnly: true, notifyModules: true });
       },
       onDone: () => {},
     });
     activeFootprintSourceSelectorKey = 'all';
     latestReconPayload = aggregate;
     setReconSnapshotFromPayload(aggregate);
-    applyReconPayload(aggregate, { statusPrefix: 'Pivot appended', footprintOnly: true });
+    applyReconPayload(aggregate, { statusPrefix: 'Pivot appended', footprintOnly: true, notifyModules: true });
     if (reconTargets.length > 0) {
       footprintUseTargetsBtn?.classList.remove('hidden');
       if (footprintUseTargetsBtn instanceof HTMLButtonElement) footprintUseTargetsBtn.disabled = false;
@@ -9278,6 +12024,7 @@ viewMediaBtn?.addEventListener('click', () => setResultsView('media'));
 viewFootprintBtn?.addEventListener('click', () => setResultsView('footprint'));
 viewPatternLifeBtn?.addEventListener('click', () => setResultsView('pattern'));
 viewTimelineBtn?.addEventListener('click', () => setResultsView('timeline'));
+viewEntityGraphBtn?.addEventListener('click', () => setResultsView('entitygraph'));
 sortSelect.addEventListener('change', queueRefresh);
 setupForm.addEventListener('submit', collectAndOpen);
 reconForm.addEventListener('submit', runRecon);
@@ -9586,6 +12333,105 @@ footprintTimelineEvents?.addEventListener('input', (event) => {
     renderFootprintTimeline();
   }
 });
+footprintEntityGraphQuery?.addEventListener('input', () => {
+  entityGraphQuery = String(footprintEntityGraphQuery.value || '');
+  renderFootprintEntityGraph();
+});
+footprintEntityGraphReset?.addEventListener('click', () => {
+  entityGraphViewport = { zoom: 1, offsetX: 0, offsetY: 0 };
+  entityGraphQuery = '';
+  entityGraphSelectedNodeId = '';
+  entityGraphManualPositions.clear();
+  entityGraphLayoutCache = null;
+  if (footprintEntityGraphQuery instanceof HTMLInputElement) footprintEntityGraphQuery.value = '';
+  renderFootprintEntityGraph();
+});
+footprintEntityGraphCanvas?.addEventListener('wheel', (event) => {
+  event.preventDefault();
+  const direction = event.deltaY > 0 ? -1 : 1;
+  entityGraphViewport.zoom = Math.max(0.35, Math.min(2.8, entityGraphViewport.zoom + (direction * 0.08)));
+  applyEntityGraphTransform();
+}, { passive: false });
+footprintEntityGraphCanvas?.addEventListener('pointerdown', (event) => {
+  if (event.button !== 0) return;
+  if (!(event.target instanceof Element)) return;
+  const nodeEl = event.target.closest('[data-entity-node-id]');
+  if (nodeEl instanceof Element) {
+    const nodeId = String(nodeEl.getAttribute('data-entity-node-id') || '').trim();
+    const pos = entityGraphLayoutCache?.positions?.get(nodeId);
+    if (!nodeId || !pos) return;
+    entityGraphNodeDrag = {
+      nodeId,
+      x: event.clientX,
+      y: event.clientY,
+      startX: pos.x,
+      startY: pos.y,
+    };
+    footprintEntityGraphCanvas.setPointerCapture(event.pointerId);
+    return;
+  }
+  entityGraphPointerPan = {
+    x: event.clientX,
+    y: event.clientY,
+    offsetX: entityGraphViewport.offsetX,
+    offsetY: entityGraphViewport.offsetY,
+  };
+  footprintEntityGraphCanvas.setPointerCapture(event.pointerId);
+});
+footprintEntityGraphCanvas?.addEventListener('pointermove', (event) => {
+  if (entityGraphNodeDrag) {
+    const zoom = Math.max(0.35, Math.min(2.8, Number(entityGraphViewport.zoom) || 1));
+    const dx = (event.clientX - entityGraphNodeDrag.x) / zoom;
+    const dy = (event.clientY - entityGraphNodeDrag.y) / zoom;
+    entityGraphManualPositions.set(entityGraphNodeDrag.nodeId, {
+      x: entityGraphNodeDrag.startX + dx,
+      y: entityGraphNodeDrag.startY + dy,
+    });
+    entityGraphSelectedNodeId = entityGraphNodeDrag.nodeId;
+    entityGraphLayoutCache = null;
+    renderFootprintEntityGraph();
+    return;
+  }
+  if (!entityGraphPointerPan) return;
+  const dx = event.clientX - entityGraphPointerPan.x;
+  const dy = event.clientY - entityGraphPointerPan.y;
+  entityGraphViewport.offsetX = entityGraphPointerPan.offsetX + dx;
+  entityGraphViewport.offsetY = entityGraphPointerPan.offsetY + dy;
+  applyEntityGraphTransform();
+});
+footprintEntityGraphCanvas?.addEventListener('pointerup', (event) => {
+  if (entityGraphNodeDrag) {
+    entityGraphNodeDrag = null;
+  }
+  if (footprintEntityGraphCanvas.hasPointerCapture(event.pointerId)) {
+    footprintEntityGraphCanvas.releasePointerCapture(event.pointerId);
+  }
+  entityGraphPointerPan = null;
+});
+footprintEntityGraphCanvas?.addEventListener('pointercancel', () => {
+  entityGraphNodeDrag = null;
+  entityGraphPointerPan = null;
+});
+footprintEntityGraphCanvas?.addEventListener('click', (event) => {
+  const target = event.target;
+  if (!(target instanceof Element)) return;
+  const node = target.closest('[data-entity-node-id]');
+  if (!(node instanceof Element)) return;
+  const nodeId = String(node.getAttribute('data-entity-node-id') || '').trim();
+  if (!nodeId) return;
+  entityGraphSelectedNodeId = nodeId;
+  renderFootprintEntityGraph();
+});
+footprintEntityGraphDetails?.addEventListener('click', (event) => {
+  const target = event.target;
+  if (!(target instanceof Element)) return;
+  const focusBtn = target.closest('[data-entity-focus-id]');
+  if (!(focusBtn instanceof Element)) return;
+  const nodeId = String(focusBtn.getAttribute('data-entity-focus-id') || '').trim();
+  if (!nodeId) return;
+  entityGraphSelectedNodeId = nodeId;
+  renderFootprintEntityGraph();
+});
 filterToggleBtn.addEventListener('click', () => {
   const isHidden = filterPanel.classList.toggle('hidden');
   filterToggleBtn.setAttribute('aria-expanded', String(!isHidden));
@@ -9653,9 +12499,26 @@ postModal?.addEventListener('click', (event) => {
   if (event.target !== postModal) return;
   closePostModal();
 });
+document.addEventListener('click', (event) => {
+  const target = event.target;
+  if (!(target instanceof Element)) return;
+  const badge = target.closest('.selector-confidence-badge[data-confidence-key]');
+  if (!(badge instanceof HTMLElement)) return;
+  const key = String(badge.getAttribute('data-confidence-key') || '').trim().toLowerCase();
+  const type = String(badge.getAttribute('data-confidence-type') || '').trim().toLowerCase();
+  if (!key || !type) return;
+  const current = selectorConfidenceLevelFromOverrideKey(key, type);
+  const next = cycleSelectorConfidenceLevel(current);
+  selectorConfidenceOverrides.set(key, next);
+  saveSelectorConfidenceOverrides();
+  rerenderConfidenceOverriddenViews();
+});
 window.addEventListener('resize', () => {
-  if (activeInsightsTab !== 'geo') return;
-  refreshMapLayout();
+  if (activeInsightsTab === 'geo') refreshMapLayout();
+  if (activeResultsView === 'entitygraph') {
+    entityGraphLayoutCache = null;
+    renderFootprintEntityGraph();
+  }
 });
 insightsTabOps?.addEventListener('click', () => setInsightsTab('ops'));
 insightsTabGeo?.addEventListener('click', () => setInsightsTab('geo'));
@@ -9762,6 +12625,27 @@ caseNotesForm?.addEventListener('submit', submitCaseNotes);
 caseNotesCloseBtn?.addEventListener('click', closeCaseNotesModal);
 caseNotesCancelBtn?.addEventListener('click', closeCaseNotesModal);
 caseNotesExportPdfBtn?.addEventListener('click', exportCaseNotesPdf);
+caseNotesNameInput?.addEventListener('input', () => {
+  const current = String(caseNotesNameInput.value || '').trim();
+  const previousAuto = String(lastAutofilledCaseNotesName || '').trim();
+  if (previousAuto && current.toLowerCase() === previousAuto.toLowerCase()) {
+    caseNotesNameInput.classList.add('case-notes-name-autofill');
+    return;
+  }
+  if (!current) {
+    caseNotesNameInput.classList.remove('case-notes-name-autofill');
+    return;
+  }
+  lastAutofilledCaseNotesName = '';
+  caseNotesNameInput.classList.remove('case-notes-name-autofill');
+});
+caseNotesLocationInput?.addEventListener('input', () => {
+  const current = String(caseNotesLocationInput.value || '').trim();
+  const previousAuto = String(lastAutofilledCaseNotesLocation || '').trim();
+  if (previousAuto && current.toLowerCase() === previousAuto.toLowerCase()) return;
+  if (!current) return;
+  lastAutofilledCaseNotesLocation = '';
+});
 caseNotesSubjectImageSelect?.addEventListener('change', () => {
   const selected = String(caseNotesSubjectImageSelect.value || '').trim();
   renderCaseNotesSubjectImagePreview(selected);
@@ -9866,6 +12750,34 @@ caseNotesProfilesList?.addEventListener('click', (event) => {
   if (Number.isNaN(index)) return;
   caseNotesKnownProfiles = caseNotesKnownProfiles.filter((_, itemIndex) => itemIndex !== index);
   renderCaseNotesProfiles();
+});
+caseNotesForm?.addEventListener('click', (event) => {
+  const target = event.target;
+  if (!(target instanceof HTMLElement)) return;
+  const toggle = target.closest('[data-case-notes-section-toggle]');
+  if (!(toggle instanceof HTMLElement)) return;
+  const key = String(toggle.getAttribute('data-case-notes-section-toggle') || '').trim().toLowerCase();
+  if (!key) return;
+  const excluded = key === 'digital_footprint'
+    ? (
+      caseNotesExcludedSections.has('digital_footprint_high')
+      && caseNotesExcludedSections.has('digital_footprint_medium')
+      && caseNotesExcludedSections.has('digital_footprint_low')
+    )
+    : caseNotesExcludedSections.has(key);
+  setCaseNotesSectionExcluded(key, !excluded);
+  renderCaseNotesSectionVisibility();
+});
+caseNotesFootprintResults?.addEventListener('click', (event) => {
+  const target = event.target;
+  if (!(target instanceof HTMLElement)) return;
+  const toggleBtn = target.closest('[data-case-notes-footprint-key]');
+  if (!(toggleBtn instanceof HTMLElement)) return;
+  const key = String(toggleBtn.getAttribute('data-case-notes-footprint-key') || '').trim().toLowerCase();
+  if (!key) return;
+  if (caseNotesExcludedFootprintResultKeys.has(key)) caseNotesExcludedFootprintResultKeys.delete(key);
+  else caseNotesExcludedFootprintResultKeys.add(key);
+  renderCaseNotesFootprintResults();
 });
 caseSaveImageOptions?.addEventListener('change', (event) => {
   const target = event.target;
@@ -10109,12 +13021,15 @@ async function quitPanoptoSession(options = {}) {
     }
   }
 }
+loadSelectorConfidenceOverrides();
 initializeDateInputs();
 addTargetRow('twitter', '');
 addReconSelectorRow(reconSelectorsList, 'username', '');
 addReconSelectorRow(footprintSelectorsList, 'username', '');
 renderLeadsList();
 renderFootprintTimeline();
+renderFootprintEntityGraph();
+renderFootprintLikelyName(emptyReconPayload());
 renderKnownSelectorsPanel(emptyReconPayload());
 renderCollectionStreams();
 applyResultsViewButtonState();

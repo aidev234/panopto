@@ -1,11 +1,20 @@
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
+import sys
+import types
 from io import BytesIO
 from unittest.mock import patch
 
-from frontend.server import PostExplorerHandler, _image_source_to_data_uri, query_posts
+from frontend.server import (
+    PostExplorerHandler,
+    _build_case_notes_pdf_fallback,
+    _build_case_notes_pdf_stylized,
+    _image_source_to_data_uri,
+    query_posts,
+)
 from panopto.errors import UsernameNotFoundError
 from panopto.post_query import parse_day
 
@@ -507,6 +516,51 @@ def test_query_posts_extracts_washington_dc_location_tag(tmp_path):
     assert not any(entity.get("type") == "location" and entity.get("text") == "Washington" for entity in post["entities"])
 
 
+def test_query_posts_extracts_ottawa_location_tag(tmp_path):
+    db_path = tmp_path / "osint_data.db"
+    with sqlite3.connect(db_path) as conn:
+        conn.execute(
+            """
+            CREATE TABLE twitter_posts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                source_post_id TEXT,
+                username TEXT NOT NULL,
+                content TEXT NOT NULL,
+                timestamp TEXT,
+                likes INTEGER,
+                retweets INTEGER,
+                replies INTEGER,
+                post_type TEXT NOT NULL DEFAULT 'post',
+                source_url TEXT,
+                referenced_username TEXT,
+                platform TEXT NOT NULL DEFAULT 'Twitter',
+                raw_metadata TEXT,
+                collected_at TEXT NOT NULL
+            )
+            """
+        )
+        conn.execute(
+            "INSERT INTO twitter_posts (source_post_id, username, content, timestamp, post_type, platform, collected_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (
+                "ott1",
+                "alice",
+                "Primary location: Ottawa, Canada.",
+                "2026-02-12T18:15:54+00:00",
+                "post",
+                "Twitter",
+                "2026-02-12T18:16:00+00:00",
+            ),
+        )
+        conn.commit()
+
+    payload = query_posts(db_path=db_path)
+    assert payload["count"] == 1
+    post = payload["posts"][0]
+    assert "ner:location" in post["tags"]
+    assert "loc:ottawa" in post["tags"]
+    assert any(entity.get("type") == "location" and entity.get("text") == "Ottawa" for entity in post["entities"])
+
+
 def test_query_posts_extracts_threat_and_selector_signals(tmp_path):
     db_path = tmp_path / "osint_data.db"
     with sqlite3.connect(db_path) as conn:
@@ -733,6 +787,389 @@ def test_collect_endpoint_rejects_non_object_json_body():
 
     assert errors
     assert errors[0][0] == 400
+
+
+def test_collect_endpoint_rejects_non_utf8_json_body():
+    handler = PostExplorerHandler.__new__(PostExplorerHandler)
+    body = b"\xff\xfe\x00\x00"
+    handler.path = "/api/collect"
+    handler.headers = {"Content-Length": str(len(body))}
+    handler.rfile = BytesIO(body)
+    handler.wfile = BytesIO()
+
+    errors = []
+
+    def _send_error(code, message=None):
+        errors.append((code, message))
+
+    handler.send_error = _send_error
+    handler.send_response = lambda code: None
+    handler.send_header = lambda *args, **kwargs: None
+    handler.end_headers = lambda *args, **kwargs: None
+
+    handler.do_POST()
+
+    assert errors
+    assert errors[0][0] == 400
+    assert errors[0][1] == "invalid json body"
+
+
+def test_collect_endpoint_rejects_invalid_content_length_header():
+    handler = PostExplorerHandler.__new__(PostExplorerHandler)
+    handler.path = "/api/collect"
+    handler.headers = {"Content-Length": "abc"}
+    handler.rfile = BytesIO(b"{}")
+    handler.wfile = BytesIO()
+
+    errors = []
+
+    def _send_error(code, message=None):
+        errors.append((code, message))
+
+    handler.send_error = _send_error
+    handler.send_response = lambda code: None
+    handler.send_header = lambda *args, **kwargs: None
+    handler.end_headers = lambda *args, **kwargs: None
+
+    handler.do_POST()
+
+    assert errors
+    assert errors[0][0] == 400
+    assert errors[0][1] == "invalid content-length header"
+
+
+def test_collect_endpoint_rejects_oversized_json_body():
+    handler = PostExplorerHandler.__new__(PostExplorerHandler)
+    handler.path = "/api/collect"
+    handler.headers = {"Content-Length": str((2 * 1024 * 1024) + 1)}
+    handler.rfile = BytesIO(b"{}")
+    handler.wfile = BytesIO()
+
+    errors = []
+
+    def _send_error(code, message=None):
+        errors.append((code, message))
+
+    handler.send_error = _send_error
+    handler.send_response = lambda code: None
+    handler.send_header = lambda *args, **kwargs: None
+    handler.end_headers = lambda *args, **kwargs: None
+
+    handler.do_POST()
+
+    assert errors
+    assert errors[0][0] == 413
+    assert errors[0][1] == "json body too large"
+
+
+def test_collect_endpoint_rejects_incomplete_body():
+    handler = PostExplorerHandler.__new__(PostExplorerHandler)
+    body = b"{}"
+    handler.path = "/api/collect"
+    handler.headers = {"Content-Length": str(len(body) + 4)}
+    handler.rfile = BytesIO(body)
+    handler.wfile = BytesIO()
+
+    errors = []
+
+    def _send_error(code, message=None):
+        errors.append((code, message))
+
+    handler.send_error = _send_error
+    handler.send_response = lambda code: None
+    handler.send_header = lambda *args, **kwargs: None
+    handler.end_headers = lambda *args, **kwargs: None
+
+    handler.do_POST()
+
+    assert errors
+    assert errors[0][0] == 400
+    assert errors[0][1] == "incomplete request body"
+
+
+def test_session_end_rejects_invalid_optional_json_body():
+    handler = PostExplorerHandler.__new__(PostExplorerHandler)
+    handler.path = "/api/session/end"
+    handler.headers = {"Content-Length": "abc"}
+    handler.rfile = BytesIO(b"{}")
+    handler.wfile = BytesIO()
+    handler.server = types.SimpleNamespace(shutdown=lambda: None)
+
+    errors = []
+
+    def _send_error(code, message=None):
+        errors.append((code, message))
+
+    handler.send_error = _send_error
+    handler.send_response = lambda code: None
+    handler.send_header = lambda *args, **kwargs: None
+    handler.end_headers = lambda *args, **kwargs: None
+
+    with (
+        patch("frontend.server.clear_posts") as clear_posts,
+        patch("frontend.server.clear_known_entities") as clear_known_entities,
+        patch("frontend.server.save_config") as save_config,
+    ):
+        handler.do_POST()
+
+    assert errors
+    assert errors[0] == (400, "invalid content-length header")
+    clear_posts.assert_not_called()
+    clear_known_entities.assert_not_called()
+    save_config.assert_not_called()
+
+
+def test_known_entities_match_rejects_invalid_optional_json_body():
+    handler = PostExplorerHandler.__new__(PostExplorerHandler)
+    body = b"\xff\xfe\x00\x00"
+    handler.path = "/api/known-entities/match"
+    handler.headers = {"Content-Length": str(len(body))}
+    handler.rfile = BytesIO(body)
+    handler.wfile = BytesIO()
+
+    errors = []
+
+    def _send_error(code, message=None):
+        errors.append((code, message))
+
+    handler.send_error = _send_error
+    handler.send_response = lambda code: None
+    handler.send_header = lambda *args, **kwargs: None
+    handler.end_headers = lambda *args, **kwargs: None
+
+    with patch("frontend.server.match_known_entities") as match_known_entities:
+        handler.do_POST()
+
+    assert errors
+    assert errors[0] == (400, "invalid json body")
+    match_known_entities.assert_not_called()
+
+
+def test_case_notes_pdf_fallback_ignores_invalid_profile_rows():
+    case_row = {
+        "case_name": "Case Alpha",
+        "case_notes": {
+            "known_profiles": ["not-a-dict", {"site": "Twitter/X", "url": "https://x.com/sama"}],
+        },
+    }
+
+    pdf_bytes = _build_case_notes_pdf_fallback(case_row, posts=[])
+
+    assert isinstance(pdf_bytes, bytes)
+    assert pdf_bytes.startswith(b"%PDF-1.4")
+    assert re.search(rb"Pg 1 of \d+", pdf_bytes)
+
+
+def test_case_notes_pdf_fallback_only_includes_major_profiles():
+    case_row = {
+        "case_name": "Case Alpha",
+        "case_notes": {
+            "known_profiles": [
+                {"site": "Twitter/X", "url": "https://x.com/alpha"},
+                {"site": "Instagram", "url": "https://www.instagram.com/alpha/"},
+                {"site": "TikTok", "url": "https://www.tiktok.com/@alpha"},
+            ],
+        },
+    }
+
+    pdf_bytes = _build_case_notes_pdf_fallback(case_row, posts=[])
+
+    assert b"Major Profiles" in pdf_bytes
+    assert b"https://x.com/alpha" not in pdf_bytes
+    assert b"https://www.instagram.com/alpha/" in pdf_bytes
+    assert b"https://www.tiktok.com/@alpha" in pdf_bytes
+
+
+def test_case_notes_pdf_fallback_appends_digital_footprint_section():
+    case_row = {
+        "case_name": "Case Alpha",
+        "case_notes": {
+            "recon_snapshot": {
+                "payload": {
+                    "results": [
+                        {
+                            "selector_type": "email",
+                            "selector": "alpha@example.com",
+                            "site": "twitter",
+                            "status": "present",
+                            "profile_url": "https://x.com/alpha",
+                            "source": "scanner",
+                        },
+                        {
+                            "selector_type": "username",
+                            "selector": "alpha",
+                            "site": "reddit",
+                            "status": "present",
+                            "profile_url": "https://reddit.com/user/alpha",
+                            "source": "scanner",
+                        },
+                    ],
+                    "person_data_profiles": [
+                        {
+                            "query_type": "profile",
+                            "query_value": "https://www.linkedin.com/in/alpha/",
+                            "full_name": "Alpha Person",
+                            "location_name": "Boston",
+                        }
+                    ],
+                }
+            }
+        },
+    }
+
+    pdf_bytes = _build_case_notes_pdf_fallback(case_row, posts=[])
+
+    assert pdf_bytes.startswith(b"%PDF-1.4")
+    assert b"Digital Footprint Evidence" in pdf_bytes
+    assert b"APPENDIX A" in pdf_bytes
+    assert b"High Confidence" in pdf_bytes
+    assert b"Medium Confidence" in pdf_bytes
+    assert b"Low Confidence" in pdf_bytes
+    assert b"alpha@example.com" in pdf_bytes
+    assert b"username: alpha" in pdf_bytes
+    assert b"profile: https://www.linkedin.com/in/alpha/" in pdf_bytes
+
+
+def test_case_notes_pdf_fallback_respects_report_only_exclusions():
+    case_row = {
+        "case_name": "Case Alpha",
+        "case_notes": {
+            "threat_risk_assessment": "This section should be hidden in report output.",
+            "report_preferences": {
+                "excluded_sections": ["threat_risk_assessment", "digital_footprint_low"],
+                "excluded_footprint_result_keys": [
+                    "recon (scanner)|email|alpha@example.com|status: present | site: twitter | url: https://x.com/alpha"
+                ],
+            },
+            "recon_snapshot": {
+                "payload": {
+                    "results": [
+                        {
+                            "selector_type": "email",
+                            "selector": "alpha@example.com",
+                            "site": "twitter",
+                            "status": "present",
+                            "profile_url": "https://x.com/alpha",
+                            "source": "scanner",
+                        },
+                        {
+                            "selector_type": "username",
+                            "selector": "alpha",
+                            "site": "reddit",
+                            "status": "present",
+                            "profile_url": "https://reddit.com/user/alpha",
+                            "source": "scanner",
+                        },
+                    ]
+                }
+            },
+        },
+    }
+
+    pdf_bytes = _build_case_notes_pdf_fallback(case_row, posts=[])
+
+    assert b"Threat / Risk Assessment" not in pdf_bytes
+    assert b"Low Confidence" not in pdf_bytes
+    assert b"alpha@example.com" not in pdf_bytes
+    assert b"High Confidence" in pdf_bytes
+    assert b"Digital Footprint Evidence" in pdf_bytes
+
+
+def test_case_notes_pdf_fallback_includes_selectors_section():
+    case_row = {
+        "case_name": "Case Alpha",
+        "case_notes": {
+            "personal_details": "Details",
+            "selector_emails": "alpha@example.com, beta@example.com",
+            "selector_phone_numbers": "+12025550199",
+            "selector_usernames": "alpha_handle, beta_handle",
+        },
+    }
+
+    pdf_bytes = _build_case_notes_pdf_fallback(case_row, posts=[])
+
+    assert b"Selectors" in pdf_bytes
+    assert b"Emails: alpha@example.com, beta@example.com" in pdf_bytes
+    assert b"Phone Numbers: +12025550199" in pdf_bytes
+    assert b"User Names: alpha_handle, beta_handle" in pdf_bytes
+
+
+def test_case_notes_pdf_stylized_interpolates_dynamic_sections():
+    captured: dict[str, str] = {}
+
+    class _FakePage:
+        def set_content(self, html, wait_until=None):
+            captured["html"] = html
+
+        def pdf(self, format="A4", print_background=True):
+            return b"%PDF-1.4\n%fake\n"
+
+    class _FakeContext:
+        def new_page(self):
+            return _FakePage()
+
+        def close(self):
+            return None
+
+    class _FakeBrowser:
+        def new_context(self, viewport=None):
+            return _FakeContext()
+
+        def close(self):
+            return None
+
+    class _FakePlaywright:
+        chromium = types.SimpleNamespace(launch=lambda headless=True: _FakeBrowser())
+
+    class _FakeSyncPlaywright:
+        def __enter__(self):
+            return _FakePlaywright()
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    fake_sync_api = types.ModuleType("playwright.sync_api")
+    fake_sync_api.sync_playwright = lambda: _FakeSyncPlaywright()
+    fake_playwright = types.ModuleType("playwright")
+    fake_playwright.sync_api = fake_sync_api
+
+    case_row = {
+        "case_name": "Case Alpha",
+        "case_notes": {
+            "context": "Operational context for interpolation test.",
+            "threat_risk_assessment": "Threat summary.",
+            "personal_details": "Personal details summary.",
+            "known_profiles": [{"site": "Twitter/X", "url": "https://x.com/alpha"}],
+            "recon_snapshot": {
+                "payload": {
+                    "results": [
+                        {
+                            "selector_type": "email",
+                            "selector": "alpha@example.com",
+                            "site": "twitter",
+                            "status": "present",
+                            "profile_url": "https://x.com/alpha",
+                            "source": "scanner",
+                        }
+                    ]
+                }
+            },
+        },
+    }
+
+    with patch.dict(sys.modules, {"playwright": fake_playwright, "playwright.sync_api": fake_sync_api}):
+        pdf_bytes = _build_case_notes_pdf_stylized(case_row, posts=[])
+
+    assert pdf_bytes.startswith(b"%PDF-1.4")
+    html = captured["html"]
+    assert "Operational context for interpolation test." in html
+    assert "Threat summary." in html
+    assert "Personal details summary." in html
+    assert "https://x.com/alpha" in html
+    assert "alpha@example.com" in html
+    assert "Digital Footprint Evidence" in html
+    assert "Appendix A" in html
+    assert "{_html_escape(context)}" not in html
 
 
 def test_parse_day_accepts_common_formats():

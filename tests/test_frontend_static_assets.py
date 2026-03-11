@@ -44,6 +44,7 @@ def test_collection_target_platform_options_include_instagram():
     app_js = Path("frontend/static/app.js").read_text(encoding="utf-8")
 
     assert "{ value: 'instagram', label: 'Instagram' }" in app_js
+    assert "selectors: Array.isArray(payloadRaw.selectors) ? payloadRaw.selectors : []" in app_js
     assert "function renderCollectionStreams()" in app_js
     assert "function startBackgroundCollection(" in app_js
     assert "function setInsightsTab(" in app_js

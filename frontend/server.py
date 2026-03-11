@@ -21,7 +21,7 @@ import webbrowser
 from datetime import datetime, timezone
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, quote, urlparse
 from uuid import uuid4
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
@@ -58,6 +58,7 @@ STATIC_DIR = Path(__file__).resolve().parent / "static"
 _ALLOWED_DB_ROOTS = [ROOT_DIR.resolve(), Path("/tmp").resolve()]
 _FACE_RECOGNITION_ENGINE = FaceRecognitionEngine()
 _APIFY_REQUIRED_PLATFORMS = {"twitter", "tiktok", "instagram"}
+_MAX_JSON_BODY_BYTES = 2 * 1024 * 1024
 
 
 def _resolve_api_db_path(raw_value: str | Path | None) -> Path:
@@ -110,6 +111,29 @@ def _wrap_pdf_text(text: str, width: int) -> list[str]:
             continue
         chunks.extend(textwrap.wrap(block, width=width) or [""])
     return chunks or [""]
+
+
+def _site_key_from_known_profile(profile: dict) -> str:
+    raw_site = str(profile.get("site") or "").strip().lower()
+    profile_url = str(profile.get("url") or "").strip().lower()
+    if "instagram" in raw_site or "instagram.com" in profile_url:
+        return "instagram"
+    if "tiktok" in raw_site or "tiktok.com" in profile_url:
+        return "tiktok"
+    if "facebook" in raw_site or "facebook.com" in profile_url:
+        return "facebook"
+    return ""
+
+
+def _major_profiles(profiles: list[dict]) -> list[dict]:
+    output: list[dict] = []
+    for item in profiles:
+        if not isinstance(item, dict):
+            continue
+        if _site_key_from_known_profile(item) not in {"facebook", "instagram", "tiktok"}:
+            continue
+        output.append(item)
+    return output
 
 
 def _discover_profiles_from_posts(posts: list[dict]) -> list[dict[str, str]]:
@@ -210,6 +234,275 @@ def _extract_underlying_themes(posts: list[dict]) -> list[str]:
     return [item[0] for item in ranked[:10]]
 
 
+def _selector_confidence_level(selector_type: str) -> str:
+    clean = str(selector_type or "").strip().lower()
+    if clean in {"email", "phone", "wallet"}:
+        return "high"
+    if clean in {"profile"}:
+        return "medium"
+    return "low"
+
+
+def _selector_label(selector_type: str, selector_value: str) -> str:
+    clean_type = str(selector_type or "").strip().lower() or "unknown"
+    clean_value = str(selector_value or "").strip()
+    return f"{clean_type}: {clean_value}" if clean_value else clean_type
+
+
+def _selector_display_label(selector_type: str) -> str:
+    clean = str(selector_type or "").strip().lower()
+    if not clean:
+        return "Selector"
+    return clean[:1].upper() + clean[1:]
+
+
+def _selector_provenance_label(selector_type: str, selector_value: str) -> str:
+    display = _selector_display_label(selector_type)
+    value = str(selector_value or "").strip()
+    if value:
+        return f"Identified via {display} selector: {value}"
+    return f"Identified via {display} selector"
+
+
+def _site_favicon_url(site: str, profile_url: str) -> str:
+    host = str(urlparse(str(profile_url or "").strip()).hostname or "").lower().replace("www.", "")
+    if not host:
+        host = str(site or "").strip().lower().replace("www.", "")
+    if not host:
+        return ""
+    return f"https://www.google.com/s2/favicons?domain={quote(host)}&sz=32"
+
+
+def _footprint_entry_key(source: str, selector_type: str, selector_value: str, summary: str) -> str:
+    return "|".join(
+        [
+            str(source or "").strip().lower(),
+            str(selector_type or "").strip().lower(),
+            str(selector_value or "").strip().lower(),
+            str(summary or "").strip().lower(),
+        ]
+    )
+
+
+def _normalize_case_notes_report_preferences(notes: dict) -> dict[str, set[str]]:
+    prefs = notes.get("report_preferences") if isinstance(notes.get("report_preferences"), dict) else {}
+    excluded_sections = {
+        str(item or "").strip().lower()
+        for item in (prefs.get("excluded_sections") if isinstance(prefs.get("excluded_sections"), list) else [])
+        if str(item or "").strip()
+    }
+    excluded_footprint_keys = {
+        str(item or "").strip().lower()
+        for item in (
+            prefs.get("excluded_footprint_result_keys")
+            if isinstance(prefs.get("excluded_footprint_result_keys"), list)
+            else []
+        )
+        if str(item or "").strip()
+    }
+    return {
+        "excluded_sections": excluded_sections,
+        "excluded_footprint_result_keys": excluded_footprint_keys,
+    }
+
+
+def _normalize_recon_snapshot_payload(notes: dict) -> dict:
+    snapshot = notes.get("recon_snapshot") if isinstance(notes.get("recon_snapshot"), dict) else {}
+    if isinstance(snapshot.get("payload"), dict):
+        payload = snapshot.get("payload")
+    elif any(isinstance(snapshot.get(key), list) for key in ("results", "osint_profiles", "numverify_profiles", "person_data_profiles")):
+        payload = snapshot
+    else:
+        payload = {}
+    if not isinstance(payload, dict):
+        return {}
+    return payload
+
+
+def _build_digital_footprint_back_matter(notes: dict) -> dict[str, list[dict[str, str]]]:
+    payload = _normalize_recon_snapshot_payload(notes)
+    preferences = _normalize_case_notes_report_preferences(notes)
+    excluded_keys = preferences.get("excluded_footprint_result_keys", set())
+    grouped: dict[str, list[dict[str, str]]] = {"high": [], "medium": [], "low": []}
+
+    def _field(label: str, value: str) -> dict[str, str] | None:
+        clean_label = str(label or "").strip()
+        clean_value = str(value or "").strip()
+        if not clean_label or not clean_value:
+            return None
+        return {"label": clean_label, "value": clean_value}
+
+    def add_item(
+        *,
+        source: str,
+        selector_type: str,
+        selector_value: str,
+        site_label: str = "",
+        profile_url: str = "",
+        image_url: str = "",
+        metadata: list[dict[str, str]] | None = None,
+        exclusion_aliases: list[str] | None = None,
+    ) -> None:
+        clean_source = str(source or "").strip() or "Digital Footprint"
+        clean_selector_type = str(selector_type or "").strip().lower()
+        clean_selector_value = str(selector_value or "").strip()
+        clean_site_label = str(site_label or "").strip()
+        clean_profile_url = str(profile_url or "").strip()
+        clean_image_url = _image_source_to_data_uri(str(image_url or "").strip())
+        metadata_rows = []
+        for item in metadata or []:
+            if not isinstance(item, dict):
+                continue
+            row = _field(str(item.get("label") or ""), str(item.get("value") or ""))
+            if row:
+                metadata_rows.append(row)
+        summary = " | ".join(f"{item['label']}: {item['value']}" for item in metadata_rows) if metadata_rows else "No details available."
+        entry_key = _footprint_entry_key(
+            clean_source,
+            clean_selector_type,
+            clean_selector_value,
+            " | ".join(part for part in (clean_site_label, clean_profile_url, clean_image_url, summary) if part),
+        )
+        legacy_key = _footprint_entry_key(clean_source, clean_selector_type, clean_selector_value, summary)
+        aliases = {
+            str(item or "").strip().lower()
+            for item in (exclusion_aliases or [])
+            if str(item or "").strip()
+        }
+        if entry_key in excluded_keys or legacy_key in excluded_keys or aliases.intersection(excluded_keys):
+            return
+        entry = {
+            "key": entry_key,
+            "legacy_key": legacy_key,
+            "source": clean_source,
+            "selector_type": clean_selector_type,
+            "selector_value": clean_selector_value,
+            "selector_label": _selector_label(clean_selector_type, clean_selector_value),
+            "selector_display": _selector_display_label(clean_selector_type),
+            "selector_provenance": _selector_provenance_label(clean_selector_type, clean_selector_value),
+            "site_label": clean_site_label or clean_source,
+            "profile_url": clean_profile_url,
+            "image_url": clean_image_url,
+            "favicon_url": _site_favicon_url(clean_site_label, clean_profile_url),
+            "summary": summary,
+            "metadata": metadata_rows,
+        }
+        level = _selector_confidence_level(entry["selector_type"])
+        grouped[level].append(entry)
+
+    for item in payload.get("results", []) if isinstance(payload.get("results"), list) else []:
+        if not isinstance(item, dict):
+            continue
+        status = str(item.get("status") or "unknown").strip().lower() or "unknown"
+        site = str(item.get("site") or item.get("site_key") or "unknown").strip() or "unknown"
+        source = str(item.get("source") or "Recon").strip() or "Recon"
+        profile_url = str(item.get("profile_url") or "").strip()
+        reason = str(item.get("reason") or "").strip()
+        add_item(
+            source=f"Recon ({source})",
+            selector_type=str(item.get("selector_type") or ""),
+            selector_value=str(item.get("selector") or ""),
+            site_label=_guess_site_from_url(profile_url) if profile_url else site,
+            profile_url=profile_url,
+            image_url=str(item.get("profile_image_url") or item.get("picture_url") or item.get("avatar_url") or item.get("screenshot_url") or ""),
+            metadata=[row for row in [
+                _field("Status", status),
+                _field("Reason", reason),
+            ] if row],
+            exclusion_aliases=[
+                _footprint_entry_key(
+                    f"Recon ({source})",
+                    str(item.get("selector_type") or ""),
+                    str(item.get("selector") or ""),
+                    " | ".join(
+                        part
+                        for part in (
+                            f"Status: {status}",
+                            f"Site: {site}" if site else "",
+                            f"URL: {profile_url}" if profile_url else "",
+                            f"Reason: {reason}" if reason else "",
+                        )
+                        if part
+                    ),
+                )
+            ],
+        )
+
+    for item in payload.get("osint_profiles", []) if isinstance(payload.get("osint_profiles"), list) else []:
+        if not isinstance(item, dict):
+            continue
+        module = str(item.get("module") or "osint_industries").strip() or "osint_industries"
+        website = str(item.get("website") or "").strip()
+        profile_url = str(item.get("profile_url") or "").strip()
+        username = str(item.get("username") or "").strip()
+        email = str(item.get("email") or "").strip()
+        phone = str(item.get("phone") or "").strip()
+        add_item(
+            source="OSINT Industries",
+            selector_type=str(item.get("query_type") or ""),
+            selector_value=str(item.get("query_value") or ""),
+            site_label=website or _guess_site_from_url(profile_url),
+            profile_url=profile_url,
+            image_url=str(item.get("picture_url") or item.get("avatar_url") or item.get("profile_image_url") or item.get("screenshot_url") or ""),
+            metadata=[row for row in [
+                _field("Module", module),
+                _field("Username", username),
+                _field("Email", email),
+                _field("Phone", phone),
+            ] if row],
+        )
+
+    for item in payload.get("numverify_profiles", []) if isinstance(payload.get("numverify_profiles"), list) else []:
+        if not isinstance(item, dict):
+            continue
+        number = str(item.get("number") or item.get("international_format") or "").strip()
+        country = str(item.get("country_name") or "").strip()
+        carrier = str(item.get("carrier") or "").strip()
+        line_type = str(item.get("line_type") or "").strip()
+        valid = bool(item.get("valid"))
+        add_item(
+            source="Numverify",
+            selector_type=str(item.get("query_type") or "phone"),
+            selector_value=str(item.get("query_value") or ""),
+            site_label="Phone Intelligence",
+            metadata=[row for row in [
+                _field("Valid", "yes" if valid else "no"),
+                _field("Number", number),
+                _field("Country", country),
+                _field("Carrier", carrier),
+                _field("Line Type", line_type),
+            ] if row],
+        )
+
+    for item in payload.get("person_data_profiles", []) if isinstance(payload.get("person_data_profiles"), list) else []:
+        if not isinstance(item, dict):
+            continue
+        full_name = str(item.get("full_name") or "").strip()
+        location = str(item.get("location_name") or "").strip()
+        job_title = str(item.get("job_title") or "").strip()
+        company = str(item.get("job_company_name") or "").strip()
+        linkedin = str(item.get("linkedin_url") or "").strip()
+        work_email = str(item.get("professional_email") or item.get("work_email") or "").strip()
+        mobile = str(item.get("mobile_phone") or "").strip()
+        add_item(
+            source="People Data Labs",
+            selector_type=str(item.get("query_type") or ""),
+            selector_value=str(item.get("query_value") or ""),
+            site_label="People Data Labs",
+            profile_url=linkedin,
+            image_url=str(item.get("picture_url") or item.get("avatar_url") or ""),
+            metadata=[row for row in [
+                _field("Name", full_name),
+                _field("Location", location),
+                _field("Employment", f"{job_title}{(' @ ' + company) if company else ''}".strip()),
+                _field("Work Email", work_email),
+                _field("Mobile", mobile),
+            ] if row],
+        )
+
+    return grouped
+
+
 def _extract_pdf_text(raw_pdf: bytes) -> str:
     try:
         from pypdf import PdfReader  # type: ignore
@@ -288,9 +581,15 @@ def _build_case_notes_pdf_stylized(case_row: dict, posts: list[dict]) -> bytes:
     threat = str(notes.get("threat_risk_assessment") or "").strip() or "No threat assessment provided."
     underlying_themes = _extract_underlying_themes(posts)
     personal = str(notes.get("personal_details") or "").strip() or "No personal details provided."
+    selector_emails = str(notes.get("selector_emails") or "").strip() or "None"
+    selector_phones = str(notes.get("selector_phone_numbers") or "").strip() or "None"
+    selector_usernames = str(notes.get("selector_usernames") or "").strip() or "None"
+    report_preferences = _normalize_case_notes_report_preferences(notes)
+    excluded_sections = report_preferences.get("excluded_sections", set())
+    footprint_groups = _build_digital_footprint_back_matter(notes)
     subject_image = _image_source_to_data_uri(str(notes.get("subject_image_url") or case_row.get("poi_image_url") or "").strip())
     profiles_raw = notes.get("known_profiles") if isinstance(notes.get("known_profiles"), list) else []
-    profiles = profiles_raw if profiles_raw else _discover_profiles_from_posts(posts)
+    profiles = _major_profiles(profiles_raw) if profiles_raw else _major_profiles(_discover_profiles_from_posts(posts))
 
     rows: list[str] = []
     for item in profiles:
@@ -310,66 +609,110 @@ def _build_case_notes_pdf_stylized(case_row: dict, posts: list[dict]) -> bytes:
             """
         )
 
-    html = f"""
-    <!doctype html>
-    <html>
-      <head>
-        <meta charset="utf-8" />
-        <style>
-          @page {{ size: A4; margin: 22mm 16mm 18mm 16mm; }}
-          body {{ font-family: "Helvetica Neue", Arial, sans-serif; color: #111827; margin: 0; }}
-          .report {{ border: 1.5px solid #111827; padding: 14px; }}
-          .header {{ border-bottom: 2px solid #111827; padding-bottom: 10px; margin-bottom: 12px; display: grid; grid-template-columns: 1fr auto; gap: 10px; }}
-          .header h1 {{ margin: 0; font-size: 22px; letter-spacing: .08em; }}
-          .header .sub {{ margin-top: 5px; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: #374151; }}
-          .classification {{ font-size: 10px; text-transform: uppercase; letter-spacing: .07em; color: #374151; margin-top: 8px; }}
-          .subject-image {{ width: 120px; height: 120px; border: 1px solid #111827; object-fit: cover; background: #f3f4f6; }}
-          .grid {{ display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 10px 0 14px; }}
-          .cell {{ border: 1px solid #9ca3af; padding: 6px 8px; min-height: 40px; }}
-          .label {{ font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: #4b5563; margin-bottom: 4px; }}
-          .value {{ font-size: 13px; font-weight: 600; }}
-          h2 {{ margin: 14px 0 6px; font-size: 13px; text-transform: uppercase; letter-spacing: .08em; border-bottom: 1px solid #9ca3af; padding-bottom: 4px; }}
-          p {{ margin: 0; font-size: 11.5px; line-height: 1.48; white-space: pre-wrap; }}
-          table {{ width: 100%; border-collapse: collapse; margin-top: 8px; }}
-          th, td {{ border: 1px solid #9ca3af; padding: 6px 7px; font-size: 10.5px; vertical-align: top; text-align: left; }}
-          th {{ background: #e5e7eb; text-transform: uppercase; letter-spacing: .05em; font-size: 9.5px; }}
-          td.url {{ word-break: break-all; }}
-          td img {{ width: 180px; max-height: 110px; object-fit: cover; display: block; border: 1px solid #d1d5db; }}
-          .na {{ color: #6b7280; }}
-          .footer {{ margin-top: 10px; font-size: 9px; color: #6b7280; text-align: right; }}
-        </style>
-      </head>
-      <body>
-        <section class="report">
-          <header class="header">
-            <div>
-              <h1>PERSON OF INTEREST REPORT</h1>
-              <div class="sub">Case Intelligence Summary</div>
-              <div class="classification">Official Use Only</div>
-            </div>
-            {f'<img class="subject-image" src="{subject_image}" alt="Subject image" />' if subject_image else '<div class="subject-image"></div>'}
-          </header>
-          <section class="grid">
-            <div class="cell"><div class="label">Name</div><div class="value">{_html_escape(name)}</div></div>
-            <div class="cell"><div class="label">Location</div><div class="value">{_html_escape(location)}</div></div>
-            <div class="cell"><div class="label">Age</div><div class="value">{_html_escape(age)}</div></div>
-            <div class="cell" style="grid-column: 1 / -1;"><div class="label">A.K.A.s</div><div class="value">{_html_escape(akas)}</div></div>
-          </section>
+    def footprint_cards(level: str) -> str:
+        entries = footprint_groups.get(level, [])
+        if not entries:
+            return '<p class="footprint-empty">No associated results.</p>'
+        output: list[str] = []
+        for item in entries:
+            metadata = item.get("metadata") if isinstance(item.get("metadata"), list) else []
+            metadata_markup = "".join(
+                f"""
+                <div class="footprint-meta-item">
+                  <div class="footprint-meta-label">{_html_escape(str(row.get("label") or ""))}</div>
+                  <div class="footprint-meta-value">{_html_escape(str(row.get("value") or ""))}</div>
+                </div>
+                """
+                for row in metadata
+                if isinstance(row, dict) and str(row.get("label") or "").strip() and str(row.get("value") or "").strip()
+            ) or '<p class="na">No associated metadata captured.</p>'
+            image_url = str(item.get("image_url") or "").strip()
+            favicon_url = str(item.get("favicon_url") or "").strip()
+            profile_url = str(item.get("profile_url") or "").strip()
+            site_label = str(item.get("site_label") or item.get("source") or "Digital Footprint").strip() or "Digital Footprint"
+            output.append(
+                f"""
+                <article class="footprint-card">
+                  <div class="footprint-card-media">
+                    {f'<img class="footprint-card-avatar" src="{_html_escape(image_url)}" alt="Profile image" />' if image_url else '<div class="footprint-card-avatar footprint-card-avatar-placeholder">No image</div>'}
+                  </div>
+                  <div class="footprint-card-body">
+                    <div class="footprint-card-head">
+                      <div class="footprint-card-site">
+                        {f'<img class="footprint-card-favicon" src="{_html_escape(favicon_url)}" alt="" />' if favicon_url else ''}
+                        <div>
+                          <div class="footprint-card-site-name">{_html_escape(site_label)}</div>
+                          <div class="footprint-card-source">{_html_escape(str(item.get("source") or "Digital Footprint"))}</div>
+                        </div>
+                      </div>
+                      <div class="footprint-card-confidence">{level.capitalize()} confidence</div>
+                    </div>
+                    <div class="footprint-card-url">{_html_escape(profile_url or 'No profile URL captured')}</div>
+                    <div class="footprint-card-selector">{_html_escape(str(item.get("selector_provenance") or ""))}</div>
+                    <div class="footprint-meta-grid">{metadata_markup}</div>
+                  </div>
+                </article>
+                """
+            )
+        return "".join(output)
+
+    show_context = "context" not in excluded_sections
+    show_threat = "threat_risk_assessment" not in excluded_sections
+    show_personal = "personal_details" not in excluded_sections
+    show_selectors = "selectors" not in excluded_sections
+    show_known_profiles = "known_profiles" not in excluded_sections
+    hide_footprint = "digital_footprint" in excluded_sections
+    show_footprint_high = (not hide_footprint) and ("digital_footprint_high" not in excluded_sections)
+    show_footprint_medium = (not hide_footprint) and ("digital_footprint_medium" not in excluded_sections)
+    show_footprint_low = (not hide_footprint) and ("digital_footprint_low" not in excluded_sections)
+    show_footprint_section = show_footprint_high or show_footprint_medium or show_footprint_low
+    context_section = (
+        f"""
           <section>
             <h2>Context</h2>
             <p>{_html_escape(context)}</p>
           </section>
+        """
+        if show_context
+        else ""
+    )
+    threat_section = (
+        f"""
           <section>
             <h2>Threat / Risk Assessment</h2>
             <p>{_html_escape(threat)}</p>
             <p>{_html_escape('Underlying Themes: ' + (', '.join(underlying_themes) if underlying_themes else 'None'))}</p>
           </section>
+        """
+        if show_threat
+        else ""
+    )
+    personal_section = (
+        f"""
           <section>
             <h2>Personal Details</h2>
             <p>{_html_escape(personal)}</p>
           </section>
+        """
+        if show_personal
+        else ""
+    )
+    selectors_section = (
+        f"""
           <section>
-            <h2>Known Accounts</h2>
+            <h2>Selectors</h2>
+            <p>{_html_escape('Emails: ' + selector_emails)}</p>
+            <p>{_html_escape('Phone Numbers: ' + selector_phones)}</p>
+            <p>{_html_escape('User Names: ' + selector_usernames)}</p>
+          </section>
+        """
+        if show_selectors
+        else ""
+    )
+    known_profiles_section = (
+        f"""
+          <section>
+            <h2>Major Profiles</h2>
             <table>
               <thead>
                 <tr>
@@ -380,10 +723,135 @@ def _build_case_notes_pdf_stylized(case_row: dict, posts: list[dict]) -> bytes:
                 </tr>
               </thead>
               <tbody>
-                {''.join(rows) if rows else '<tr><td colspan="4" class="na">No known accounts.</td></tr>'}
+                {''.join(rows) if rows else '<tr><td colspan="4" class="na">No major profiles.</td></tr>'}
               </tbody>
             </table>
           </section>
+        """
+        if show_known_profiles
+        else ""
+    )
+    footprint_section = ""
+    if show_footprint_section:
+        tables = ""
+        if show_footprint_high:
+            tables += f"""
+            <div class="footprint-group">
+              <h3>High Confidence <span>{len(footprint_groups.get("high", []))}</span></h3>
+              <div class="footprint-cards">{footprint_cards("high")}</div>
+            </div>
+            """
+        if show_footprint_medium:
+            tables += f"""
+            <div class="footprint-group">
+              <h3>Medium Confidence <span>{len(footprint_groups.get("medium", []))}</span></h3>
+              <div class="footprint-cards">{footprint_cards("medium")}</div>
+            </div>
+            """
+        if show_footprint_low:
+            tables += f"""
+            <div class="footprint-group">
+              <h3>Low Confidence <span>{len(footprint_groups.get("low", []))}</span></h3>
+              <div class="footprint-cards">{footprint_cards("low")}</div>
+            </div>
+            """
+        footprint_section = f"""
+          <section class="backmatter">
+            <div class="backmatter-kicker">Appendix A</div>
+            <h2>Digital Footprint Evidence</h2>
+            <p class="backmatter-intro">The following digital footprint material is attached as evidentiary backmatter supporting the principal case narrative.</p>
+            {tables}
+          </section>
+        """
+
+    html = f"""
+    <!doctype html>
+    <html>
+      <head>
+        <meta charset="utf-8" />
+        <style>
+          @page {{
+            size: A4;
+            margin: 22mm 16mm 18mm 16mm;
+            @bottom-right {{
+              content: "Pg " counter(page) " of " counter(pages);
+              font-size: 9px;
+              color: #4b5563;
+            }}
+          }}
+          body {{ font-family: "Helvetica Neue", Arial, sans-serif; color: #111827; margin: 0; }}
+          .report {{ border: 1.5px solid #111827; padding: 14px; }}
+          .header {{ border-bottom: 2px solid #111827; padding-bottom: 10px; margin-bottom: 12px; display: grid; grid-template-columns: 1fr auto; gap: 10px; }}
+          .header h1 {{ margin: 0; font-size: 22px; letter-spacing: .08em; }}
+          .header .sub {{ margin-top: 5px; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: #374151; }}
+          .meta-row {{ display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }}
+          .meta-pill {{ border: 1px solid #9ca3af; padding: 4px 8px; font-size: 9px; text-transform: uppercase; letter-spacing: .06em; color: #374151; background: #f3f4f6; }}
+          .subject-image {{ width: 120px; height: 120px; border: 1px solid #111827; object-fit: cover; background: #f3f4f6; }}
+          .grid {{ display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 10px 0 14px; }}
+          .cell {{ border: 1px solid #9ca3af; padding: 6px 8px; min-height: 40px; }}
+          .label {{ font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: #4b5563; margin-bottom: 4px; }}
+          .value {{ font-size: 13px; font-weight: 600; }}
+          h2 {{ margin: 14px 0 6px; font-size: 13px; text-transform: uppercase; letter-spacing: .08em; border-bottom: 1px solid #9ca3af; padding-bottom: 4px; }}
+          p {{ margin: 0; font-size: 11.5px; line-height: 1.48; white-space: pre-wrap; }}
+          table {{ width: 100%; border-collapse: collapse; margin-top: 8px; }}
+          th, td {{ border: 1px solid #9ca3af; padding: 6px 7px; font-size: 10.5px; vertical-align: top; text-align: left; }}
+          th {{ background: #e5e7eb; text-transform: uppercase; letter-spacing: .05em; font-size: 9.5px; }}
+          h3 {{ margin: 10px 0 6px; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: #1f2937; display: flex; justify-content: space-between; align-items: center; }}
+          h3 span {{ border: 1px solid #9ca3af; border-radius: 999px; padding: 1px 7px; font-size: 9px; }}
+          td.url {{ word-break: break-all; }}
+          td img {{ width: 180px; max-height: 110px; object-fit: cover; display: block; border: 1px solid #d1d5db; }}
+          .na {{ color: #6b7280; }}
+          .footprint-group + .footprint-group {{ margin-top: 12px; }}
+          .footprint-cards {{ display: grid; gap: 10px; }}
+          .footprint-card {{ border: 1px solid #9ca3af; padding: 10px; display: grid; grid-template-columns: 84px minmax(0, 1fr); gap: 10px; background: #fafafa; page-break-inside: avoid; }}
+          .footprint-card-media {{ display: flex; }}
+          .footprint-card-avatar {{ width: 84px; height: 84px; object-fit: cover; border: 1px solid #d1d5db; background: #e5e7eb; }}
+          .footprint-card-avatar-placeholder {{ display: flex; align-items: center; justify-content: center; font-size: 9px; text-transform: uppercase; letter-spacing: .06em; color: #6b7280; }}
+          .footprint-card-body {{ display: grid; gap: 6px; min-width: 0; }}
+          .footprint-card-head {{ display: flex; justify-content: space-between; align-items: start; gap: 8px; }}
+          .footprint-card-site {{ display: flex; align-items: center; gap: 8px; min-width: 0; }}
+          .footprint-card-favicon {{ width: 16px; height: 16px; }}
+          .footprint-card-site-name {{ font-size: 13px; font-weight: 700; }}
+          .footprint-card-source {{ font-size: 9px; text-transform: uppercase; letter-spacing: .06em; color: #6b7280; }}
+          .footprint-card-confidence {{ font-size: 9px; text-transform: uppercase; letter-spacing: .06em; border: 1px solid #9ca3af; border-radius: 999px; padding: 2px 7px; white-space: nowrap; }}
+          .footprint-card-url {{ font-size: 10px; color: #1d4ed8; word-break: break-all; }}
+          .footprint-card-selector {{ font-size: 10px; font-weight: 700; border: 1px solid #d1d5db; background: #fff; padding: 6px 8px; }}
+          .footprint-meta-grid {{ display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }}
+          .footprint-meta-item {{ border: 1px solid #d1d5db; padding: 6px 7px; background: #fff; }}
+          .footprint-meta-label {{ font-size: 8.5px; text-transform: uppercase; letter-spacing: .06em; color: #6b7280; margin-bottom: 3px; }}
+          .footprint-meta-value {{ font-size: 10px; line-height: 1.4; word-break: break-word; }}
+          .footprint-empty {{ padding: 8px 10px; border: 1px dashed #9ca3af; color: #6b7280; font-size: 10px; }}
+          .backmatter {{ margin-top: 18px; padding-top: 12px; border-top: 2px solid #111827; break-before: page; page-break-before: always; }}
+          .backmatter-kicker {{ font-size: 10px; text-transform: uppercase; letter-spacing: .14em; color: #6b7280; margin-bottom: 6px; }}
+          .backmatter-intro {{ margin-bottom: 10px; font-size: 10.5px; color: #374151; }}
+          .footer {{ margin-top: 10px; font-size: 9px; color: #6b7280; text-align: right; }}
+        </style>
+      </head>
+      <body>
+        <section class="report">
+          <header class="header">
+            <div>
+              <h1>PERSON OF INTEREST REPORT</h1>
+              <div class="sub">Case Intelligence Summary</div>
+              <div class="meta-row">
+                <div class="meta-pill">Report Ref: {_html_escape(str(case_row.get("id") or case_row.get("case_id") or case_row.get("case_name") or "UNASSIGNED").strip() or "UNASSIGNED")}</div>
+                <div class="meta-pill">Generated by PANOPTO</div>
+              </div>
+            </div>
+            {f'<img class="subject-image" src="{subject_image}" alt="Subject image" />' if subject_image else '<div class="subject-image"></div>'}
+          </header>
+          <section class="grid">
+            <div class="cell"><div class="label">Name</div><div class="value">{_html_escape(name)}</div></div>
+            <div class="cell"><div class="label">Location</div><div class="value">{_html_escape(location)}</div></div>
+            <div class="cell"><div class="label">Age</div><div class="value">{_html_escape(age)}</div></div>
+            <div class="cell" style="grid-column: 1 / -1;"><div class="label">A.K.A.s</div><div class="value">{_html_escape(akas)}</div></div>
+          </section>
+          {context_section}
+          {threat_section}
+          {personal_section}
+          {selectors_section}
+          {known_profiles_section}
+          {footprint_section}
           <div class="footer">Generated by PANOPTO</div>
         </section>
       </body>
@@ -411,74 +879,296 @@ def _build_case_notes_pdf_fallback(case_row: dict, posts: list[dict]) -> bytes:
     threat = str(notes.get("threat_risk_assessment") or "").strip()
     underlying_themes = _extract_underlying_themes(posts)
     personal = str(notes.get("personal_details") or "").strip()
-    profiles = notes.get("known_profiles") if isinstance(notes.get("known_profiles"), list) else []
+    selector_emails = str(notes.get("selector_emails") or "").strip()
+    selector_phones = str(notes.get("selector_phone_numbers") or "").strip()
+    selector_usernames = str(notes.get("selector_usernames") or "").strip()
+    report_preferences = _normalize_case_notes_report_preferences(notes)
+    excluded_sections = report_preferences.get("excluded_sections", set())
+    footprint_groups = _build_digital_footprint_back_matter(notes)
+    profiles = _major_profiles(notes.get("known_profiles") if isinstance(notes.get("known_profiles"), list) else [])
     if not profiles:
-        profiles = _discover_profiles_from_posts(posts)
+        profiles = _major_profiles(_discover_profiles_from_posts(posts))
 
     page_width = 612
     page_height = 792
-    margin_left = 54
-    margin_top = 748
-    margin_bottom = 54
+    outer_margin = 28
+    content_left = 48
+    content_right = page_width - content_left
+    content_width = content_right - content_left
+    top_y = page_height - 44
+    bottom_y = 48
+    banner_height = 54
+    report_ref = str(case_row.get("id") or case_row.get("case_id") or case_row.get("case_name") or "UNASSIGNED").strip() or "UNASSIGNED"
+    generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
 
-    pages: list[list[str]] = [[]]
-    cursor_y = margin_top
+    pages: list[list[str]] = []
+    cursor_y = top_y
+
+    def _chars_for_width(width: float, size: int) -> int:
+        approx = int(width / max(size * 0.52, 1))
+        return max(12, approx)
+
+    def new_page() -> None:
+        nonlocal cursor_y
+        pages.append([])
+        page = pages[-1]
+        page.append(f"0 G 1 w {outer_margin} {outer_margin} {page_width - (outer_margin * 2)} {page_height - (outer_margin * 2)} re S")
+        banner_y = top_y - banner_height + 10
+        page.append(f"q 0.15 g 0.15 G {outer_margin} {banner_y} {page_width - (outer_margin * 2)} {banner_height} re B Q")
+        page.append(f"BT 1 g /F2 19 Tf 1 0 0 1 {content_left} {top_y - 12} Tm (PERSON OF INTEREST REPORT) Tj ET")
+        page.append(f"BT 1 g /F1 9 Tf 1 0 0 1 {content_left} {top_y - 28} Tm (Case Intelligence Summary) Tj ET")
+        page.append(f"BT 1 g /F2 8 Tf 1 0 0 1 {content_right - 124} {top_y - 14} Tm (Report Ref.) Tj ET")
+        page.append(f"BT 1 g /F1 8 Tf 1 0 0 1 {content_right - 124} {top_y - 26} Tm ({_pdf_escape(report_ref[:24])}) Tj ET")
+        page.append(f"BT 0 g /F1 8 Tf 1 0 0 1 {content_left} {outer_margin + 10} Tm (Generated by PANOPTO | { _pdf_escape(generated_at) }) Tj ET")
+        page.append(f"BT 0 g /F1 8 Tf 1 0 0 1 {content_right - 175} {outer_margin + 10} Tm (Report Ref: { _pdf_escape(report_ref[:36]) }) Tj ET")
+        cursor_y = top_y - banner_height - 10
 
     def ensure_room(required_height: int) -> None:
         nonlocal cursor_y
-        if cursor_y - required_height >= margin_bottom:
+        if not pages:
+            new_page()
+        if cursor_y - required_height >= bottom_y:
             return
-        pages.append([])
-        cursor_y = margin_top
+        new_page()
 
-    def add_rule() -> None:
-        pages[-1].append(f"0.8 w {margin_left} {cursor_y} m {page_width - margin_left} {cursor_y} l S")
-
-    def add_line(text: str, *, bold: bool = False, size: int = 11, gap: int | None = None) -> None:
-        nonlocal cursor_y
-        line_gap = gap if gap is not None else int(size * 1.45)
-        ensure_room(line_gap)
+    def add_text(x: float, y: float, text: str, *, bold: bool = False, size: int = 11, gray: float = 0.0) -> None:
         font = "F2" if bold else "F1"
         safe = _pdf_escape(text)
-        pages[-1].append(f"BT /{font} {size} Tf 1 0 0 1 {margin_left} {cursor_y} Tm ({safe}) Tj ET")
-        cursor_y -= line_gap
+        pages[-1].append(f"BT {gray:.3f} g /{font} {size} Tf 1 0 0 1 {x:.2f} {y:.2f} Tm ({safe}) Tj ET")
 
-    def add_wrapped(text: str, *, bold: bool = False, size: int = 11, width: int = 92) -> None:
-        for line in _wrap_pdf_text(text, width):
-            add_line(line, bold=bold, size=size)
+    def add_wrapped_block(
+        text: str,
+        *,
+        x: float,
+        size: int = 11,
+        width_chars: int = 92,
+        bold: bool = False,
+        gray: float = 0.0,
+        gap: int | None = None,
+    ) -> None:
+        nonlocal cursor_y
+        line_gap = gap if gap is not None else int(size * 1.45)
+        lines = _wrap_pdf_text(text, width_chars)
+        ensure_room((len(lines) * line_gap) + 4)
+        for line in lines:
+            add_text(x, cursor_y, line, bold=bold, size=size, gray=gray)
+            cursor_y -= line_gap
 
-    add_line("PANOPTO CASE NOTES REPORT", bold=True, size=10, gap=12)
-    add_line(name, bold=True, size=24, gap=34)
-    add_rule()
-    cursor_y -= 16
-    add_line(f"Location: {location or 'Unknown'}", bold=False, size=11, gap=16)
-    add_line(f"Age: {age or 'Unknown'}", bold=False, size=11, gap=16)
-    add_line(f"A.K.A.s: {akas or 'None'}", bold=False, size=11, gap=20)
-    add_line("Context", bold=True, size=13, gap=20)
-    add_wrapped(context or "None", width=95)
-    cursor_y -= 4
-    add_line("Threat / Risk Assessment", bold=True, size=13, gap=20)
-    add_wrapped(threat or "None", width=95)
-    cursor_y -= 3
-    add_line("Underlying Themes", bold=True, size=12, gap=16)
-    add_wrapped(", ".join(underlying_themes) if underlying_themes else "None", width=95)
-    cursor_y -= 4
-    add_line("Personal Details", bold=True, size=13, gap=20)
-    add_wrapped(personal or "None", width=95)
-    cursor_y -= 4
-    add_line("Known Profiles", bold=True, size=13, gap=20)
-    if not profiles:
-        add_line("None", size=11)
-    else:
-        for item in profiles:
-            site = str(item.get("site") or "Profile").strip() or "Profile"
-            url = str(item.get("url") or "").strip()
-            screenshot_url = str(item.get("screenshot_url") or "").strip()
-            add_wrapped(f"- {site}", bold=True, size=11, width=95)
-            add_wrapped(f"  URL: {url or 'N/A'}", size=10, width=98)
-            if screenshot_url:
-                add_wrapped(f"  Screenshot: {screenshot_url}", size=10, width=98)
-            cursor_y -= 3
+    def add_section_header(title: str) -> None:
+        nonlocal cursor_y
+        ensure_room(28)
+        bar_height = 16
+        bar_y = cursor_y - 11
+        pages[-1].append(f"q 0.90 g 0.70 G {content_left} {bar_y:.2f} {content_width} {bar_height} re B Q")
+        add_text(content_left + 8, cursor_y - 7, title, bold=True, size=10, gray=0.0)
+        cursor_y -= 24
+
+    def start_backmatter() -> None:
+        nonlocal cursor_y
+        new_page()
+        ensure_room(56)
+        add_text(content_left, cursor_y, "APPENDIX A", bold=True, size=10, gray=0.35)
+        cursor_y -= 16
+        add_text(content_left, cursor_y, "Digital Footprint Evidence", bold=True, size=16, gray=0.0)
+        cursor_y -= 18
+        add_wrapped_block(
+            "The following digital footprint material is attached as evidentiary backmatter supporting the principal case narrative.",
+            x=content_left,
+            size=9,
+            width_chars=_chars_for_width(content_width, 9),
+            gray=0.22,
+            gap=12,
+        )
+        cursor_y -= 6
+
+    def add_field_box(x: float, width: float, label: str, value: str, *, height: int = 44) -> None:
+        box_y = cursor_y - height
+        pages[-1].append(f"q 0.97 g 0.65 G {x:.2f} {box_y:.2f} {width:.2f} {height} re B Q")
+        add_text(x + 8, cursor_y - 13, label.upper(), bold=True, size=8, gray=0.35)
+        inner_width = _chars_for_width(width - 16, 11)
+        value_lines = _wrap_pdf_text(value, inner_width)[:2]
+        line_y = cursor_y - 28
+        for line in value_lines:
+            add_text(x + 8, line_y, line, bold=True, size=11, gray=0.0)
+            line_y -= 13
+
+    def add_identity_panel() -> None:
+        nonlocal cursor_y
+        ensure_room(124)
+        panel_height = 108
+        panel_y = cursor_y - panel_height
+        pages[-1].append(f"q 0.985 g 0.55 G {content_left} {panel_y:.2f} {content_width} {panel_height} re B Q")
+        add_text(content_left + 10, cursor_y - 15, "SUBJECT IDENTIFICATION", bold=True, size=11, gray=0.0)
+        add_text(content_left + 10, cursor_y - 29, f"Case File: {name}", bold=False, size=9, gray=0.28)
+        add_text(content_left + 210, cursor_y - 29, f"Compiled: {generated_at}", bold=False, size=9, gray=0.28)
+        box_gap = 10
+        half_width = (content_width - box_gap) / 2
+        add_field_box(content_left + 10, half_width - 10, "Name", name)
+        add_field_box(content_left + half_width + box_gap, half_width - 20, "Location", location or "Unknown")
+        cursor_y -= 54
+        add_field_box(content_left + 10, 120, "Age", age or "Unknown", height=38)
+        add_field_box(content_left + 140, content_width - 150, "A.K.A.s", akas or "None", height=38)
+        cursor_y = panel_y - 14
+
+    def add_body_paragraph(text: str) -> None:
+        nonlocal cursor_y
+        add_wrapped_block(text or "None", x=content_left + 6, size=10, width_chars=_chars_for_width(content_width - 12, 10), gap=14)
+        cursor_y -= 4
+
+    new_page()
+    add_identity_panel()
+
+    if "context" not in excluded_sections:
+        add_section_header("Context")
+        add_body_paragraph(context or "None")
+    if "threat_risk_assessment" not in excluded_sections:
+        add_section_header("Threat / Risk Assessment")
+        add_body_paragraph(threat or "None")
+        add_wrapped_block(
+            f"Underlying Themes: {', '.join(underlying_themes) if underlying_themes else 'None'}",
+            x=content_left + 6,
+            size=10,
+            width_chars=_chars_for_width(content_width - 12, 10),
+            bold=True,
+            gap=14,
+        )
+        cursor_y -= 4
+    if "personal_details" not in excluded_sections:
+        add_section_header("Personal Details")
+        add_body_paragraph(personal or "None")
+    if "selectors" not in excluded_sections:
+        add_section_header("Selectors")
+        add_body_paragraph(f"Emails: {selector_emails or 'None'}")
+        add_body_paragraph(f"Phone Numbers: {selector_phones or 'None'}")
+        add_body_paragraph(f"User Names: {selector_usernames or 'None'}")
+    if "known_profiles" not in excluded_sections:
+        add_section_header("Major Profiles")
+        if not profiles:
+            add_body_paragraph("None")
+        else:
+            for item in profiles:
+                row = item if isinstance(item, dict) else {}
+                site = str(row.get("site") or "Profile").strip() or "Profile"
+                url = str(row.get("url") or "").strip()
+                screenshot_url = str(row.get("screenshot_url") or "").strip()
+                add_wrapped_block(
+                    f"[{site}] {url or 'N/A'}",
+                    x=content_left + 6,
+                    size=10,
+                    width_chars=_chars_for_width(content_width - 12, 10),
+                    bold=True,
+                    gap=14,
+                )
+                if screenshot_url:
+                    add_wrapped_block(
+                        f"Screenshot: {screenshot_url}",
+                        x=content_left + 18,
+                        size=9,
+                        width_chars=_chars_for_width(content_width - 24, 9),
+                        gray=0.18,
+                        gap=13,
+                    )
+                cursor_y -= 3
+        cursor_y -= 3
+    hide_footprint = "digital_footprint" in excluded_sections
+    show_footprint_high = (not hide_footprint) and ("digital_footprint_high" not in excluded_sections)
+    show_footprint_medium = (not hide_footprint) and ("digital_footprint_medium" not in excluded_sections)
+    show_footprint_low = (not hide_footprint) and ("digital_footprint_low" not in excluded_sections)
+    if show_footprint_high or show_footprint_medium or show_footprint_low:
+        start_backmatter()
+        add_section_header("Digital Footprint Evidence")
+        levels = []
+        if show_footprint_high:
+            levels.append("high")
+        if show_footprint_medium:
+            levels.append("medium")
+        if show_footprint_low:
+            levels.append("low")
+        for level in levels:
+            add_wrapped_block(
+                f"{level.capitalize()} Confidence",
+                x=content_left + 6,
+                size=10,
+                width_chars=40,
+                bold=True,
+                gap=14,
+            )
+            entries = footprint_groups.get(level, [])
+            if not entries:
+                add_body_paragraph("None")
+                continue
+            for item in entries:
+                source = str(item.get("source") or "Digital Footprint").strip() or "Digital Footprint"
+                site_label = str(item.get("site_label") or source).strip() or source
+                profile_url = str(item.get("profile_url") or "").strip()
+                image_url = str(item.get("image_url") or "").strip()
+                selector = str(item.get("selector_provenance") or _selector_label(str(item.get("selector_type") or ""), str(item.get("selector_value") or ""))).strip()
+                metadata = item.get("metadata") if isinstance(item.get("metadata"), list) else []
+                add_wrapped_block(
+                    f"[{source}] {site_label}",
+                    x=content_left + 18,
+                    size=9,
+                    width_chars=_chars_for_width(content_width - 24, 9),
+                    bold=True,
+                    gap=13,
+                )
+                if profile_url:
+                    add_wrapped_block(
+                        f"URL: {profile_url}",
+                        x=content_left + 30,
+                        size=9,
+                        width_chars=_chars_for_width(content_width - 36, 9),
+                        gray=0.18,
+                        gap=13,
+                    )
+                if image_url:
+                    add_wrapped_block(
+                        f"Profile Image: {image_url}",
+                        x=content_left + 30,
+                        size=9,
+                        width_chars=_chars_for_width(content_width - 36, 9),
+                        gray=0.18,
+                        gap=13,
+                    )
+                add_wrapped_block(
+                    str(item.get("selector_label") or selector),
+                    x=content_left + 30,
+                    size=9,
+                    width_chars=_chars_for_width(content_width - 36, 9),
+                    gap=13,
+                )
+                add_wrapped_block(
+                    selector,
+                    x=content_left + 30,
+                    size=9,
+                    width_chars=_chars_for_width(content_width - 36, 9),
+                    bold=True,
+                    gap=13,
+                )
+                if metadata:
+                    for row in metadata:
+                        if not isinstance(row, dict):
+                            continue
+                        label = str(row.get("label") or "").strip()
+                        value = str(row.get("value") or "").strip()
+                        if not label or not value:
+                            continue
+                        add_wrapped_block(
+                            f"{label}: {value}",
+                            x=content_left + 42,
+                            size=9,
+                            width_chars=_chars_for_width(content_width - 48, 9),
+                            gap=13,
+                        )
+                else:
+                    add_wrapped_block(
+                        "No associated metadata captured.",
+                        x=content_left + 42,
+                        size=9,
+                        width_chars=_chars_for_width(content_width - 48, 9),
+                        gap=13,
+                    )
+                cursor_y -= 2
 
     objects: dict[int, bytes] = {}
     next_id = 1
@@ -495,7 +1185,11 @@ def _build_case_notes_pdf_fallback(case_row: dict, posts: list[dict]) -> bytes:
     font_bold_id = alloc_id()
 
     page_entries: list[tuple[int, int]] = []
-    for page_ops in pages:
+    total_pages = len(pages)
+    for page_index, page_ops in enumerate(pages, start=1):
+        page_ops.append(
+            f"BT 0 g /F1 9 Tf 1 0 0 1 {content_right - 54:.2f} {outer_margin + 10:.2f} Tm (Pg {page_index} of {total_pages}) Tj ET"
+        )
         stream_data = "\n".join(page_ops).encode("latin-1", errors="ignore")
         content_id = alloc_id()
         page_id = alloc_id()
@@ -713,6 +1407,8 @@ class PostExplorerHandler(SimpleHTTPRequestHandler):
 
         if parsed.path == "/api/session/end":
             body = self._read_json_body(default={})
+            if body is None:
+                return
             should_shutdown = bool(body.get("shutdown", True))
             should_clear_data = bool(body.get("clear_data", True))
             should_clear_config = bool(body.get("clear_config", should_clear_data))
@@ -819,6 +1515,8 @@ class PostExplorerHandler(SimpleHTTPRequestHandler):
 
         if parsed.path == "/api/known-entities/match":
             body = self._read_json_body(default={})
+            if body is None:
+                return
             selectors = body.get("selectors", [])
             payload = {
                 "matches": match_known_entities(
@@ -1426,14 +2124,39 @@ class PostExplorerHandler(SimpleHTTPRequestHandler):
         self.send_error(404)
 
     def _read_json_body(self, default: dict | None = None):
-        raw_length = str(self.headers.get("Content-Length", "0")).strip()
-        content_length = int(raw_length) if raw_length.isdigit() else 0
-        raw_body = self.rfile.read(content_length) if content_length > 0 else b"{}"
+        raw_length = str(self.headers.get("Content-Length", "")).strip()
+        if raw_length:
+            try:
+                content_length = int(raw_length)
+            except ValueError:
+                self.send_error(400, "invalid content-length header")
+                return None
+            if content_length < 0:
+                self.send_error(400, "invalid content-length header")
+                return None
+        else:
+            content_length = 0
+
+        if content_length == 0:
+            return {} if default is None else default
+
+        if content_length > _MAX_JSON_BODY_BYTES:
+            self.send_error(413, "json body too large")
+            return None
+
         try:
-            parsed = json.loads(raw_body.decode("utf-8"))
-        except json.JSONDecodeError:
-            if default is not None:
-                return default
+            raw_body = self.rfile.read(content_length)
+        except OSError:
+            self.send_error(400, "unable to read request body")
+            return None
+        if len(raw_body) != content_length:
+            self.send_error(400, "incomplete request body")
+            return None
+
+        try:
+            decoded_body = raw_body.decode("utf-8")
+            parsed = json.loads(decoded_body)
+        except (UnicodeDecodeError, json.JSONDecodeError):
             self.send_error(400, "invalid json body")
             return None
         if isinstance(parsed, dict):
