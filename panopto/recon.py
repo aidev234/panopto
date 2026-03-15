@@ -25,6 +25,11 @@ _MAX_RECON_SCREENSHOTS = 24
 _RECON_SHOTS_DIR = Path(__file__).resolve().parent.parent / "frontend" / "static" / "recon_shots"
 _PDL_ENRICH_URL = "https://api.peopledatalabs.com/v5/person/enrich"
 _OSINT_INDUSTRIES_BASE_URL = "https://api.osint.industries"
+_BREACHVIP_SEARCH_URLS = (
+    "https://breach.vip/search",
+    "https://api.breach.vip/search",
+    "https://breach.vip/api/search",
+)
 _NUMVERIFY_BASE_URL = "http://apilayer.net/api/validate"
 _NUMVERIFY_HTTPS_BASE_URL = "https://apilayer.net/api/validate"
 _NUMVERIFY_APILAYER_URL = "https://api.apilayer.com/number_verification/validate"
@@ -44,6 +49,7 @@ def _pdl_api_key() -> str:
 def _osint_industries_api_key() -> str:
     config = load_config()
     return str(config.get("osint_industries_api_key") or "").strip()
+
 
 def _numverify_api_key() -> str:
     config = load_config()
@@ -136,10 +142,7 @@ def _screenshot_profile_url(site: str, profile_url: str) -> str:
         return raw_url
     if not raw_url:
         return raw_url
-    # Twitterwebviewer pages are unreliable for screenshots; use native x.com profile page.
-    match = re.search(r"twitterwebviewer\.com/@([^/?#]+)", raw_url, flags=re.IGNORECASE)
-    if not match:
-        match = re.search(r"(?:x|twitter)\.com/([^/?#]+)", raw_url, flags=re.IGNORECASE)
+    match = re.search(r"(?:x|twitter)\.com/([^/?#]+)", raw_url, flags=re.IGNORECASE)
     if not match:
         return raw_url
     handle = str(match.group(1) or "").strip().lstrip("@")
@@ -244,52 +247,27 @@ def _check_twitter(username: str) -> dict[str, Any]:
     if lowered != raw:
         candidates.append(lowered)
 
-    primary_results = [
+    results = [
         _check_html_profile(
             site="twitter",
-            profile_url=f"https://twitterwebviewer.com/@{quote(candidate, safe='')}",
-            not_found_tokens=["user not found", "account suspended", "this account doesn", "doesn't exist"],
+            profile_url=f"https://x.com/{quote(candidate, safe='')}",
+            not_found_tokens=[
+                "this account doesn't exist",
+                "this account doesn’t exist",
+                "account doesn’t exist",
+                "account doesn't exist",
+                "user not found",
+            ],
         )
         for candidate in candidates
     ]
-    for result in primary_results:
+    for result in results:
         if result.get("status") == "present":
             return result
-
-    fallback = _check_html_profile(
-        site="twitter",
-        profile_url=f"https://x.com/{quote(raw, safe='')}",
-        not_found_tokens=[
-            "this account doesn't exist",
-            "this account doesn’t exist",
-            "account doesn’t exist",
-            "account doesn't exist",
-            "user not found",
-        ],
-    )
-    if fallback.get("status") == "present":
-        fallback["profile_url"] = f"https://twitterwebviewer.com/@{quote(raw, safe='')}"
-        return fallback
-
-    any_unknown_primary = any(result.get("status") == "unknown" for result in primary_results)
-    all_absent_primary = all(result.get("status") == "absent" for result in primary_results)
-    if fallback.get("status") == "absent":
-        if any_unknown_primary:
-            return {
-                "site": "twitter",
-                "status": "unknown",
-                "profile_url": f"https://twitterwebviewer.com/@{quote(raw, safe='')}",
-                "reason": "inconclusive",
-            }
-        if all_absent_primary:
-            return primary_results[0]
-    if fallback.get("status") == "unknown" and all_absent_primary:
-        return primary_results[0]
-
-    for result in primary_results:
+    for result in results:
         if result.get("status") == "unknown":
             return result
-    return fallback
+    return results[0]
 
 
 def _check_tiktok(username: str) -> dict[str, Any]:
@@ -2484,15 +2462,19 @@ def run_recon(selectors: list[dict[str, str]]) -> dict[str, Any]:
         _append_intel_lead("Location", str(profile.get("location_name") or ""), profile_name=profile_name)
         _append_intel_lead("Job Title", str(profile.get("job_title") or ""), profile_name=profile_name)
         _append_intel_lead("Company", str(profile.get("job_company_name") or ""), profile_name=profile_name)
-        _append_intel_lead("Professional Email", str(profile.get("professional_email") or profile.get("work_email") or ""), profile_name=profile_name)
         personal_emails = profile.get("personal_emails") if isinstance(profile.get("personal_emails"), list) else []
         for item in personal_emails:
             _append_intel_lead("Personal Email", str(item or ""), profile_name=profile_name)
-        _append_intel_lead("Mobile Phone", str(profile.get("mobile_phone") or ""), profile_name=profile_name)
+        _append_intel_lead(
+            "Professional Email",
+            str(profile.get("professional_email") or profile.get("work_email") or ""),
+            profile_name=profile_name,
+        )
         personal_phones = profile.get("personal_phones") if isinstance(profile.get("personal_phones"), list) else []
         work_phones = profile.get("professional_phones") if isinstance(profile.get("professional_phones"), list) else []
         for item in personal_phones:
             _append_intel_lead("Personal Phone", str(item or ""), profile_name=profile_name)
+        _append_intel_lead("Mobile Phone", str(profile.get("mobile_phone") or ""), profile_name=profile_name)
         for item in work_phones:
             _append_intel_lead("Professional Phone", str(item or ""), profile_name=profile_name)
 

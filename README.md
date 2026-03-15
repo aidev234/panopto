@@ -53,13 +53,13 @@ The default database file is `osint_data.db` in the repository root. Some API re
 - `panopto/collection_service.py`: target parsing and multi-platform collection orchestration.
 - `panopto/recon.py`: selector recon, enrichment, screenshots, and lead generation.
 - `panopto/storage/posts.py`: SQLite schema, persistence, and case storage.
+- `docs/architecture-diagram.md`: Mermaid technical diagram of the current system architecture.
 - `tests/`: unit and API tests.
 
 ## Project layout
 
 - `panopto/collectors/`: source-specific collectors.
 - `panopto/analysis/`: LLM warning assessment logic and demo assets.
-- `panopto/storage/known_entities.py`: archive and restore case entities.
 - `run_collection.py`: minimal terminal collector helper for direct Twitter collection experiments.
 - `scripts/secret_scan.py`: simple local secret pattern scan.
 
@@ -200,9 +200,6 @@ Core routes:
 - `POST /api/posts/assessment`: persist edited LLM assessment metadata for a post
 - `POST /api/llm/estimate`: estimate assessment cost
 - `POST /api/llm/run`: assess posts that do not already have LLM metadata
-- `POST /api/known-entities/archive-case`: archive a case into known entities
-- `POST /api/known-entities/match`: match selectors against archived entities
-- `POST /api/known-entities/restore`: restore an archived case
 - `POST /api/session/end`: clear local data/config and optionally shut down the server
 
 ## Collection details

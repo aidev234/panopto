@@ -1,0 +1,163 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 1040" role="img" aria-labelledby="title desc">
+  <title id="title">PANOPTO architecture diagram</title>
+  <desc id="desc">Overview of the local UI, loopback HTTP server, API surface, services, collectors, storage, and optional external integrations.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0%" stop-color="#08111c"/>
+      <stop offset="100%" stop-color="#0c1827"/>
+    </linearGradient>
+    <style>
+      text { font-family: 'IBM Plex Sans', 'Segoe UI', sans-serif; fill: #e7eef7; }
+      .label { font-size: 22px; font-weight: 700; }
+      .small { font-size: 15px; fill: #c3d2e3; }
+      .group { fill: rgba(20, 40, 62, 0.92); stroke: rgba(103, 214, 255, 0.35); stroke-width: 2; }
+      .node { fill: #11253a; stroke: #67d6ff; stroke-width: 1.7; rx: 16; ry: 16; }
+      .store { fill: #183049; stroke: #8be18f; stroke-width: 1.7; rx: 16; ry: 16; }
+      .edge { stroke: #9eb0c6; stroke-width: 2.5; fill: none; marker-end: url(#arrow); }
+      .optional { stroke-dasharray: 8 7; }
+      .group-title { font-size: 19px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+    </style>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#9eb0c6"/>
+    </marker>
+  </defs>
+  <rect width="1400" height="1040" fill="url(#bg)"/>
+
+  <rect x="36" y="26" width="1328" height="988" rx="24" fill="none" stroke="rgba(158,176,198,0.16)" stroke-width="2"/>
+  <text x="62" y="72" class="label">PANOPTO Architecture</text>
+  <text x="62" y="102" class="small">Local browser UI -> loopback HTTP server -> APIs -> services -> collectors/storage, with optional enrichments.</text>
+
+  <rect x="56" y="140" width="246" height="118" class="node"/>
+  <text x="179" y="184" text-anchor="middle" class="label">Analyst / Operator</text>
+  <text x="179" y="213" text-anchor="middle" class="small">Runs local workflows</text>
+
+  <rect x="344" y="140" width="260" height="118" class="node"/>
+  <text x="474" y="182" text-anchor="middle" class="label">Browser UI</text>
+  <text x="474" y="210" text-anchor="middle" class="small">frontend/static/*</text>
+
+  <rect x="648" y="140" width="310" height="118" class="node"/>
+  <text x="803" y="182" text-anchor="middle" class="label">CLI Launcher</text>
+  <text x="803" y="210" text-anchor="middle" class="small">panopto.py / python -m panopto</text>
+
+  <rect x="1000" y="140" width="324" height="118" class="node"/>
+  <text x="1162" y="182" text-anchor="middle" class="label">Loopback HTTP Server</text>
+  <text x="1162" y="210" text-anchor="middle" class="small">frontend/server.py</text>
+
+  <path d="M302 199 H344" class="edge"/>
+  <path d="M604 199 H648" class="edge"/>
+  <path d="M604 222 C760 222, 830 222, 1000 222" class="edge"/>
+  <path d="M958 199 H1000" class="edge"/>
+
+  <rect x="56" y="314" width="392" height="382" rx="20" class="group"/>
+  <text x="82" y="350" class="group-title">API Surface</text>
+  <rect x="80" y="374" width="160" height="72" class="node"/>
+  <text x="160" y="405" text-anchor="middle" class="small">Case APIs</text>
+  <text x="160" y="427" text-anchor="middle" class="small">create/list/update/delete</text>
+  <rect x="264" y="374" width="160" height="72" class="node"/>
+  <text x="344" y="405" text-anchor="middle" class="small">Collection APIs</text>
+  <text x="344" y="427" text-anchor="middle" class="small">sync + async status</text>
+  <rect x="80" y="470" width="160" height="72" class="node"/>
+  <text x="160" y="501" text-anchor="middle" class="small">Recon APIs</text>
+  <text x="160" y="523" text-anchor="middle" class="small">recon / recon stream</text>
+  <rect x="264" y="470" width="160" height="72" class="node"/>
+  <text x="344" y="501" text-anchor="middle" class="small">Post APIs</text>
+  <text x="344" y="523" text-anchor="middle" class="small">query / ingest / assessment</text>
+  <rect x="80" y="566" width="160" height="72" class="node"/>
+  <text x="160" y="597" text-anchor="middle" class="small">Config APIs</text>
+  <text x="160" y="619" text-anchor="middle" class="small">load / save settings</text>
+  <rect x="264" y="566" width="160" height="72" class="node"/>
+  <text x="344" y="597" text-anchor="middle" class="small">Known Entity APIs</text>
+  <text x="344" y="619" text-anchor="middle" class="small">archive / match / restore</text>
+
+  <rect x="494" y="314" width="402" height="382" rx="20" class="group"/>
+  <text x="520" y="350" class="group-title">Core Services</text>
+  <rect x="518" y="374" width="168" height="72" class="node"/>
+  <text x="602" y="405" text-anchor="middle" class="small">Collection Service</text>
+  <text x="602" y="427" text-anchor="middle" class="small">panopto/collection_service.py</text>
+  <rect x="710" y="374" width="162" height="72" class="node"/>
+  <text x="791" y="405" text-anchor="middle" class="small">Job Manager</text>
+  <text x="791" y="427" text-anchor="middle" class="small">panopto/collection_jobs.py</text>
+  <rect x="518" y="470" width="168" height="72" class="node"/>
+  <text x="602" y="501" text-anchor="middle" class="small">Recon Service</text>
+  <text x="602" y="523" text-anchor="middle" class="small">panopto/recon.py</text>
+  <rect x="710" y="470" width="162" height="72" class="node"/>
+  <text x="791" y="501" text-anchor="middle" class="small">Post Query</text>
+  <text x="791" y="523" text-anchor="middle" class="small">panopto/post_query.py</text>
+  <rect x="518" y="566" width="168" height="72" class="node"/>
+  <text x="602" y="597" text-anchor="middle" class="small">LLM Assessment</text>
+  <text x="602" y="619" text-anchor="middle" class="small">llm_warning_assessor.py</text>
+  <rect x="710" y="566" width="162" height="72" class="node"/>
+  <text x="791" y="597" text-anchor="middle" class="small">Face Recognition</text>
+  <text x="791" y="619" text-anchor="middle" class="small">panopto/face_analysis.py</text>
+
+  <rect x="942" y="314" width="382" height="382" rx="20" class="group"/>
+  <text x="968" y="350" class="group-title">Collectors And Storage</text>
+  <rect x="966" y="374" width="160" height="72" class="node"/>
+  <text x="1046" y="405" text-anchor="middle" class="small">Twitter / X</text>
+  <text x="1046" y="427" text-anchor="middle" class="small">collector</text>
+  <rect x="1148" y="374" width="152" height="72" class="node"/>
+  <text x="1224" y="405" text-anchor="middle" class="small">Reddit / Bluesky</text>
+  <text x="1224" y="427" text-anchor="middle" class="small">collectors</text>
+  <rect x="966" y="470" width="160" height="72" class="node"/>
+  <text x="1046" y="501" text-anchor="middle" class="small">TikTok / Instagram</text>
+  <text x="1046" y="523" text-anchor="middle" class="small">collectors</text>
+  <rect x="1148" y="470" width="152" height="72" class="node"/>
+  <text x="1224" y="501" text-anchor="middle" class="small">YouTube</text>
+  <text x="1224" y="523" text-anchor="middle" class="small">collector</text>
+  <rect x="966" y="566" width="160" height="72" class="node"/>
+  <text x="1046" y="597" text-anchor="middle" class="small">Apify / Playwright</text>
+  <text x="1046" y="619" text-anchor="middle" class="small">optional execution paths</text>
+  <rect x="1148" y="566" width="152" height="72" class="store"/>
+  <text x="1224" y="597" text-anchor="middle" class="small">SQLite</text>
+  <text x="1224" y="619" text-anchor="middle" class="small">cases + posts</text>
+
+  <rect x="56" y="736" width="1268" height="226" rx="20" class="group"/>
+  <text x="82" y="772" class="group-title">Optional External Services And Local Artifacts</text>
+  <rect x="82" y="802" width="164" height="72" class="node"/>
+  <text x="164" y="833" text-anchor="middle" class="small">People Data Labs</text>
+  <rect x="268" y="802" width="164" height="72" class="node"/>
+  <text x="350" y="833" text-anchor="middle" class="small">OSINT Industries</text>
+  <rect x="454" y="802" width="164" height="72" class="node"/>
+  <text x="536" y="833" text-anchor="middle" class="small">Numverify</text>
+  <rect x="640" y="802" width="164" height="72" class="node"/>
+  <text x="722" y="833" text-anchor="middle" class="small">OpenAI API</text>
+  <rect x="826" y="802" width="176" height="72" class="node"/>
+  <text x="914" y="833" text-anchor="middle" class="small">Public Social Platforms</text>
+  <rect x="1024" y="802" width="138" height="72" class="store"/>
+  <text x="1093" y="833" text-anchor="middle" class="small">.panopto_config.json</text>
+  <rect x="1184" y="802" width="114" height="72" class="store"/>
+  <text x="1241" y="833" text-anchor="middle" class="small">Secrets</text>
+  <text x="1241" y="855" text-anchor="middle" class="small">and screenshots</text>
+
+  <path d="M1162 258 V314" class="edge"/>
+  <path d="M1162 258 C1162 286, 252 286, 252 314" class="edge"/>
+  <path d="M1162 258 C1162 286, 696 286, 696 314" class="edge"/>
+
+  <path d="M448 410 H518" class="edge"/>
+  <path d="M448 506 H518" class="edge"/>
+  <path d="M448 602 H518" class="edge"/>
+  <path d="M448 506 H710" class="edge"/>
+  <path d="M448 602 H710" class="edge"/>
+
+  <path d="M686 410 H710" class="edge"/>
+  <path d="M872 410 C908 410, 920 410, 966 410" class="edge"/>
+  <path d="M686 506 C820 506, 890 506, 966 506" class="edge"/>
+  <path d="M686 602 C870 602, 1000 602, 1148 602" class="edge"/>
+  <path d="M872 506 C980 506, 1080 620, 1148 602" class="edge"/>
+  <path d="M872 602 H1148" class="edge"/>
+
+  <path d="M1046 446 V470" class="edge"/>
+  <path d="M1224 446 V470" class="edge"/>
+  <path d="M1224 542 V566" class="edge"/>
+  <path d="M1046 542 V566" class="edge optional"/>
+  <path d="M1046 638 C1046 712, 914 712, 914 802" class="edge optional"/>
+  <path d="M1224 638 V802" class="edge"/>
+  <path d="M602 542 C602 712, 164 712, 164 802" class="edge optional"/>
+  <path d="M602 542 C602 712, 350 712, 350 802" class="edge optional"/>
+  <path d="M602 542 C602 712, 536 712, 536 802" class="edge optional"/>
+  <path d="M602 638 C602 712, 722 712, 722 802" class="edge optional"/>
+  <path d="M791 602 C910 602, 1030 602, 1148 602" class="edge"/>
+  <path d="M1162 258 C1162 286, 1162 286, 1162 314" class="edge"/>
+  <path d="M722 874 C722 920, 1093 920, 1093 874" class="edge optional"/>
+  <path d="M722 874 C722 930, 1241 930, 1241 874" class="edge optional"/>
+</svg>

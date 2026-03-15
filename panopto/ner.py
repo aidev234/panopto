@@ -12,6 +12,7 @@ _LOCATION_GAZETTEER: dict[str, tuple[str, float, float]] = {
     "usa": ("United States", 39.8283, -98.5795),
     "u.s.": ("United States", 39.8283, -98.5795),
     "canada": ("Canada", 56.1304, -106.3468),
+    "ottawa": ("Ottawa", 45.4215, -75.6972),
     "washington dc": ("Washington DC", 38.9072, -77.0369),
     "washington, dc": ("Washington DC", 38.9072, -77.0369),
     "washington d.c.": ("Washington DC", 38.9072, -77.0369),

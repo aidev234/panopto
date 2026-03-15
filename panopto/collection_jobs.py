@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
+import time
 import threading
 import uuid
 from typing import Any
@@ -138,8 +139,25 @@ def _run_job(job_id: str) -> None:
                 fail_on_total_failure=False,
                 on_progress=_on_stage_progress,
             )
+            stage_started_at = time.monotonic()
             try:
                 stage_result = stage_future.result(timeout=stage_timeout_seconds)
+                elapsed_seconds = time.monotonic() - stage_started_at
+                if elapsed_seconds > stage_timeout_seconds:
+                    _update_job(
+                        job_id,
+                        status="failed",
+                        phase="failed",
+                        error={
+                            "code": "collection_timeout",
+                            "message": (
+                                f"collection stage '{phase}' exceeded {stage_timeout_seconds:.0f}s timeout"
+                            ),
+                        },
+                    )
+                    raise RuntimeError(
+                        f"collection stage '{phase}' timed out after {stage_timeout_seconds:.0f}s"
+                    )
             except FutureTimeoutError as exc:
                 stage_future.cancel()
                 _update_job(

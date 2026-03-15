@@ -18,7 +18,7 @@ from panopto.recon import (
 def test_check_twitter_uses_x_fallback_when_primary_unknown():
     def _fake_check(*, site, profile_url, not_found_tokens, timeout=12):
         _ = (site, not_found_tokens, timeout)
-        if "twitterwebviewer.com" in profile_url:
+        if profile_url.endswith("/AOC"):
             return {"site": "twitter", "status": "unknown", "profile_url": profile_url, "reason": "http_503"}
         return {"site": "twitter", "status": "present", "profile_url": profile_url, "reason": ""}
 
@@ -26,7 +26,7 @@ def test_check_twitter_uses_x_fallback_when_primary_unknown():
         result = _check_twitter("AOC")
 
     assert result["status"] == "present"
-    assert result["profile_url"] == "https://twitterwebviewer.com/@AOC"
+    assert result["profile_url"] == "https://x.com/aoc"
 
 
 def test_check_twitter_marks_inconclusive_as_unknown_not_absent():
@@ -35,15 +35,15 @@ def test_check_twitter_marks_inconclusive_as_unknown_not_absent():
     def _fake_check(*, site, profile_url, not_found_tokens, timeout=12):
         _ = (site, not_found_tokens, timeout)
         calls.append(profile_url)
-        if "twitterwebviewer.com" in profile_url:
+        if profile_url.endswith("/AOC"):
             return {"site": "twitter", "status": "unknown", "profile_url": profile_url, "reason": "http_503"}
         return {"site": "twitter", "status": "absent", "profile_url": profile_url, "reason": "not_found_marker"}
 
     with patch("panopto.recon._check_html_profile", side_effect=_fake_check):
         result = _check_twitter("AOC")
 
-    assert any("twitterwebviewer.com/@AOC" in call for call in calls)
-    assert any("twitterwebviewer.com/@aoc" in call for call in calls)
+    assert any("https://x.com/AOC" == call for call in calls)
+    assert any("https://x.com/aoc" == call for call in calls)
     assert result["status"] == "unknown"
 
 
@@ -96,7 +96,7 @@ def test_run_username_recon_uses_x_dot_com_for_twitter_screenshot_target():
 
     with patch(
         "panopto.recon._check_twitter",
-        return_value={"site": "twitter", "profile_url": "https://twitterwebviewer.com/@AOC", **present},
+        return_value={"site": "twitter", "profile_url": "https://x.com/AOC", **present},
     ):
         with patch("panopto.recon._check_reddit", return_value={"site": "reddit", **absent}):
             with patch("panopto.recon._check_tiktok", return_value={"site": "tiktok", **absent}):

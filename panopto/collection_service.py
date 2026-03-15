@@ -166,8 +166,6 @@ def collect_for_targets(
                 max_pages=max_pages,
                 request_delay_seconds=0.8,
                 timeout=30,
-                browser_fallback=True,
-                browser_enrich_existing=True,
             )
             for post in posts:
                 post["platform"] = "Twitter"

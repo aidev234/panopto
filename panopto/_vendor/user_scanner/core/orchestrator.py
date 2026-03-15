@@ -3,8 +3,9 @@ from concurrent.futures import ThreadPoolExecutor
 import httpx
 from pathlib import Path
 from user_scanner.core.result import Result
-from typing import Callable, List
+from typing import Callable, Dict, List, Optional
 from types import ModuleType
+import threading
 from user_scanner.core.helpers import find_category,  get_site_name, load_categories, load_modules, get_proxy
 
 
@@ -82,7 +83,7 @@ def run_user_full(username: str, show_url: bool = False, only_found: bool = Fals
         display_name = cat_name.capitalize()
         for m in modules:
             all_modules.append(m)
-            module_to_cat[get_site_name(m)] = display_name
+            module_to_cat[get_site_name(m).capitalize()] = display_name
 
     with ThreadPoolExecutor(max_workers=60) as executor:
         exec_map = executor.map(lambda m: _worker_single(m, username), all_modules)
@@ -109,6 +110,18 @@ def run_user_full(username: str, show_url: bool = False, only_found: bool = Fals
 
 
 
+_clients: Dict[tuple[bool, Optional[str]], httpx.Client] = {}
+_clients_lock = threading.Lock()
+
+
+def get_client(use_http2: bool, proxy_val: Optional[str]) -> httpx.Client:
+    key = (use_http2, proxy_val)
+    if key not in _clients:
+        with _clients_lock:
+            if key not in _clients:
+                _clients[key] = httpx.Client(http2=use_http2, proxy=proxy_val)
+    return _clients[key]
+
 
 def make_request(url: str, **kwargs) -> httpx.Response:
     """Simple wrapper to **httpx.get** that predefines headers and timeout"""
@@ -134,8 +147,16 @@ def make_request(url: str, **kwargs) -> httpx.Response:
     method = kwargs.pop("method", "GET")
     use_http2 = kwargs.pop("http2", False)
 
-    with httpx.Client(http2=use_http2, proxy=proxy_val) as client:
-        return client.request(method.upper(), url, **kwargs)
+    client = get_client(use_http2, proxy_val)
+
+    max_retries = 2
+    for attempt in range(max_retries + 1):
+        try:
+            return client.request(method.upper(), url, **kwargs)
+        except (httpx.ConnectTimeout, httpx.ReadTimeout):
+            if attempt == max_retries:
+                raise
+    raise RuntimeError("Request failed after retries")
 
 
 def generic_validate(url: str, func: Callable[[httpx.Response], Result], **kwargs) -> Result:

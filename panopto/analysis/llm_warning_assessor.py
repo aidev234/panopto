@@ -9,6 +9,7 @@ import math
 import os
 from pathlib import Path
 import re
+import time
 from typing import Any
 import zipfile
 import xml.etree.ElementTree as ET
@@ -185,17 +186,57 @@ def _find_demo_assessment(text: str) -> dict[str, Any] | None:
 
 
 def _normalize_assessment_payload(payload: dict[str, Any]) -> dict[str, Any]:
-    primary_raw = payload.get("tagged_primary")
-    if not isinstance(primary_raw, list):
-        primary_raw = payload.get("primary_warning_behaviours")
-    secondary_raw = payload.get("tagged_secondary")
-    if not isinstance(secondary_raw, list):
-        secondary_raw = payload.get("secondary_risk_factors")
-    primary = [str(item).strip() for item in (primary_raw if isinstance(primary_raw, list) else []) if str(item).strip()]
-    secondary = [str(item).strip() for item in (secondary_raw if isinstance(secondary_raw, list) else []) if str(item).strip()]
+    def _normalize_label_values(raw_value: Any) -> list[str]:
+        values: list[str] = []
+        if isinstance(raw_value, list):
+            for item in raw_value:
+                if isinstance(item, dict):
+                    label = str(item.get("label") or item.get("tag") or item.get("name") or item.get("value") or "").strip()
+                    if label:
+                        values.append(label)
+                else:
+                    label = str(item or "").strip()
+                    if label:
+                        values.append(label)
+        elif isinstance(raw_value, str):
+            values.extend(_split_labels(raw_value))
+        seen: set[str] = set()
+        output: list[str] = []
+        for item in values:
+            clean = re.sub(r"\s+", " ", str(item).strip())
+            if not clean:
+                continue
+            key = clean.lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            output.append(clean)
+        return output
+
+    primary_raw = (
+        payload.get("tagged_primary")
+        or payload.get("primary_warning_behaviours")
+        or payload.get("primary")
+        or payload.get("primary_tags")
+        or payload.get("warning_behaviours")
+    )
+    secondary_raw = (
+        payload.get("tagged_secondary")
+        or payload.get("secondary_risk_factors")
+        or payload.get("secondary")
+        or payload.get("secondary_tags")
+        or payload.get("risk_factors")
+    )
+    primary = _normalize_label_values(primary_raw)
+    secondary = _normalize_label_values(secondary_raw)
     tagged_primary = list(dict.fromkeys(primary))
     tagged_secondary = list(dict.fromkeys(secondary))
-    underlying_theme = str(payload.get("underlying_theme") or "").strip()
+    underlying_theme = str(
+        payload.get("underlying_theme")
+        or payload.get("theme")
+        or payload.get("summary")
+        or ""
+    ).strip()
     if not tagged_primary and not tagged_secondary:
         underlying_theme = ""
     return {
@@ -212,11 +253,15 @@ def _build_chat_messages(content: str) -> list[dict[str, str]]:
     guide_text = str(assets.get("guide_text") or "").strip()
     system_prompt = (
         "You are a behavioural threat assessment analyst. "
-        "Return strict JSON only with this schema: "
+        "Return valid strict JSON only with this exact schema and no extra keys: "
         "{\"tagged_primary\": string[], \"tagged_secondary\": string[], "
         "\"underlying_theme\": string, \"rationale\": string}. "
-        "Do not include markdown fences. Use concise rationale. "
-        "If no clear indicator exists, keep arrays empty."
+        "Do not include markdown fences, prose, commentary, or code blocks. "
+        "Use double-quoted JSON keys and string values. "
+        "Use concise rationale. "
+        "If no clear indicator exists, keep arrays empty and set underlying_theme to an empty string. "
+        "Keep the entire JSON response under 200 words total. "
+        "The response must be parseable by json.loads."
     )
     if prompt_text:
         system_prompt = f"{system_prompt}\n\nOperator brief:\n{prompt_text}"
@@ -229,6 +274,76 @@ def _build_chat_messages(content: str) -> list[dict[str, str]]:
             "role": "user",
             "content": (
                 "Assess this post for warning indicators and risk factors. "
+                "Return JSON only. "
+                f"Post text: {content}"
+            ),
+        },
+    ]
+
+
+def _build_identity_intel_messages(content: str) -> list[dict[str, str]]:
+    system_prompt = (
+        "You are an identity and selectors extraction analyst. "
+        "Return valid strict JSON only with this exact schema and no extra keys: "
+        "{\"tags\": [{\"label\": string, \"intel\": \"none\"|\"stated\"|\"inferred\"}], "
+        "\"theme\": string}. "
+        "Do not include markdown fences, prose, commentary, or code blocks. "
+        "Use double-quoted JSON keys and string values. "
+        "Keep the entire JSON response under 200 words total. "
+        "Extract identifying intel only, not threats. "
+        "Prioritize: employer, occupation, location, venue_area, industry, affiliation, school, handle, email, phone, wallet, vehicle, alias, demographic, family_role. "
+        "Use labels in the exact form 'category: value'. "
+        "Use 'stated' when the text directly says the fact. "
+        "Use 'inferred' only for reasonable deductions such as industry or likely base of activity. "
+        "Never invent facts not supported by the text. "
+        "When both city and street/venue are present, include both. "
+        "If useful intel exists, return tags; do not return an empty array when employer, job title, city, school, selector, or venue is explicitly present. "
+        "If no useful intel exists, return tags as [] and theme as ''. "
+        "Theme must be one short sentence fragment summarizing the strongest identity insight. "
+        "Example output: {\"tags\":[{\"label\":\"employer: Northern Trust Bank\",\"intel\":\"stated\"},{\"label\":\"occupation: fraud analyst\",\"intel\":\"stated\"},{\"label\":\"location: Auckland\",\"intel\":\"stated\"},{\"label\":\"venue_area: Queen Street\",\"intel\":\"stated\"},{\"label\":\"industry: financial services\",\"intel\":\"inferred\"}],\"theme\":\"User likely works in financial services and is active in central Auckland\"}. "
+        "The response must be parseable by json.loads."
+    )
+    return [
+        {"role": "system", "content": system_prompt},
+        {
+            "role": "user",
+            "content": (
+                "Extract identifying intel from this text. Return JSON only. "
+                f"Text: {content}"
+            ),
+        },
+    ]
+
+
+def _build_combined_sandbox_messages(content: str) -> list[dict[str, str]]:
+    assets = load_assessment_assets()
+    prompt_text = str(assets.get("prompt_text") or "").strip()
+    guide_text = str(assets.get("guide_text") or "").strip()
+    system_prompt = (
+        "You are an analyst producing two structured outputs for the same post. "
+        "Return valid strict JSON only with this exact schema and no extra keys: "
+        "{\"threat\":{\"tagged_primary\": string[], \"tagged_secondary\": string[], \"underlying_theme\": string, \"rationale\": string},"
+        "\"identity\":{\"tags\": [{\"label\": string, \"intel\": \"none\"|\"stated\"|\"inferred\"}], \"theme\": string}}. "
+        "Do not include markdown fences, prose, commentary, or code blocks. "
+        "Use double-quoted JSON keys and string values. "
+        "Keep the entire JSON response under 200 words total. "
+        "For threat: if no clear indicator exists, keep arrays empty and set underlying_theme to an empty string. "
+        "For identity: prioritize employer, occupation, location, venue_area, industry, affiliation, school, handle, email, phone, wallet, vehicle, alias, demographic, family_role. "
+        "Use labels in the exact form 'category: value'. "
+        "Use 'stated' when directly stated and 'inferred' only for reasonable deductions. "
+        "If useful identity intel exists, do not return an empty tags array. "
+        "The response must be parseable by json.loads."
+    )
+    if prompt_text:
+        system_prompt = f"{system_prompt}\n\nThreat operator brief:\n{prompt_text}"
+    if guide_text:
+        system_prompt = f"{system_prompt}\n\nThreat assessment guide:\n{guide_text}"
+    return [
+        {"role": "system", "content": system_prompt},
+        {
+            "role": "user",
+            "content": (
+                "Analyze this post and return one JSON object containing both threat and identity outputs only. "
                 f"Post text: {content}"
             ),
         },
@@ -249,46 +364,194 @@ def _parse_openai_response(payload: dict[str, Any]) -> dict[str, Any] | None:
     try:
         parsed = json.loads(cleaned)
     except json.JSONDecodeError:
-        return None
+        match = re.search(r"\{.*\}", cleaned, flags=re.DOTALL)
+        if not match:
+            return None
+        try:
+            parsed = json.loads(match.group(0))
+        except json.JSONDecodeError:
+            return None
     if not isinstance(parsed, dict):
         return None
-    return _normalize_assessment_payload(parsed)
+    return parsed
+
+
+def _normalize_identity_intel_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    raw_tags = payload.get("tags")
+    if not isinstance(raw_tags, list):
+        for alternate_key in ("items", "entities", "identities", "selectors", "details"):
+            candidate = payload.get(alternate_key)
+            if isinstance(candidate, list):
+                raw_tags = candidate
+                break
+    if not isinstance(raw_tags, list):
+        for alternate_key in ("tags_by_category", "attributes", "fields"):
+            candidate = payload.get(alternate_key)
+            if isinstance(candidate, dict):
+                raw_tags = []
+                for category, value in candidate.items():
+                    if isinstance(value, list):
+                        for item in value:
+                            raw_tags.append({"category": category, "value": item})
+                    else:
+                        raw_tags.append({"category": category, "value": value})
+                break
+    tags: list[dict[str, str]] = []
+    seen: set[tuple[str, str]] = set()
+    if isinstance(raw_tags, list):
+        for item in raw_tags:
+            label = ""
+            intel = "inferred"
+            if isinstance(item, dict):
+                direct_label = str(item.get("label") or item.get("tag") or item.get("name") or "").strip()
+                category = str(item.get("category") or item.get("type") or "").strip().lower().replace(" ", "_")
+                value = str(item.get("value") or item.get("text") or item.get("detail") or "").strip()
+                if direct_label:
+                    label = direct_label
+                elif category and value:
+                    label = f"{category}: {value}"
+                elif value:
+                    label = value
+                intel = str(
+                    item.get("intel")
+                    or item.get("confidence")
+                    or item.get("status")
+                    or item.get("support")
+                    or ""
+                ).strip().lower()
+            elif isinstance(item, str):
+                label = item.strip()
+            else:
+                continue
+            label = re.sub(r"\s+", " ", str(label).strip())
+            if intel not in {"none", "stated", "inferred"}:
+                if intel in {"direct", "explicit", "quoted", "observed"}:
+                    intel = "stated"
+                elif intel in {"derived", "deduced", "likely", "possible", "probable"}:
+                    intel = "inferred"
+                else:
+                    intel = "inferred"
+            if not label:
+                continue
+            key = (label.lower(), intel)
+            if key in seen:
+                continue
+            seen.add(key)
+            tags.append({"label": label, "intel": intel})
+    theme = re.sub(
+        r"\s+",
+        " ",
+        str(
+            payload.get("theme")
+            or payload.get("summary")
+            or payload.get("assessment")
+            or payload.get("comment")
+            or ""
+        ).strip(),
+    )
+    if not tags:
+        theme = ""
+    return {
+        "tags": tags,
+        "theme": theme,
+    }
+
+
+def _openai_api_key() -> str:
+    api_key = str(os.getenv("OPENAI_API_KEY") or "").strip()
+    if api_key:
+        return api_key
+    try:
+        return str(load_config().get("openai_api_key") or "").strip()
+    except Exception:
+        return ""
+
+
+def _openai_disabled() -> bool:
+    return str(os.getenv("PANOPTO_LLM_DISABLE") or "").strip().lower() in {"1", "true", "yes"}
+
+
+def _openai_model() -> str:
+    return str(os.getenv("PANOPTO_LLM_MODEL") or "gpt-4.1-mini").strip()
+
+
+def _openai_timeout_seconds() -> float:
+    return float(str(os.getenv("PANOPTO_LLM_TIMEOUT_SECONDS") or "25").strip() or "25")
+
+
+def _run_openai_json_request(messages: list[dict[str, str]]) -> dict[str, Any] | None:
+    api_key = _openai_api_key()
+    if _openai_disabled() or not api_key:
+        return None
+
+    last_error: Exception | None = None
+    for attempt in range(3):
+        response = requests.post(
+            "https://api.openai.com/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": _openai_model(),
+                "messages": messages,
+                "response_format": {"type": "json_object"},
+                "temperature": 0,
+                "max_tokens": 220,
+            },
+            timeout=_openai_timeout_seconds(),
+        )
+        if response.status_code != 429:
+            response.raise_for_status()
+            return _parse_openai_response(response.json())
+        last_error = requests.HTTPError(
+            f"429 Client Error: Too Many Requests for url: {response.url}",
+            response=response,
+        )
+        retry_after_header = str(response.headers.get("Retry-After") or "").strip()
+        try:
+            retry_after = float(retry_after_header) if retry_after_header else 0.0
+        except ValueError:
+            retry_after = 0.0
+        backoff_seconds = retry_after if retry_after > 0 else min(4.0, 1.0 + attempt)
+        time.sleep(backoff_seconds)
+    if last_error is not None:
+        raise last_error
+    return None
 
 
 def _assess_with_openai(content: str) -> dict[str, Any] | None:
-    api_key = str(os.getenv("OPENAI_API_KEY") or "").strip()
-    if not api_key:
-        try:
-            api_key = str(load_config().get("openai_api_key") or "").strip()
-        except Exception:
-            api_key = ""
-    disabled = str(os.getenv("PANOPTO_LLM_DISABLE") or "").strip().lower() in {"1", "true", "yes"}
-    if disabled or not api_key:
-        return None
-
-    model = str(os.getenv("PANOPTO_LLM_MODEL") or "gpt-4.1-mini").strip()
-    timeout = float(str(os.getenv("PANOPTO_LLM_TIMEOUT_SECONDS") or "25").strip() or "25")
-
-    response = requests.post(
-        "https://api.openai.com/v1/chat/completions",
-        headers={
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-        },
-        json={
-            "model": model,
-            "messages": _build_chat_messages(content),
-            "response_format": {"type": "json_object"},
-            "temperature": 0,
-        },
-        timeout=timeout,
-    )
-    response.raise_for_status()
-    parsed = _parse_openai_response(response.json())
+    parsed = _run_openai_json_request(_build_chat_messages(content))
     if not parsed:
         return None
+    parsed = _normalize_assessment_payload(parsed)
+    model = _openai_model()
     parsed["model"] = model
     return parsed
+
+
+def _assess_identity_intel_with_openai(content: str) -> dict[str, Any] | None:
+    parsed = _run_openai_json_request(_build_identity_intel_messages(content))
+    if not parsed:
+        return None
+    normalized = _normalize_identity_intel_payload(parsed)
+    normalized["model"] = _openai_model()
+    return normalized
+
+
+def _assess_combined_sandbox_with_openai(content: str) -> dict[str, Any] | None:
+    parsed = _run_openai_json_request(_build_combined_sandbox_messages(content))
+    if not parsed:
+        return None
+    threat_raw = parsed.get("threat") if isinstance(parsed.get("threat"), dict) else {}
+    identity_raw = parsed.get("identity") if isinstance(parsed.get("identity"), dict) else {}
+    return {
+        "threat_raw": threat_raw,
+        "identity_raw": identity_raw,
+        "threat": _normalize_assessment_payload(threat_raw if isinstance(threat_raw, dict) else {}),
+        "identity": _normalize_identity_intel_payload(identity_raw if isinstance(identity_raw, dict) else {}),
+        "model": _openai_model(),
+    }
 
 
 def apply_warning_assessments(posts: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -326,6 +589,80 @@ def apply_warning_assessments(posts: list[dict[str, Any]]) -> list[dict[str, Any
         row["metadata"] = metadata
         output.append(row)
     return output
+
+
+def analyze_post_sandbox(post: dict[str, Any]) -> dict[str, Any]:
+    row = dict(post)
+    metadata = row.get("metadata") if isinstance(row.get("metadata"), dict) else {}
+    metadata = dict(metadata)
+    content = str(row.get("content") or "").strip()
+    if not content:
+        row["metadata"] = metadata
+        return row
+
+    threat_result: dict[str, Any] | None = None
+    identity_result: dict[str, Any] | None = None
+    threat_error = ""
+    identity_error = ""
+    demo_threat = _find_demo_assessment(content)
+    if demo_threat is not None:
+        threat_result = demo_threat
+        try:
+            identity_result = _assess_identity_intel_with_openai(content)
+        except Exception as exc:
+            identity_result = None
+            identity_error = str(exc or "").strip()
+    else:
+        try:
+            combined_result = _assess_combined_sandbox_with_openai(content)
+            if isinstance(combined_result, dict):
+                threat_result = combined_result.get("threat_raw") if isinstance(combined_result.get("threat_raw"), dict) else combined_result.get("threat")
+                identity_result = combined_result.get("identity_raw") if isinstance(combined_result.get("identity_raw"), dict) else combined_result.get("identity")
+        except Exception as exc:
+            threat_error = str(exc or "").strip()
+            identity_error = threat_error
+
+    threat_normalized = _normalize_assessment_payload(threat_result) if isinstance(threat_result, dict) and threat_result else {
+        "tagged_primary": [],
+        "tagged_secondary": [],
+        "underlying_theme": "",
+        "rationale": "",
+    }
+    identity_normalized = _normalize_identity_intel_payload(identity_result) if isinstance(identity_result, dict) and identity_result else {
+        "tags": [],
+        "theme": "",
+    }
+
+    metadata["llm_assessment"] = threat_normalized
+    metadata["identity_intel_assessment"] = identity_normalized
+    metadata["sandbox_debug"] = {
+        "request_text": content,
+        "threat_messages": _build_chat_messages(content),
+        "identity_messages": _build_identity_intel_messages(content),
+        "combined_messages": _build_combined_sandbox_messages(content),
+        "threat_error": threat_error,
+        "identity_error": identity_error,
+        "threat_raw": threat_result if isinstance(threat_result, dict) else {},
+        "threat_normalized": threat_normalized,
+        "identity_raw": identity_result if isinstance(identity_result, dict) else {},
+        "identity_normalized": identity_normalized,
+    }
+    metadata["sandbox_analysis"] = {
+        "threat_checked": not bool(threat_error),
+        "identity_checked": not bool(identity_error),
+        "threat_present": bool(
+            threat_normalized.get("tagged_primary")
+            or threat_normalized.get("tagged_secondary")
+            or str(threat_normalized.get("underlying_theme") or "").strip()
+        ),
+        "identity_present": bool(
+            identity_normalized.get("tags")
+            or str(identity_normalized.get("theme") or "").strip()
+        ),
+    }
+
+    row["metadata"] = metadata
+    return row
 
 
 def estimate_warning_assessment_cost(

@@ -12,7 +12,6 @@ def test_index_uses_local_assets_only():
     assert "id=\"collectionStreamsSummary\"" in html
     assert "id=\"refreshStreamsBtn\"" in html
     assert "id=\"rerunFailedBtn\"" in html
-    assert "id=\"insightsTabOps\"" in html
     assert "id=\"insightsTabGeo\"" in html
     assert "id=\"insightsTabSignals\"" in html
     assert "id=\"openCaseNotesTopBtn\"" in html
@@ -21,9 +20,13 @@ def test_index_uses_local_assets_only():
     assert "id=\"contextTargets\"" in html
     assert "id=\"contextRange\"" in html
     assert "id=\"postingTimezoneMap\"" in html
+    assert "id=\"openLlmSandboxBtn\"" in html
     assert "id=\"viewPatternLifeBtn\"" in html
     assert "id=\"viewTimelineBtn\"" in html
     assert "id=\"patternLifeView\"" in html
+    assert "id=\"llmSandboxView\"" in html
+    assert "id=\"llmSandboxAnalyzeBtn\"" in html
+    assert "id=\"llmSandboxResult\"" in html
     assert "id=\"patternLifeMap\"" in html
     assert "id=\"timelineView\"" in html
     assert "id=\"faceRecognitionFilterList\"" in html
@@ -44,16 +47,56 @@ def test_collection_target_platform_options_include_instagram():
     app_js = Path("frontend/static/app.js").read_text(encoding="utf-8")
 
     assert "{ value: 'instagram', label: 'Instagram' }" in app_js
+    assert "selectors: Array.isArray(payloadRaw.selectors) ? payloadRaw.selectors : []" in app_js
     assert "function renderCollectionStreams()" in app_js
     assert "function startBackgroundCollection(" in app_js
+    assert "function beginProgressNotification(" in app_js
+    assert "function updateProgressNotification(" in app_js
+    assert "function finishProgressNotification(" in app_js
     assert "function setInsightsTab(" in app_js
+    assert "function openLlmSandboxFromCaseWorkspace(" in app_js
+    assert "function runLlmSandboxAnalysis(" in app_js
+    assert "function renderIdentityIntelDetail(" in app_js
+    assert "function sandboxAnalysisStatusFromPost(" in app_js
+    assert "function renderSandboxDebugDetail(" in app_js
+    assert "fetch(`/api/cases/${encodeURIComponent(activeCaseId)}/notes.pdf`, {" in app_js
+    assert "method: 'POST'" in app_js
+    assert "body: JSON.stringify(draft || {})" in app_js
+    assert "Combined Messages" in app_js
+    assert "Request Text" in app_js
+    assert "renderLlmSandboxExamples();" in app_js
     assert "function applyMixFilters(" in app_js
     assert "function applyFaceFilters(" in app_js
     assert "function renderFaceRecognitionFilters(" in app_js
     assert "function updateFaceRecognitionStatus(" in app_js
     assert "function updateFaceConfidenceDisplays(" in app_js
+    assert "function focusFootprintSelectorMatch(" in app_js
+    assert "No visible footprint sources found for" in app_js
     assert "data-mix-filter" in app_js
     assert "data-face-filter" in app_js
     assert "data-face-confidence-inline" in app_js
     assert "data-assessment-toggle" in app_js
     assert "persistThreatAssessmentUpdate" in app_js
+    assert "showCaseWorkspace() {\n  closeCaseOpenLoadingOverlay();" in app_js
+    assert "setModalOpen(false);\n  syncModalActiveState();\n}" in app_js
+    assert "showDashboard() {\n  caseWorkspace?.classList.add('hidden');" in app_js
+    assert "syncDashboardCaseTitleFromActiveCase();\n  syncModalActiveState();\n}" in app_js
+
+
+def test_hibp_breach_summary_only_uses_breach_fields():
+    app_js = Path("frontend/static/app.js").read_text(encoding="utf-8")
+
+    assert "const nameValue = objectValue(node, ['breach', 'breach_name', 'breachname']);" in app_js
+    assert "profile?.title || profile?.name || profile?.breach" not in app_js
+    assert "if (/^(true|false|null|none|yes|no)$/i.test(normalized)) return '';" in app_js
+
+
+def test_dashboard_header_actions_stay_above_case_view_content():
+    css = Path("frontend/static/styles.css").read_text(encoding="utf-8")
+
+    assert ".case-shell-head {\n  position: relative;\n  z-index: 3;" in css
+    assert ".case-head-actions {\n  position: relative;\n  z-index: 4;" in css
+    assert ".case-head-actions button {\n  position: relative;\n  z-index: 5;\n}" in css
+    assert ".app-header {\n  position: relative;\n  z-index: 3;" in css
+    assert ".header-actions {\n  position: relative;\n  z-index: 4;" in css
+    assert ".header-actions button {\n  position: relative;\n  z-index: 5;\n}" in css

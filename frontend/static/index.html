@@ -5,10 +5,39 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>PANOPTO</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=20260218b" />
-    <link rel="stylesheet" href="/styles.css?v=20260306c" />
+    <link rel="stylesheet" href="/styles.css?v=20260315a" />
   </head>
   <body>
     <div id="notifications" class="toast-stack" aria-live="polite" aria-atomic="false"></div>
+    <section id="caseOpenLoadingOverlay" class="case-open-loading-overlay hidden" aria-live="polite" aria-atomic="true">
+      <div class="case-open-loading-backdrop"></div>
+      <div class="case-open-loading-card">
+        <div class="case-open-loading-particles" aria-hidden="true">
+          <span></span>
+          <span></span>
+          <span></span>
+          <span></span>
+          <span></span>
+          <span></span>
+          <span></span>
+          <span></span>
+          <span></span>
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+        <div class="case-open-loading-core" aria-hidden="true">
+          <div class="case-open-loading-ring case-open-loading-ring-outer"></div>
+          <div class="case-open-loading-ring case-open-loading-ring-mid"></div>
+          <div class="case-open-loading-ring case-open-loading-ring-inner"></div>
+        </div>
+        <div class="case-open-loading-copy">
+          <p class="eyebrow">LOADING CASE</p>
+          <h2 id="caseOpenLoadingTitle">Preparing case workspace</h2>
+          <p id="caseOpenLoadingMeta" class="subtle">Large case detected. Building the dashboard view.</p>
+        </div>
+      </div>
+    </section>
     <main class="app-shell">
       <section id="caseWorkspace" class="case-workspace">
         <div class="case-shell">
@@ -16,16 +45,16 @@
             <div>
               <p class="eyebrow">CASE MANAGEMENT</p>
               <h2>Persons of Interest</h2>
-              <p class="subtle">Track active cases, threat posture, and latest activity before opening analysis.</p>
             </div>
             <div class="case-head-actions">
               <div class="action-cluster">
-                <button id="openConfigBtn" class="secondary-btn" type="button">Master Settings</button>
+                <button id="openNewCaseBtn" class="primary-btn new-case-btn" type="button">New Case</button>
                 <button id="generateDemoCaseBtn" class="secondary-btn" type="button">Generate Demo Case</button>
-                <button id="openNewCaseBtn" class="primary-btn" type="button">Open New Case</button>
+                <button id="openLlmSandboxBtn" class="secondary-btn" type="button">LLM Sandbox</button>
+                <button id="openConfigBtn" class="secondary-btn" type="button">Settings</button>
               </div>
               <div class="action-cluster action-cluster-danger">
-                <button id="quitSessionCaseBtn" class="secondary-btn danger-btn" type="button">Quit</button>
+                <button id="quitSessionCaseBtn" class="secondary-btn danger-btn" type="button">Exit Session</button>
               </div>
             </div>
           </div>
@@ -202,7 +231,7 @@
       <section id="configModal" class="setup-modal hidden" aria-live="polite">
         <div class="setup-card case-save-card">
           <div class="setup-head">
-            <h2>Master Settings</h2>
+            <h2>Settings</h2>
             <button id="configCloseBtn" class="secondary-btn" type="button">Close</button>
           </div>
           <form id="configForm" class="setup-form">
@@ -260,7 +289,7 @@
       <section id="caseNotesModal" class="setup-modal hidden" aria-live="polite">
         <div class="setup-card case-notes-card">
           <div class="setup-head">
-            <h2>Case Notes</h2>
+            <h2>Reporting</h2>
             <button id="caseNotesCloseBtn" class="secondary-btn" type="button">Close</button>
           </div>
           <form id="caseNotesForm" class="setup-form case-notes-form">
@@ -297,24 +326,73 @@
                 </div>
               </aside>
             </div>
-            <label class="field">
-              <span>Context</span>
-              <textarea id="caseNotesContextInput" rows="4" placeholder="Operational context and background"></textarea>
-            </label>
-            <label class="field">
-              <span>Threat / Risk Assessment</span>
-              <textarea id="caseNotesThreatInput" rows="4" placeholder="Threat indicators, intent, capability, risk posture"></textarea>
-            </label>
-            <label class="field">
-              <span>Personal Details</span>
-              <textarea id="caseNotesPersonalInput" rows="4" placeholder="Family, employment, education, routines, known traits"></textarea>
-            </label>
-            <hr class="case-notes-divider" />
-            <div class="case-notes-profiles-head">
-              <h3>Known Profiles</h3>
-              <button id="caseNotesAddProfileBtn" class="secondary-btn" type="button">Add Profile</button>
-            </div>
-            <div id="caseNotesProfilesList" class="case-notes-profiles-list"></div>
+            <section class="case-notes-section" data-case-notes-section-panel="context">
+              <div class="case-notes-section-head">
+                <h3>Context</h3>
+                <button class="case-notes-section-close" type="button" data-case-notes-section-toggle="context" aria-label="Remove Context section from report">x</button>
+              </div>
+              <label class="field">
+                <span>Context</span>
+                <textarea id="caseNotesContextInput" rows="4" placeholder="Operational context and background"></textarea>
+              </label>
+            </section>
+            <section class="case-notes-section" data-case-notes-section-panel="threat_risk_assessment">
+              <div class="case-notes-section-head">
+                <h3>Threat / Risk Assessment</h3>
+                <button class="case-notes-section-close" type="button" data-case-notes-section-toggle="threat_risk_assessment" aria-label="Remove Threat / Risk Assessment section from report">x</button>
+              </div>
+              <label class="field">
+                <span>Threat / Risk Assessment</span>
+                <textarea id="caseNotesThreatInput" rows="4" placeholder="Threat indicators, intent, capability, risk posture"></textarea>
+              </label>
+            </section>
+            <section class="case-notes-section" data-case-notes-section-panel="personal_details">
+              <div class="case-notes-section-head">
+                <h3>Personal Details</h3>
+                <button class="case-notes-section-close" type="button" data-case-notes-section-toggle="personal_details" aria-label="Remove Personal Details section from report">x</button>
+              </div>
+              <label class="field">
+                <span>Personal Details</span>
+                <textarea id="caseNotesPersonalInput" rows="4" placeholder="Family, employment, education, routines, known traits"></textarea>
+              </label>
+            </section>
+            <section class="case-notes-section" data-case-notes-section-panel="selectors">
+              <div class="case-notes-section-head">
+                <h3>Selectors</h3>
+                <button class="case-notes-section-close" type="button" data-case-notes-section-toggle="selectors" aria-label="Remove Selectors section from report">x</button>
+              </div>
+              <div class="case-notes-selectors">
+                <label class="field">
+                  <span>Emails</span>
+                  <input id="caseNotesSelectorEmailsInput" type="text" placeholder="auto-filled, comma separated" />
+                </label>
+                <label class="field">
+                  <span>Phone Numbers</span>
+                  <input id="caseNotesSelectorPhonesInput" type="text" placeholder="auto-filled, comma separated" />
+                </label>
+                <label class="field">
+                  <span>User Names</span>
+                  <input id="caseNotesSelectorUsernamesInput" type="text" placeholder="auto-filled, comma separated" />
+                </label>
+              </div>
+            </section>
+            <section class="case-notes-section" data-case-notes-section-panel="known_profiles">
+              <div class="case-notes-section-head">
+                <h3>Major Profiles</h3>
+                <div class="case-notes-section-head-actions">
+                  <button id="caseNotesAddProfileBtn" class="secondary-btn" type="button">Add Profile</button>
+                  <button class="case-notes-section-close" type="button" data-case-notes-section-toggle="known_profiles" aria-label="Remove Major Profiles section from report">x</button>
+                </div>
+              </div>
+              <div id="caseNotesProfilesList" class="case-notes-profiles-list"></div>
+            </section>
+            <section class="case-notes-section" data-case-notes-section-panel="digital_footprint">
+              <div class="case-notes-section-head">
+                <h3>Digital Footprint</h3>
+                <button class="case-notes-section-close" type="button" data-case-notes-section-toggle="digital_footprint" aria-label="Remove Digital Footprint section from report">x</button>
+              </div>
+              <div id="caseNotesFootprintResults" class="case-notes-footprint-results"></div>
+            </section>
             <div class="setup-actions-row case-notes-actions">
               <button id="caseNotesExportPdfBtn" class="secondary-btn" type="button">Export PDF</button>
               <button id="caseNotesSaveBtn" type="submit">Save Notes</button>
@@ -323,7 +401,7 @@
           </form>
         </div>
       </section>
-      <section id="setupModal" class="setup-modal" aria-live="polite">
+      <section id="setupModal" class="setup-modal hidden" aria-live="polite">
         <div class="setup-card">
           <div class="setup-windowbar">
             <div class="setup-brand-block">
@@ -336,7 +414,6 @@
               </span>
               <div class="setup-brand-copy">
                 <p class="brand-name">PANOPTO</p>
-                <p class="window-subtitle">Command Console for Recon and Collection</p>
               </div>
             </div>
             <span class="setup-surface-pill">Local Session</span>
@@ -345,7 +422,7 @@
             <h2 id="setupTitle">Start Session</h2>
             <button id="closeSetupBtn" class="secondary-btn" type="button">Close</button>
           </div>
-          <p id="setupSubtitle" class="subtle">Choose reconnaissance or go straight to collection.</p>
+          <p id="setupSubtitle" class="subtle"></p>
 
           <div id="modeChooser" class="mode-chooser">
             <button id="modeReconBtn" class="mode-btn" type="button">
@@ -357,7 +434,7 @@
               </span>
               <span class="mode-copy">
                 <strong>Reconnaissance</strong>
-                <small>Scan for active profiles and generate leads</small>
+                <small>Discovery of active profiles and lead generation</small>
               </span>
             </button>
             <button id="modeCollectionBtn" class="mode-btn" type="button">
@@ -404,24 +481,27 @@
               <span>Collection Targets</span>
               <div id="targetsList" class="targets-list"></div>
               <div class="setup-actions-row">
+                <button id="loadCollectionReadyProfilesBtn" class="secondary-btn" type="button">Load Collection-Ready Profiles</button>
                 <button id="addTargetBtn" class="secondary-btn" type="button">Add Target</button>
                 <button id="autofillTargetsBtn" class="secondary-btn" type="button">Autofill Usernames</button>
               </div>
             </label>
 
-            <div class="date-grid">
-              <label class="field">
-                <span>Start Date</span>
-                <input id="startDateInput" type="date" required />
-              </label>
-              <label class="field">
-                <span>End Date</span>
-                <input id="endDateInput" type="date" required />
-              </label>
-            </div>
+            <div class="collection-sidebar">
+              <div class="date-grid">
+                <label class="field">
+                  <span>Start Date</span>
+                  <input id="startDateInput" type="date" required />
+                </label>
+                <label class="field">
+                  <span>End Date</span>
+                  <input id="endDateInput" type="date" required />
+                </label>
+              </div>
 
-            <button id="collectBtn" type="submit">Collect and Open</button>
-            <p id="setupStatus" class="status"></p>
+              <button id="collectBtn" type="submit">Collect and Open</button>
+              <p id="setupStatus" class="status"></p>
+            </div>
           </form>
         </div>
       </section>
@@ -431,7 +511,7 @@
           <div class="header-top">
             <div>
               <p class="eyebrow">INTEL DASHBOARD</p>
-              <h1>PANOPTO</h1>
+              <h1 id="dashboardCaseTitle">PANOPTO</h1>
             </div>
             <div class="header-actions">
               <div class="action-cluster">
@@ -439,14 +519,10 @@
                 <button id="saveQuitCaseBtn" class="secondary-btn" type="button">Save &amp; Quit Case</button>
               </div>
               <div class="action-cluster action-cluster-danger">
-                <button id="quitBtn" class="secondary-btn danger-btn" type="button">Quit</button>
+                <button id="quitBtn" class="secondary-btn danger-btn" type="button">Exit Session</button>
               </div>
             </div>
           </div>
-          <p class="subtle">
-            Browse collected social posts with boolean search. Example:
-            <code>"New York" AND ("live in" OR "moving to")</code>
-          </p>
           <div id="collectionContext" class="collection-context hidden">
             <span id="contextTargets" class="context-pill">No active targets</span>
             <span id="contextRange" class="context-pill">Date range unset</span>
@@ -454,59 +530,99 @@
         </div>
 
         <div class="dashboard-toolbar">
-          <div class="controls">
-            <div class="search-wrap">
-              <input
-                id="searchInput"
-                type="text"
-                placeholder="Search posts, usernames, platform..."
-                autocomplete="off"
-              />
-              <button id="clearSearchBtn" class="icon-btn clear-search-btn" type="button" title="Clear search" aria-label="Clear search">×</button>
-            </div>
-            <select id="sortSelect">
-              <option value="newest">Newest first</option>
-              <option value="oldest">Oldest first</option>
-            </select>
-          </div>
           <div class="actions">
-            <div class="view-toggle" role="group" aria-label="Result view">
-              <button id="viewPostsBtn" class="secondary-btn view-toggle-btn is-active" type="button" aria-pressed="true">
-                <span class="view-toggle-icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" role="img" focusable="false"><path d="M4 6.5h16"></path><path d="M4 12h16"></path><path d="M4 17.5h9"></path></svg>
-                </span>
-                <span>Post / Assessment</span>
-              </button>
-              <button id="viewMediaBtn" class="secondary-btn view-toggle-btn" type="button" aria-pressed="false">
-                <span class="view-toggle-icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" role="img" focusable="false"><rect x="4" y="5" width="16" height="14" rx="2"></rect><path d="M4 14l4.5-4.5 3.5 3 3-2.6 5 4.1"></path><circle cx="9" cy="9" r="1.2"></circle></svg>
-                </span>
-                <span>Image Grid</span>
-              </button>
-              <button id="viewFootprintBtn" class="secondary-btn view-toggle-btn" type="button" aria-pressed="false">
-                <span class="view-toggle-icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" role="img" focusable="false"><circle cx="11" cy="11" r="6.5"></circle><path d="M16.5 16.5L21 21"></path></svg>
-                </span>
-                <span>Digital Footprint</span>
-              </button>
-              <button id="viewPatternLifeBtn" class="secondary-btn view-toggle-btn" type="button" aria-pressed="false">
-                <span class="view-toggle-icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" role="img" focusable="false"><path d="M3.5 12h4"></path><path d="M8.5 12h4"></path><path d="M13.5 12h7"></path><circle cx="8.5" cy="12" r="1.8"></circle><circle cx="13.5" cy="12" r="1.8"></circle></svg>
-                </span>
-                <span>Pattern of Life</span>
-              </button>
-              <button id="viewTimelineBtn" class="secondary-btn view-toggle-btn" type="button" aria-pressed="false">
-                <span class="view-toggle-icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" role="img" focusable="false"><path d="M4 7h4"></path><path d="M10 7h10"></path><path d="M4 12h7"></path><path d="M13 12h7"></path><path d="M4 17h3"></path><path d="M9 17h11"></path><circle cx="8" cy="7" r="1.4"></circle><circle cx="12" cy="12" r="1.4"></circle><circle cx="8" cy="17" r="1.4"></circle></svg>
-                </span>
-                <span>Timeline</span>
-              </button>
-              <button id="openCaseNotesTopBtn" class="secondary-btn view-toggle-btn" type="button">
-                <span class="view-toggle-icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" role="img" focusable="false"><path d="M6 4h12v16H6z"></path><path d="M9 8h6"></path><path d="M9 12h6"></path><path d="M9 16h4"></path></svg>
-                </span>
-                <span>Case Notes</span>
-              </button>
+            <div class="view-toggle" aria-label="Workspace views">
+              <div class="view-toggle-group">
+                <span class="view-toggle-group-label">Overview</span>
+                <div class="view-toggle-group-buttons" role="group" aria-label="Overview views">
+                  <button id="viewWorkflowBtn" class="secondary-btn view-toggle-btn" type="button" aria-pressed="false">
+                    <span class="view-toggle-icon" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" role="img" focusable="false"><path d="M4 7h8"></path><path d="M4 12h16"></path><path d="M4 17h10"></path><circle cx="15.5" cy="7" r="2"></circle><circle cx="18.5" cy="17" r="2"></circle></svg>
+                    </span>
+                    <span>Overview</span>
+                  </button>
+                </div>
+              </div>
+              <div class="view-toggle-group">
+                <span class="view-toggle-group-label">Collection</span>
+                <div class="view-toggle-group-buttons" role="group" aria-label="Collection views">
+                  <button id="viewPostsBtn" class="secondary-btn view-toggle-btn is-active" type="button" aria-pressed="true">
+                    <span class="view-toggle-icon" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" role="img" focusable="false"><path d="M4 6.5h16"></path><path d="M4 12h16"></path><path d="M4 17.5h9"></path></svg>
+                    </span>
+                    <span>Posts</span>
+                  </button>
+                  <button id="viewMediaBtn" class="secondary-btn view-toggle-btn" type="button" aria-pressed="false">
+                    <span class="view-toggle-icon" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" role="img" focusable="false"><rect x="4" y="5" width="16" height="14" rx="2"></rect><path d="M4 14l4.5-4.5 3.5 3 3-2.6 5 4.1"></path><circle cx="9" cy="9" r="1.2"></circle></svg>
+                    </span>
+                    <span>Media</span>
+                  </button>
+                </div>
+              </div>
+              <div class="view-toggle-group">
+                <span class="view-toggle-group-label">Digital Footprint</span>
+                <div class="view-toggle-group-buttons" role="group" aria-label="Digital footprint views">
+                  <button id="viewFootprintBtn" class="secondary-btn view-toggle-btn" type="button" aria-pressed="false">
+                    <span class="view-toggle-icon" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" role="img" focusable="false"><circle cx="12" cy="8" r="3.2"></circle><path d="M5.5 19.5c1.7-3.6 4-5.4 6.5-5.4s4.8 1.8 6.5 5.4"></path></svg>
+                    </span>
+                    <span>Profiles</span>
+                  </button>
+                  <button id="viewPatternLifeBtn" class="secondary-btn view-toggle-btn" type="button" aria-pressed="false">
+                    <span class="view-toggle-icon" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" role="img" focusable="false"><path d="M3.5 12h4"></path><path d="M8.5 12h4"></path><path d="M13.5 12h7"></path><circle cx="8.5" cy="12" r="1.8"></circle><circle cx="13.5" cy="12" r="1.8"></circle></svg>
+                    </span>
+                    <span>Pattern of Life</span>
+                  </button>
+                  <button id="viewTimelineBtn" class="secondary-btn view-toggle-btn" type="button" aria-pressed="false">
+                    <span class="view-toggle-icon" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" role="img" focusable="false"><path d="M4 7h4"></path><path d="M10 7h10"></path><path d="M4 12h7"></path><path d="M13 12h7"></path><path d="M4 17h3"></path><path d="M9 17h11"></path><circle cx="8" cy="7" r="1.4"></circle><circle cx="12" cy="12" r="1.4"></circle><circle cx="8" cy="17" r="1.4"></circle></svg>
+                    </span>
+                    <span>Timeline</span>
+                  </button>
+                  <button id="viewEntityGraphBtn" class="secondary-btn view-toggle-btn" type="button" aria-pressed="false">
+                    <span class="view-toggle-icon" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" role="img" focusable="false"><circle cx="12" cy="12" r="2.1"></circle><circle cx="5" cy="6" r="1.6"></circle><circle cx="18.6" cy="6.6" r="1.6"></circle><circle cx="7" cy="18.3" r="1.6"></circle><circle cx="19" cy="17.7" r="1.6"></circle><path d="M10.4 10.8L6.4 7.4"></path><path d="M13.8 10.8l3.2-3"></path><path d="M10.8 13.5l-2.5 3"></path><path d="M13.3 13.6l4 3"></path></svg>
+                    </span>
+                    <span>Entity Graph</span>
+                  </button>
+                </div>
+              </div>
+              <div class="view-toggle-group view-toggle-group-notes">
+                <span class="view-toggle-group-label">Reporting</span>
+                <div class="view-toggle-group-buttons" role="group" aria-label="Case notes actions">
+                  <button id="openCaseNotesTopBtn" class="secondary-btn view-toggle-btn" type="button">
+                    <span class="view-toggle-icon" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" role="img" focusable="false"><path d="M6 4h12v16H6z"></path><path d="M9 8h6"></path><path d="M9 12h6"></path><path d="M9 16h4"></path></svg>
+                    </span>
+                    <span>Case Notes</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div id="status" class="status"></div>
+      </section>
+
+      <section class="content-grid hidden" id="dashboardContent">
+        <div id="resultsColumn" class="results-column">
+          <div id="feedControls" class="results-toolbar hidden">
+            <div class="controls">
+              <div class="search-wrap">
+                <input
+                  id="searchInput"
+                  type="text"
+                  placeholder="Search posts, usernames, platform..."
+                  autocomplete="off"
+                />
+                <button id="clearSearchBtn" class="icon-btn clear-search-btn" type="button" title="Clear search" aria-label="Clear search">×</button>
+              </div>
+              <select id="sortSelect">
+                <option value="newest">Newest first</option>
+                <option value="oldest">Oldest first</option>
+              </select>
             </div>
             <div id="filterMenu" class="filter-menu">
               <button id="filterToggleBtn" class="secondary-btn" type="button" aria-expanded="false" aria-controls="filterPanel">
@@ -563,26 +679,12 @@
               </div>
             </div>
           </div>
+          <section id="results" class="results"></section>
         </div>
-        <div id="status" class="status"></div>
-      </section>
-
-      <section class="content-grid hidden" id="dashboardContent">
-        <section id="results" class="results"></section>
 
         <aside class="insights">
           <div class="insights-tabs" role="tablist" aria-label="Insights tabs">
-            <button id="insightsTabOps" class="insights-tab is-active" type="button" role="tab" aria-selected="true" aria-controls="insightsPanelOps">
-              <span class="insights-tab-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" role="img" focusable="false" aria-hidden="true">
-                  <path d="M4 6.5h16"></path>
-                  <path d="M4 12h16"></path>
-                  <path d="M4 17.5h16"></path>
-                </svg>
-              </span>
-              <span>Collection</span>
-            </button>
-            <button id="insightsTabGeo" class="insights-tab" type="button" role="tab" aria-selected="false" aria-controls="insightsPanelGeo">
+            <button id="insightsTabGeo" class="insights-tab is-active" type="button" role="tab" aria-selected="true" aria-controls="insightsPanelGeo">
               <span class="insights-tab-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" role="img" focusable="false" aria-hidden="true">
                   <path d="M12 21s6-4.9 6-10a6 6 0 1 0-12 0c0 5.1 6 10 6 10z"></path>
@@ -601,62 +703,6 @@
               <span>Threat Assessment</span>
             </button>
           </div>
-
-          <section id="insightsPanelOps" class="insights-panel">
-            <article class="viz-card">
-              <div class="viz-head">
-                <h3>Collection Streams</h3>
-                <span id="collectionStreamsSummary" class="viz-total">Idle</span>
-              </div>
-              <div class="stream-actions">
-                <button id="newCollectionBtn" class="primary-btn stream-btn" type="button">New Collection</button>
-                <button id="refreshStreamsBtn" class="secondary-btn stream-btn" type="button">Refresh Status</button>
-                <button id="rerunFailedBtn" class="secondary-btn stream-btn" type="button">Rerun Failed</button>
-                <button id="openManualInsertBtn" class="secondary-btn stream-btn" type="button">Manual Content Insert</button>
-              </div>
-              <div id="collectionStreams" class="stream-list"></div>
-              <p id="collectionStreamsEmpty" class="viz-empty">Start a collection to monitor per-source progress.</p>
-            </article>
-
-            <article class="viz-card">
-              <div class="viz-head">
-                <h3>Post Frequency</h3>
-                <span id="timelineTotal" class="viz-total">0 posts</span>
-              </div>
-              <svg id="timelineChart" class="timeline-chart" viewBox="0 0 380 170" role="img" aria-label="Timeline of posts"></svg>
-              <p id="timelineEmpty" class="viz-empty hidden">No posts available for timeline.</p>
-            </article>
-
-            <article class="viz-card">
-              <div class="viz-head">
-                <h3>Posting Rhythm</h3>
-                <span id="postingTimezoneInference" class="viz-total">Insufficient data</span>
-              </div>
-              <p id="postingRhythmSummary" class="posting-rhythm-summary">
-                Analyze timestamps to infer active/offline windows and likely timezone.
-              </p>
-              <div id="postingTimezoneMap" class="posting-timezone-map" role="img" aria-label="Likely timezone highlighted on map"></div>
-              <div id="postingHourChart" class="posting-hour-chart" role="img" aria-label="Hourly post frequency by inferred local hour"></div>
-              <div id="postingSourceMix" class="type-mix"></div>
-              <p id="postingRhythmEmpty" class="viz-empty hidden">Not enough timestamped posts to infer rhythm yet.</p>
-            </article>
-
-            <article class="viz-card">
-              <div class="viz-head">
-                <h3>Post Mix</h3>
-              </div>
-              <div id="typeMix" class="type-mix"></div>
-            </article>
-
-            <article class="viz-card">
-              <div class="viz-head">
-                <h3>Leads</h3>
-                <span class="viz-total">Recon</span>
-              </div>
-              <div id="leadsList" class="signal-list"></div>
-              <p id="leadsEmpty" class="viz-empty">Run reconnaissance to capture unsupported profile leads.</p>
-            </article>
-          </section>
 
           <section id="insightsPanelGeo" class="insights-panel hidden">
             <article class="viz-card">
@@ -784,26 +830,18 @@
         <section id="footprintView" class="footprint-view hidden">
           <article class="viz-card footprint-card">
             <div class="viz-head">
-              <h3>Digital Footprint</h3>
-              <span class="viz-total">Recon</span>
-            </div>
-            <form id="footprintReconForm" class="setup-form">
-              <label class="field">
-                <span>Selectors</span>
-                <div id="footprintSelectorsList" class="recon-selectors-list"></div>
-                <div class="setup-actions-row recon-add-row">
-                  <button id="addFootprintSelectorBtn" class="secondary-btn" type="button" aria-label="Add selector">+</button>
+              <h3>Profiles</h3>
+              <div class="footprint-card-head-actions">
+                <div id="footprintFilterMenu" class="filter-menu hidden">
+                  <button id="footprintFilterToggleBtn" class="secondary-btn" type="button" aria-expanded="false" aria-controls="footprintFilterPanel">
+                    Filters
+                  </button>
+                  <div id="footprintFilterPanel" class="filters hidden">
+                    <p class="viz-empty">No filters available.</p>
+                  </div>
                 </div>
-              </label>
-              <div class="setup-actions-row">
-                <button id="footprintReconBtn" type="submit">Run Recon Query</button>
-                <button id="footprintUseTargetsBtn" class="secondary-btn hidden" type="button" disabled>Use Active Profiles for Collection</button>
               </div>
-              <div id="footprintReconProgress" class="recon-progress hidden" role="status" aria-live="polite" aria-atomic="true">
-                <div class="recon-progress-track"><div id="footprintReconProgressBar" class="recon-progress-bar"></div></div>
-                <p id="footprintReconProgressLabel" class="recon-progress-label">Recon modules are running...</p>
-              </div>
-            </form>
+            </div>
             <div class="footprint-recon-layout">
               <div id="footprintReconResults" class="recon-results hidden"></div>
               <aside id="footprintKnownSelectors" class="known-selectors-panel">
@@ -822,14 +860,29 @@
                 </div>
               </aside>
             </div>
-            <p id="footprintReconStatus" class="status"></p>
           </article>
         </section>
         <section id="patternLifeView" class="footprint-view hidden">
           <article class="viz-card footprint-card">
             <div class="viz-head">
-              <h3>Pattern of Life</h3>
+              <div class="pattern-life-head-title">
+                <h3>Pattern of Life</h3>
+                <span class="pattern-life-info-wrap">
+                  <button type="button" class="pattern-life-info-btn" aria-label="Pattern of Life methodology">i</button>
+                  <span class="pattern-life-info-tooltip" role="tooltip">
+                    We combine location clues from posts, NER place tags, profile bios, country codes, pin coordinates, and route traces. We weight each clue by quality and consistency, include timezone fit, and then rank the most likely locations by confidence.
+                  </span>
+                </span>
+              </div>
               <span id="patternLifeLocationMapTotal" class="viz-total">0 points</span>
+            </div>
+            <div class="hidden" aria-hidden="true">
+              <div id="postingTimezoneMap"></div>
+              <div id="postingTimezoneInference"></div>
+              <div id="postingRhythmSummary"></div>
+              <div id="postingHourChart"></div>
+              <div id="postingSourceMix"></div>
+              <div id="postingRhythmEmpty"></div>
             </div>
             <p id="patternLifeRhythmSummary" class="posting-rhythm-summary">
               Merged view of location signals (NER + profile enrichment) and posting-rhythm timezone estimate.
@@ -841,12 +894,85 @@
                 <button id="patternLifeRefreshBtn" class="secondary-btn" type="button">Refresh Estimate</button>
               </div>
             </div>
-            <div id="patternLifeTimezoneInference" class="viz-total">Insufficient data</div>
             <div id="patternLifeMap" class="location-map" role="img" aria-label="Pattern of life location map"></div>
             <p id="patternLifeMapEmpty" class="viz-empty hidden">No mapped pattern-of-life locations available yet.</p>
+            <div class="pattern-life-location-intel">
+              <div id="patternLifeTimezoneInference" class="viz-total">Insufficient data</div>
+              <div id="patternLifeLikelyLocations" class="pattern-life-likely-list"></div>
+              <p id="patternLifeLikelyLocationsEmpty" class="viz-empty hidden">Need more location signals to score likely places.</p>
+            </div>
             <div id="patternLifeHourChart" class="posting-hour-chart" role="img" aria-label="Hourly post frequency by inferred local hour"></div>
             <div id="patternLifeSourceMix" class="type-mix"></div>
             <p id="patternLifeRhythmEmpty" class="viz-empty hidden">Not enough timestamped posts to infer rhythm yet.</p>
+          </article>
+        </section>
+        <section id="llmSandboxView" class="llm-sandbox-view hidden">
+          <article class="viz-card llm-sandbox-card">
+            <div class="viz-head">
+              <h3>OpenAI Post Analysis Sandbox</h3>
+              <span class="viz-total">Isolated test surface</span>
+            </div>
+            <p class="subtle">Paste freeform text on the left, then inspect tags and theme on the right in a simulated post view.</p>
+            <div class="llm-sandbox-layout">
+              <section class="llm-sandbox-pane">
+                <div class="llm-sandbox-pane-head">
+                  <h4>Examples / Input</h4>
+                  <button id="llmSandboxClearBtn" class="secondary-btn" type="button">Clear</button>
+                </div>
+                <div id="llmSandboxExamples" class="llm-sandbox-examples"></div>
+                <label class="field">
+                  <span>Text</span>
+                  <textarea id="llmSandboxTextInput" class="llm-sandbox-textarea" placeholder="Paste post text, message text, or any freeform content..."></textarea>
+                </label>
+                <div class="llm-sandbox-meta-grid">
+                  <label class="field">
+                    <span>Username</span>
+                    <input id="llmSandboxUsernameInput" type="text" value="sandbox_analyst" />
+                  </label>
+                  <label class="field">
+                    <span>Platform</span>
+                    <input id="llmSandboxPlatformInput" type="text" value="Sandbox" />
+                  </label>
+                </div>
+                <label class="field">
+                  <span>Source URL (optional)</span>
+                  <input id="llmSandboxSourceUrlInput" type="url" placeholder="example.com/post/123" />
+                </label>
+                <div class="setup-actions-row">
+                  <button id="llmSandboxAnalyzeBtn" class="primary-btn" type="button">Analyze Text</button>
+                </div>
+                <p id="llmSandboxStatus" class="status"></p>
+              </section>
+              <section class="llm-sandbox-pane">
+                <div class="llm-sandbox-pane-head">
+                  <h4>Simulated Post View</h4>
+                </div>
+                <div id="llmSandboxResult" class="llm-sandbox-result">
+                  <div class="empty">Run a sandbox analysis to preview tags and theme.</div>
+                </div>
+              </section>
+            </div>
+          </article>
+        </section>
+        <section id="workflowView" class="footprint-view hidden">
+          <article class="viz-card footprint-card">
+            <div class="viz-head">
+              <h3>Case Overview</h3>
+              <span class="viz-total">Overview</span>
+            </div>
+            <div class="workflow-view-layout">
+              <article class="workflow-card workflow-view-card workflow-view-card-wide">
+                <div class="viz-head">
+                  <h3>Collection Overview</h3>
+                  <span id="workflowSummary" class="viz-total">Idle</span>
+                </div>
+                <div id="collectionStreams" class="workflow-queues"></div>
+                <p id="collectionStreamsEmpty" class="viz-empty hidden"></p>
+                <div id="workflowActions" class="workflow-actions"></div>
+                <div id="workflowQueues" class="workflow-queues"></div>
+                <p id="workflowEmpty" class="viz-empty">Run recon or collection to populate the overview board.</p>
+              </article>
+            </div>
           </article>
         </section>
         <section id="timelineView" class="footprint-view hidden">
@@ -861,6 +987,27 @@
             <div id="footprintTimelineEarliest" class="timeline-earliest-grid"></div>
             <div id="footprintTimelineEvents" class="timeline-events"></div>
             <p id="footprintTimelineEmpty" class="viz-empty">No OSINT timeline events yet. Run a recon query first.</p>
+          </article>
+        </section>
+        <section id="entityGraphView" class="footprint-view hidden">
+          <article class="viz-card footprint-card">
+            <div class="viz-head">
+              <h3>Entity Graph</h3>
+              <span id="footprintEntityGraphSummary" class="viz-total">No graph data</span>
+            </div>
+            <p id="footprintEntityGraphSummaryText" class="posting-rhythm-summary">
+              Run Digital Footprint recon to map queried selectors, discovered profiles, and linked entity attributes.
+            </p>
+            <div class="entity-graph-controls">
+              <label class="timeline-search entity-graph-search">
+                <span>Find entity</span>
+                <input id="footprintEntityGraphQuery" type="search" placeholder="selector, profile, email, location" autocomplete="off" />
+              </label>
+              <button id="footprintEntityGraphReset" class="secondary-btn timeline-filter-reset" type="button">Reset View</button>
+            </div>
+            <div id="footprintEntityGraphCanvas" class="entity-graph-canvas" role="img" aria-label="Entity relationship graph"></div>
+            <div id="footprintEntityGraphDetails" class="entity-graph-details"></div>
+            <p id="footprintEntityGraphEmpty" class="viz-empty">No entity graph data yet. Run a recon query first.</p>
           </article>
         </section>
       </section>
@@ -913,20 +1060,20 @@
     </section>
 
     <section id="quitOptionsModal" class="setup-modal hidden" aria-live="polite">
-      <div class="setup-card case-save-card">
+        <div class="setup-card case-save-card">
         <div class="setup-head">
-          <h2>Quit PANOPTO</h2>
+          <h2>Exit Session</h2>
           <button id="quitOptionsCancelBtn" class="secondary-btn" type="button">Cancel</button>
         </div>
-        <p class="subtle">Choose how you want to end this PANOPTO session.</p>
+        <p class="subtle">Choose how you want to end this session.</p>
         <div class="setup-actions-row">
-          <button id="quitOptionsSaveBtn" type="button">Quit and Save</button>
-          <button id="quitOptionsWipeBtn" class="secondary-btn danger-btn" type="button">Quit and Wipe</button>
-          <button id="quitOptionsQuitBtn" class="secondary-btn" type="button">Quit</button>
+          <button id="quitOptionsQuitBtn" class="secondary-btn" type="button">Exit Only</button>
+          <button id="quitOptionsSaveBtn" type="button">Exit and Save</button>
+          <button id="quitOptionsWipeBtn" class="secondary-btn danger-btn" type="button">Exit and Wipe</button>
         </div>
       </div>
     </section>
 
-    <script src="/app.js?v=20260306c"></script>
+    <script src="/app.js?v=20260315a"></script>
   </body>
 </html>
