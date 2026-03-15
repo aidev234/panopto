@@ -8,8 +8,12 @@ const caseThreatFilter = document.getElementById('caseThreatFilter');
 const caseSortSelect = document.getElementById('caseSortSelect');
 const openNewCaseBtn = document.getElementById('openNewCaseBtn');
 const openConfigBtn = document.getElementById('openConfigBtn');
+const openLlmSandboxBtn = document.getElementById('openLlmSandboxBtn');
 const generateDemoCaseBtn = document.getElementById('generateDemoCaseBtn');
 const quitSessionCaseBtn = document.getElementById('quitSessionCaseBtn');
+const caseOpenLoadingOverlay = document.getElementById('caseOpenLoadingOverlay');
+const caseOpenLoadingTitle = document.getElementById('caseOpenLoadingTitle');
+const caseOpenLoadingMeta = document.getElementById('caseOpenLoadingMeta');
 const quitOptionsModal = document.getElementById('quitOptionsModal');
 const quitOptionsQuitBtn = document.getElementById('quitOptionsQuitBtn');
 const quitOptionsWipeBtn = document.getElementById('quitOptionsWipeBtn');
@@ -85,11 +89,14 @@ const caseNotesCloseBtn = document.getElementById('caseNotesCloseBtn');
 const caseNotesCancelBtn = document.getElementById('caseNotesCancelBtn');
 const dashboardPanel = document.getElementById('dashboardPanel');
 const dashboardContent = document.getElementById('dashboardContent');
+const resultsColumn = document.getElementById('resultsColumn');
+const dashboardCaseTitle = document.getElementById('dashboardCaseTitle');
 const openCaseNotesTopBtn = document.getElementById('openCaseNotesTopBtn');
 const backToCasesBtn = document.getElementById('backToCasesBtn');
 const saveQuitCaseBtn = document.getElementById('saveQuitCaseBtn');
 const clearSearchBtn = document.getElementById('clearSearchBtn');
 const sortSelect = document.getElementById('sortSelect');
+const viewWorkflowBtn = document.getElementById('viewWorkflowBtn');
 const viewPostsBtn = document.getElementById('viewPostsBtn');
 const viewMediaBtn = document.getElementById('viewMediaBtn');
 const viewFootprintBtn = document.getElementById('viewFootprintBtn');
@@ -99,8 +106,10 @@ const viewEntityGraphBtn = document.getElementById('viewEntityGraphBtn');
 const filterMenu = document.getElementById('filterMenu');
 const statusEl = document.getElementById('status');
 const resultsEl = document.getElementById('results');
+const workflowView = document.getElementById('workflowView');
 const footprintView = document.getElementById('footprintView');
 const patternLifeView = document.getElementById('patternLifeView');
+const llmSandboxView = document.getElementById('llmSandboxView');
 const timelineView = document.getElementById('timelineView');
 const entityGraphView = document.getElementById('entityGraphView');
 const footprintReconForm = document.getElementById('footprintReconForm');
@@ -110,11 +119,21 @@ const footprintReconBtn = document.getElementById('footprintReconBtn');
 const footprintUseTargetsBtn = document.getElementById('footprintUseTargetsBtn');
 const footprintReconResults = document.getElementById('footprintReconResults');
 const footprintReconStatus = document.getElementById('footprintReconStatus');
+const footprintFilterMenu = document.getElementById('footprintFilterMenu');
+const footprintFilterToggleBtn = document.getElementById('footprintFilterToggleBtn');
+const footprintFilterPanel = document.getElementById('footprintFilterPanel');
 const footprintKnownSelectors = document.getElementById('footprintKnownSelectors');
 const footprintKnownSelectorsTotal = document.getElementById('footprintKnownSelectorsTotal');
 const footprintKnownSelectorsGroups = document.getElementById('footprintKnownSelectorsGroups');
-const footprintLikelyName = document.getElementById('footprintLikelyName');
-const footprintLikelyNameValue = document.getElementById('footprintLikelyNameValue');
+
+function focusWithoutScroll(element) {
+  if (!(element instanceof HTMLElement)) return;
+  try {
+    element.focus({ preventScroll: true });
+  } catch (_error) {
+    element.focus();
+  }
+}
 const footprintPivotProgress = document.getElementById('footprintPivotProgress');
 const footprintPivotProgressLabel = document.getElementById('footprintPivotProgressLabel');
 const footprintReconProgress = document.getElementById('footprintReconProgress');
@@ -142,6 +161,7 @@ const useReconTargetsBtn = document.getElementById('useReconTargetsBtn');
 const goReconAssessmentBtn = document.getElementById('goReconAssessmentBtn');
 const closeSetupBtn = document.getElementById('closeSetupBtn');
 const targetsList = document.getElementById('targetsList');
+const loadCollectionReadyProfilesBtn = document.getElementById('loadCollectionReadyProfilesBtn');
 const addTargetBtn = document.getElementById('addTargetBtn');
 const autofillTargetsBtn = document.getElementById('autofillTargetsBtn');
 const startDateInput = document.getElementById('startDateInput');
@@ -149,6 +169,7 @@ const endDateInput = document.getElementById('endDateInput');
 const collectBtn = document.getElementById('collectBtn');
 const newCollectionBtn = document.getElementById('newCollectionBtn');
 const quitBtn = document.getElementById('quitBtn');
+const feedControls = document.getElementById('feedControls');
 const filterToggleBtn = document.getElementById('filterToggleBtn');
 const filterPanel = document.getElementById('filterPanel');
 const filterTwitter = document.getElementById('filterTwitter');
@@ -176,12 +197,6 @@ const faceRecognitionFilterEmpty = document.getElementById('faceRecognitionFilte
 const timelineChart = document.getElementById('timelineChart');
 const timelineEmpty = document.getElementById('timelineEmpty');
 const timelineTotal = document.getElementById('timelineTotal');
-const postingTimezoneMap = document.getElementById('postingTimezoneMap');
-const postingTimezoneInference = document.getElementById('postingTimezoneInference');
-const postingRhythmSummary = document.getElementById('postingRhythmSummary');
-const postingHourChart = document.getElementById('postingHourChart');
-const postingSourceMix = document.getElementById('postingSourceMix');
-const postingRhythmEmpty = document.getElementById('postingRhythmEmpty');
 const patternLifeTimezoneInference = document.getElementById('patternLifeTimezoneInference');
 const patternLifeRhythmSummary = document.getElementById('patternLifeRhythmSummary');
 const patternLifeHourChart = document.getElementById('patternLifeHourChart');
@@ -247,6 +262,10 @@ const insightsPanelSignals = document.getElementById('insightsPanelSignals');
 const collectionStreams = document.getElementById('collectionStreams');
 const collectionStreamsSummary = document.getElementById('collectionStreamsSummary');
 const collectionStreamsEmpty = document.getElementById('collectionStreamsEmpty');
+const workflowSummary = document.getElementById('workflowSummary');
+const workflowActions = document.getElementById('workflowActions');
+const workflowQueues = document.getElementById('workflowQueues');
+const workflowEmpty = document.getElementById('workflowEmpty');
 const refreshStreamsBtn = document.getElementById('refreshStreamsBtn');
 const rerunFailedBtn = document.getElementById('rerunFailedBtn');
 const openManualInsertBtn = document.getElementById('openManualInsertBtn');
@@ -261,6 +280,15 @@ const manualInsertSaveBtn = document.getElementById('manualInsertSaveBtn');
 const manualInsertCloseBtn = document.getElementById('manualInsertCloseBtn');
 const manualInsertCancelBtn = document.getElementById('manualInsertCancelBtn');
 const manualInsertStatus = document.getElementById('manualInsertStatus');
+const llmSandboxExamples = document.getElementById('llmSandboxExamples');
+const llmSandboxTextInput = document.getElementById('llmSandboxTextInput');
+const llmSandboxUsernameInput = document.getElementById('llmSandboxUsernameInput');
+const llmSandboxPlatformInput = document.getElementById('llmSandboxPlatformInput');
+const llmSandboxSourceUrlInput = document.getElementById('llmSandboxSourceUrlInput');
+const llmSandboxAnalyzeBtn = document.getElementById('llmSandboxAnalyzeBtn');
+const llmSandboxClearBtn = document.getElementById('llmSandboxClearBtn');
+const llmSandboxStatus = document.getElementById('llmSandboxStatus');
+const llmSandboxResult = document.getElementById('llmSandboxResult');
 const postModal = document.getElementById('postModal');
 const postModalTitle = document.getElementById('postModalTitle');
 const postModalBody = document.getElementById('postModalBody');
@@ -269,10 +297,12 @@ const notificationsEl = document.getElementById('notifications');
 
 let requestTimer;
 let controller;
+let caseOpenLoadingTimer = null;
 let caseList = [];
 let activeCaseId = '';
 let activeCase = null;
 let activeCaseExplicitlySaved = false;
+let lastAutofilledCaseTitle = '';
 let editingCaseId = '';
 const caseWatchlistCadenceById = new Map();
 let caseSaveSelectedImageUrl = '';
@@ -282,6 +312,8 @@ let caseNotesKnownProfiles = [];
 let caseNotesFootprintEntries = [];
 const caseNotesExcludedSections = new Set();
 const caseNotesExcludedFootprintResultKeys = new Set();
+let caseNotesInitialDraft = '';
+let caseNotesSaveInFlight = null;
 let activeStartDate = '';
 let activeEndDate = '';
 let activeUsername = '';
@@ -290,24 +322,30 @@ let latestFetchedPosts = [];
 let latestPosts = [];
 let latestRenderedPosts = [];
 let activeResultsView = 'posts';
+let pendingResultsLandingPreference = '';
+let latestSandboxPost = null;
+let llmSandboxRequestInFlight = false;
 let reconTargets = [];
 let reconLeads = [];
 let reconProfiles = [];
 let latestReconPayload = null;
-const hiddenKnownSelectorKeys = new Set();
 const hiddenReconRowKeys = new Set();
 const hiddenOsintTileKeys = new Set();
 const hiddenPdlProfileKeys = new Set();
 const hiddenPdlContactValueKeys = new Set();
 const hiddenPdlProfileUrlKeys = new Set();
+const hiddenKnownSelectorKeys = new Set();
 let reconPersonDataProfile = {};
 let reconPersonDataProfiles = [];
 let reconOsintProfiles = [];
 let reconOsintSpecResults = [];
 let reconNumverifyProfiles = [];
 let reconSnapshotCache = null;
+let workflowLeadSaveInFlight = null;
+let activeWorkflowDragTarget = null;
+let workflowDragHappened = false;
 let modalMode = 'chooser';
-let activeInsightsTab = 'ops';
+let activeInsightsTab = 'geo';
 const activeEntityFilters = new Set();
 const activeMixFilters = new Set();
 const activeSignalFilters = new Set();
@@ -331,10 +369,9 @@ const threatAssessmentSaveInFlight = new Set();
 const collectionSourceState = new Map();
 const collectionNoticeKeys = new Set();
 const collectionIssueKeys = new Set();
+const progressNotificationState = new Map();
 let reconPreviewTooltipEl = null;
 let activeReconPreviewAnchor = null;
-let activeKnownSelectorFocusKey = '';
-let activeKnownSelectorFocusIndex = -1;
 let reconProgressStartedAt = 0;
 let reconProgressTimer = null;
 let footprintReconProgressStartedAt = 0;
@@ -344,10 +381,8 @@ let footprintPivotProgressTimer = null;
 let lastAutofilledCaseNotesName = '';
 let lastAutofilledCaseNotesLocation = '';
 const caseNotesAutoProfileKeys = new Set();
-const SELECTOR_CONFIDENCE_OVERRIDE_STORAGE_KEY = 'panopto.selectorConfidenceOverrides.v1';
-const SELECTOR_CONFIDENCE_LEVELS = ['high', 'medium', 'low'];
-const selectorConfidenceOverrides = new Map();
-const CASE_NOTES_MAJOR_PROFILE_SITE_KEYS = new Set(['facebook', 'instagram', 'tiktok']);
+const CASE_NOTES_MAJOR_PROFILE_SITE_KEYS = new Set(['facebook', 'instagram', 'tiktok', 'twitter', 'reddit', 'bluesky', 'youtube']);
+const CASE_NOTES_COLLECTION_READY_SITE_KEYS = new Set(['twitter', 'reddit', 'tiktok', 'bluesky', 'instagram', 'youtube']);
 const TARGET_PLATFORM_OPTIONS = [
   { value: 'twitter', label: 'Twitter/X' },
   { value: 'reddit', label: 'Reddit' },
@@ -368,8 +403,6 @@ const SOURCE_ORDER = ['twitter', 'reddit', 'tiktok', 'bluesky', 'instagram', 'yo
 let locationMapLibraryPromise;
 let locationMapInstance;
 let locationMapLayer;
-let postingTimezoneMapInstance;
-let postingTimezoneMapLayer;
 let latestLocationMapPoints = [];
 let patternLifeMapInstance;
 let patternLifeMapLayer;
@@ -378,6 +411,11 @@ let latestPatternLifeMapPoints = [];
 let latestPatternLifeMapRoutes = [];
 let latestPatternLifeLikelyCandidates = [];
 const activePatternLifePlatforms = new Set(SOURCE_ORDER);
+const LLM_SANDBOX_EXAMPLES = [
+  'I keep seeing the same people outside my apartment. If nobody listens this week I may have to make them listen myself.',
+  'Lost my job, sold most of my things, and drove by the office again tonight. I know exactly when security changes shifts.',
+  'Everything is falling apart and I do not care what happens to me anymore. They pushed me into a corner and there is only one way out.',
+];
 const activeTimelineSources = new Set();
 const activeTimelineActions = new Set();
 let timelineSelectorQuery = '';
@@ -391,9 +429,15 @@ let entityGraphPointerPan = null;
 const entityGraphManualPositions = new Map();
 let entityGraphNodeDrag = null;
 let activeFootprintSourceSelectorKey = 'all';
+let activeFootprintSelectorMatchKey = '';
+let activeFootprintSelectorMatchIndex = -1;
+let activeKnownSelectorFocusKey = '';
+let activeKnownSelectorFocusIndex = -1;
 let configCustomKeywordList = [];
 const DEFAULT_DATA_RETENTION_PERIOD = '3 months';
 const DATA_RETENTION_PERIOD_OPTIONS = ['24h', '1 week', '3 week', '6 weeks', '3 months', '1 year'];
+const LARGE_CASE_POST_COUNT_THRESHOLD = 250;
+const LARGE_CASE_LOADING_DELAY_MS = 260;
 let defaultDataRetentionPeriod = DEFAULT_DATA_RETENTION_PERIOD;
 const STOP_WORDS = new Set([
   'about', 'after', 'again', 'also', 'and', 'any', 'are', 'back', 'because', 'been', 'before',
@@ -471,12 +515,12 @@ const COUNTRY_CODE_TO_LOCATION_TAG = {
 };
 
 function clearHiddenReconEntities() {
-  hiddenKnownSelectorKeys.clear();
   hiddenReconRowKeys.clear();
   hiddenOsintTileKeys.clear();
   hiddenPdlProfileKeys.clear();
   hiddenPdlContactValueKeys.clear();
   hiddenPdlProfileUrlKeys.clear();
+  hiddenKnownSelectorKeys.clear();
 }
 
 function toDateInputValue(date) {
@@ -614,6 +658,644 @@ function getTargetsFromForm() {
   return targets;
 }
 
+function normalizeWorkflowSelectorCandidate(type, rawValue) {
+  const normalizedType = RECON_SELECTOR_TYPES.includes(String(type || '').trim().toLowerCase())
+    ? String(type || '').trim().toLowerCase()
+    : '';
+  if (!normalizedType) return null;
+  let value = String(rawValue || '').trim();
+  if (!value) return null;
+  if (normalizedType === 'username') value = value.replace(/^@+/, '').replace(/^u\//i, '').trim();
+  if (normalizedType === 'email') value = value.toLowerCase();
+  if (normalizedType === 'phone') value = value.replace(/[\s().-]+/g, '');
+  if (!value) return null;
+  if (normalizedType === 'email' && !isValidReconEmail(value)) return null;
+  if (normalizedType === 'phone' && !isValidReconPhone(value)) return null;
+  return {
+    type: normalizedType,
+    value,
+    key: `${normalizedType}|${value.toLowerCase()}`,
+  };
+}
+
+function collectWorkflowSelectorsFromPosts(posts = latestPosts) {
+  const rows = Array.isArray(posts) ? posts : [];
+  const output = [];
+  const seen = new Set();
+  const push = (type, value) => {
+    const candidate = normalizeWorkflowSelectorCandidate(type, value);
+    if (!candidate || seen.has(candidate.key)) return;
+    seen.add(candidate.key);
+    output.push(candidate);
+  };
+  const emailRegex = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi;
+  const phoneRegex = /\+?\d[\d\s().-]{6,}\d/g;
+  const handleRegex = /(^|[^a-z0-9_])@([a-z0-9._]{2,32})/gi;
+  for (const post of rows) {
+    push('username', post?.username);
+    const content = String(post?.content || '').trim();
+    if (!content) continue;
+    for (const match of content.matchAll(emailRegex)) push('email', match[0]);
+    for (const match of content.matchAll(phoneRegex)) push('phone', match[0]);
+    for (const match of content.matchAll(handleRegex)) push('username', match[2]);
+  }
+  return output;
+}
+
+function collectWorkflowSelectorsFromLeads(leads = reconLeads) {
+  const rows = Array.isArray(leads) ? leads : [];
+  const output = [];
+  const seen = new Set();
+  const push = (type, value) => {
+    const candidate = normalizeWorkflowSelectorCandidate(type, value);
+    if (!candidate || seen.has(candidate.key)) return;
+    seen.add(candidate.key);
+    output.push(candidate);
+  };
+  for (const lead of rows) {
+    const leadType = String(lead?.lead_type || '').trim().toLowerCase();
+    const attribute = String(lead?.attribute || '').trim().toLowerCase();
+    const value = String(lead?.value || '').trim();
+    if (!value || leadType !== 'attribute') continue;
+    if (attribute.includes('email')) push('email', value);
+    else if (attribute.includes('phone')) push('phone', value);
+    else if (attribute.includes('username') || attribute.includes('handle')) push('username', value);
+    else if (attribute.includes('name')) push('name', value);
+  }
+  return output;
+}
+
+function prefillReconSelectors(selectors, options = {}) {
+  const rows = Array.isArray(selectors) ? selectors : [];
+  const append = options?.append === true;
+  if (!(reconSelectorsList instanceof HTMLElement)) return;
+  const normalized = [];
+  const seen = new Set();
+  for (const item of rows) {
+    const candidate = normalizeWorkflowSelectorCandidate(item?.type, item?.value);
+    if (!candidate || seen.has(candidate.key)) continue;
+    seen.add(candidate.key);
+    normalized.push(candidate);
+  }
+  if (!append) reconSelectorsList.innerHTML = '';
+  for (const item of normalized) addReconSelectorRow(reconSelectorsList, item.type, item.value);
+  ensureAtLeastOneReconSelectorRow();
+}
+
+function openReconSetupWithSelectors(selectors, options = {}) {
+  if (!activeCaseId) {
+    showNotification('Open a case first.', 'warn');
+    return;
+  }
+  prefillReconSelectors(selectors, { append: options?.append === true });
+  reconStatus.textContent = String(options?.message || '').trim();
+  setModalMode('recon');
+  setModalOpen(true);
+  const firstInput = reconSelectorsList?.querySelector('.recon-selector-value');
+  focusWithoutScroll(firstInput);
+}
+
+function openCollectionSetupWithTargets(targets, options = {}) {
+  if (!activeCaseId) {
+    showNotification('Open a case first.', 'warn');
+    return;
+  }
+  const rows = Array.isArray(targets) ? targets : [];
+  setupStatus.textContent = String(options?.message || '').trim();
+  if (footprintReconStatus && options?.clearFootprintStatus !== false) {
+    footprintReconStatus.textContent = '';
+  }
+  setModalMode('collection');
+  fillTargetsFromRecon(rows);
+  updateCollectionReadyProfilesButtonState();
+  setModalOpen(true);
+  const firstInput = targetsList?.querySelector('.target-username');
+  focusWithoutScroll(firstInput);
+}
+
+function loadTargetsIntoCollection(targets, options = {}) {
+  const rows = dedupeCollectionTargets(Array.isArray(targets) ? targets : []);
+  if (!rows.length) return false;
+  openCollectionSetupWithTargets(rows, options);
+  return true;
+}
+
+function updateCollectionReadyProfilesButtonState() {
+  if (!(loadCollectionReadyProfilesBtn instanceof HTMLButtonElement)) return;
+  const notes = normalizeCaseNotesObject(activeCase?.case_notes || {});
+  const readyTargets = collectionReadyTargetsFromKnownProfiles(notes.known_profiles);
+  loadCollectionReadyProfilesBtn.disabled = readyTargets.length === 0;
+}
+
+function workflowLeadChecklistKeysFromNotes(notes = activeCase?.case_notes) {
+  const raw = normalizeCaseNotesObject(notes || {}).workflow_checked_leads;
+  if (!Array.isArray(raw)) return new Set();
+  return new Set(raw.map((item) => String(item || '').trim().toLowerCase()).filter(Boolean));
+}
+
+function collectWorkflowLeadItems(leads = reconLeads) {
+  const rows = Array.isArray(leads) ? leads : [];
+  const checkedKeys = workflowLeadChecklistKeysFromNotes();
+  const seen = new Set();
+  const output = [];
+  for (const lead of rows) {
+    const profileUrl = normalizeExternalUrl(lead?.profile_url);
+    if (!profileUrl || !isLikelyAccountProfileUrl(profileUrl)) continue;
+    const inferredPlatform = normalizePlatformName(lead?.site) || inferPlatformFromProfileUrl(profileUrl);
+    if (collectionTargetFromProfileUrl(inferredPlatform, profileUrl)) continue;
+    const key = profileUrl.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const domain = profileDomain(profileUrl);
+    const handle = extractHandleFromProfileUrl(profileUrl);
+    const siteLabel = platformDisplayName(inferredPlatform) || siteDisplayNameFromDomain(domain) || String(lead?.site || '').trim() || domain || 'Lead';
+    output.push({
+      key,
+      url: profileUrl,
+      siteLabel,
+      handle,
+      checked: checkedKeys.has(key),
+      screenshotUrl: normalizeExternalUrl(lead?.screenshot_url),
+    });
+  }
+  return output;
+}
+
+async function saveWorkflowLeadChecklist(nextKeys) {
+  if (!activeCaseId || !activeCase) return false;
+  if (workflowLeadSaveInFlight) await workflowLeadSaveInFlight;
+  const checkedLeadKeys = [...new Set((Array.isArray(nextKeys) ? nextKeys : []).map((item) => String(item || '').trim().toLowerCase()).filter(Boolean))];
+  const nextCaseNotes = {
+    ...normalizeCaseNotesObject(activeCase.case_notes || {}),
+    workflow_checked_leads: checkedLeadKeys,
+  };
+  workflowLeadSaveInFlight = (async () => {
+    try {
+      const response = await fetch(`/api/cases/${encodeURIComponent(activeCaseId)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ case_notes: nextCaseNotes }),
+      });
+      if (!response.ok) {
+        const message = await parseErrorResponse(response);
+        throw new Error(message);
+      }
+      activeCase = {
+        ...(activeCase || {}),
+        case_notes: nextCaseNotes,
+      };
+      return true;
+    } catch (error) {
+      console.error(error);
+      showNotification(`Lead checklist save failed: ${error.message || 'unknown error'}`, 'error');
+      return false;
+    } finally {
+      workflowLeadSaveInFlight = null;
+    }
+  })();
+  return workflowLeadSaveInFlight;
+}
+
+function dedupeWorkflowTargets(targets) {
+  return dedupeCollectionTargets(Array.isArray(targets) ? targets : []);
+}
+
+function resolveWorkflowCollectionDateRange() {
+  const startDate = String(activeStartDate || startDateInput?.value || '').trim();
+  const endDate = String(activeEndDate || endDateInput?.value || '').trim();
+  if (!startDate || !endDate) return null;
+  if (endDate < startDate) return null;
+  return { startDate, endDate };
+}
+
+async function moveWorkflowTargetToActiveLane(platform, username) {
+  const normalizedPlatform = normalizePlatformName(platform);
+  const normalizedUsername = adjustTargetUsernameForCollection(
+    normalizedPlatform,
+    normalizeTargetUsername(normalizedPlatform, username),
+  );
+  if (!normalizedPlatform || !normalizedUsername) return false;
+  if (activeCollectionJobId) {
+    showNotification('A collection job is already running. Wait for it to finish before dragging in another target.', 'warn');
+    return false;
+  }
+  const dateRange = resolveWorkflowCollectionDateRange();
+  if (!dateRange) {
+    showNotification('Set a valid date range before dragging a target into Active Collection.', 'warn');
+    return false;
+  }
+  const target = { platform: normalizedPlatform, username: normalizedUsername };
+  const nextTargets = dedupeWorkflowTargets([...(Array.isArray(activeTargets) ? activeTargets : []), target]);
+  const ok = await startBackgroundCollection(nextTargets, dateRange.startDate, dateRange.endDate, {
+    lockModal: false,
+    setupMessage: `Queued ${platformDisplayName(normalizedPlatform)} ${normalizedUsername} from the workflow board.`,
+    statusPrefix: 'Workflow collection',
+    showStartNotification: true,
+    appendResults: true,
+    resetStreamState: false,
+  });
+  if (!ok) return false;
+  showNotification(`Queued ${platformDisplayName(normalizedPlatform)} ${normalizedUsername}`, 'success');
+  return true;
+}
+
+function normalizeWorkflowPivotSelector(selectorType, selectorValue) {
+  const candidate = normalizeWorkflowSelectorCandidate(selectorType, selectorValue);
+  if (!candidate) return null;
+  return {
+    ...candidate,
+    pivotType: candidate.type === 'location' ? 'name' : candidate.type,
+  };
+}
+
+async function runFootprintReconWithSelectors(selectors, options = {}) {
+  const rows = (Array.isArray(selectors) ? selectors : [])
+    .map((item) => normalizeWorkflowPivotSelector(item?.type, item?.value))
+    .filter(Boolean);
+  if (!rows.length) return false;
+
+  hideReconPreview();
+  setResultsView('footprint');
+  setFootprintBusy(true);
+  toggleFootprintPivotProgress(false);
+  activeFootprintSourceSelectorKey = 'all';
+  clearHiddenReconEntities();
+  const append = options.append !== false;
+  const statusPrefix = String(options.statusPrefix || 'Workflow pivot').trim();
+  const statusLabel = String(options.statusLabel || '').trim() || `${statusPrefix} running`;
+  if (footprintReconStatus) footprintReconStatus.textContent = `${statusLabel} for ${rows.length} selector${rows.length === 1 ? '' : 's'}...`;
+  beginProgressNotification('recon-workflow', {
+    title: statusPrefix,
+    message: `Queued ${rows.length} selector${rows.length === 1 ? '' : 's'} for pivot recon.`,
+    type: 'info',
+  });
+  footprintReconResults?.classList.add('hidden');
+
+  if (footprintSelectorsList instanceof HTMLElement) {
+    const existing = parseReconSelectorsFromRows(footprintSelectorsList);
+    const existingKeys = new Set(existing.map((item) => `${item.type}|${String(item.value || '').toLowerCase()}`));
+    for (const item of rows) {
+      const key = `${item.pivotType}|${String(item.value || '').toLowerCase()}`;
+      if (existingKeys.has(key)) continue;
+      existingKeys.add(key);
+      addReconSelectorRow(footprintSelectorsList, item.pivotType, item.value);
+    }
+  }
+
+  try {
+    let aggregate = append && latestReconPayload && typeof latestReconPayload === 'object'
+      ? latestReconPayload
+      : emptyReconPayload();
+    await consumeReconStream(rows.map((item) => ({ type: item.pivotType, value: item.value })), {
+      onStart: (event) => {
+        const total = Number(event?.selectors_total) || rows.length;
+        if (footprintReconStatus) footprintReconStatus.textContent = `${statusLabel} for ${total} selector${total === 1 ? '' : 's'}...`;
+        updateProgressNotification('recon-workflow', {
+          title: statusPrefix,
+          message: `Stream opened for ${total} selector${total === 1 ? '' : 's'}.`,
+        });
+      },
+      onProgress: (event) => {
+        const idx = Number(event?.selector_index) || 1;
+        const total = Number(event?.selectors_total) || rows.length;
+        const type = String(event?.selector_type || '').trim();
+        const value = String(event?.selector_value || '').trim();
+        if (footprintReconStatus) footprintReconStatus.textContent = `${statusLabel} (${idx}/${total}): ${formatSelectorLabel(type, value)}`;
+        updateProgressNotification('recon-workflow', {
+          title: statusPrefix,
+          message: `Selector ${idx}/${total}: ${formatSelectorLabel(type, value)}`,
+        });
+      },
+      onChunk: (chunkPayload, event) => {
+        aggregate = append ? mergeReconPayloads(aggregate, chunkPayload) : mergeReconPayloads(emptyReconPayload(), chunkPayload);
+        activeFootprintSourceSelectorKey = 'all';
+        latestReconPayload = aggregate;
+        setReconSnapshotFromPayload(aggregate);
+        const idx = Number(event?.selector_index) || rows.length;
+        const total = Number(event?.selectors_total) || rows.length;
+        applyReconPayload(aggregate, { statusPrefix: `${statusPrefix} (${idx}/${total})`, footprintOnly: true, notifyModules: true });
+      },
+      onDone: () => {},
+    });
+    activeFootprintSourceSelectorKey = 'all';
+    latestReconPayload = aggregate;
+    setReconSnapshotFromPayload(aggregate);
+    applyReconPayload(aggregate, { statusPrefix, footprintOnly: true, notifyModules: true });
+    finishProgressNotification('recon-workflow', {
+      title: `${statusPrefix} Complete`,
+      message: `Processed ${rows.length} selector${rows.length === 1 ? '' : 's'}.`,
+      type: 'success',
+    });
+    if (reconTargets.length > 0) {
+      footprintUseTargetsBtn?.classList.remove('hidden');
+      if (footprintUseTargetsBtn instanceof HTMLButtonElement) footprintUseTargetsBtn.disabled = false;
+    }
+    return true;
+  } catch (error) {
+    console.error(error);
+    if (footprintReconStatus) footprintReconStatus.textContent = `${statusPrefix} failed: ${error.message || 'unknown error'}`;
+    finishProgressNotification('recon-workflow', {
+      title: `${statusPrefix} Failed`,
+      message: String(error.message || 'unknown error'),
+      type: 'error',
+    });
+    return false;
+  } finally {
+    setFootprintBusy(false);
+  }
+}
+
+function buildWorkflowModel() {
+  const queriedSelectors = Array.isArray(latestReconPayload?.selectors) ? latestReconPayload.selectors : [];
+  const queriedKeys = new Set();
+  for (const selector of queriedSelectors) {
+    const candidate = normalizeWorkflowSelectorCandidate(selector?.type, selector?.value);
+    if (candidate) queriedKeys.add(candidate.key);
+  }
+
+  const reconSuggestionsRaw = [
+    ...collectWorkflowSelectorsFromLeads(reconLeads),
+    ...collectWorkflowSelectorsFromPosts(latestPosts),
+  ];
+  const reconSuggestions = [];
+  const reconSeen = new Set();
+  for (const item of reconSuggestionsRaw) {
+    if (!item || queriedKeys.has(item.key) || reconSeen.has(item.key)) continue;
+    reconSeen.add(item.key);
+    reconSuggestions.push(item);
+  }
+
+  const activeKeys = new Set((Array.isArray(activeTargets) ? activeTargets : []).map((target) => canonicalTargetKey(target?.platform, target?.username)));
+  const collectionCandidates = [];
+  const collectionSeen = new Set();
+  for (const target of (Array.isArray(reconTargets) ? reconTargets : [])) {
+    const key = canonicalTargetKey(target?.platform, target?.username);
+    if (!key || activeKeys.has(key) || collectionSeen.has(key)) continue;
+    collectionSeen.add(key);
+    collectionCandidates.push({
+      platform: normalizePlatformName(target?.platform),
+      username: adjustTargetUsernameForCollection(normalizePlatformName(target?.platform), normalizeTargetUsername(target?.platform, target?.username)),
+    });
+  }
+
+  const failedTargets = [];
+  const failedSeen = new Set();
+  for (const target of getFailedTargetsFromStreamState()) {
+    const key = canonicalTargetKey(target?.platform, target?.username);
+    if (!key || failedSeen.has(key)) continue;
+    failedSeen.add(key);
+    failedTargets.push(target);
+  }
+
+  const streamRows = Array.from(collectionSourceState.values()).filter(Boolean);
+  const leadItems = collectWorkflowLeadItems(reconLeads);
+  const openLeadCount = leadItems.filter((item) => !item.checked).length;
+  let runningTargets = 0;
+  let completedTargets = 0;
+  let issueTargets = 0;
+  let collectedPosts = 0;
+  for (const row of streamRows) {
+    const status = String(row?.status || '').trim().toLowerCase();
+    collectedPosts += Math.max(0, Number(row?.collected || 0));
+    if (status === 'ok') completedTargets += 1;
+    else if (status === 'error' || status === 'username_not_found' || status === 'empty' || status === 'blocked') issueTargets += 1;
+    else runningTargets += 1;
+  }
+
+  return {
+    reconSuggestions,
+    unqueriedSelectorCount: reconSuggestions.length,
+    queriedSelectorCount: queriedKeys.size,
+    collectionCandidates,
+    failedTargets,
+    leadItems,
+    openLeadCount,
+    checkedLeadCount: leadItems.length - openLeadCount,
+    runningTargets,
+    completedTargets,
+    issueTargets,
+    collectedPosts,
+    totalTargetsInStreams: streamRows.length,
+    activeTargetCount: Array.isArray(activeTargets) ? activeTargets.length : 0,
+    postsAvailable: Array.isArray(latestPosts) ? latestPosts.length : 0,
+  };
+}
+
+function renderWorkflowPanel() {
+  if (!workflowSummary || !workflowActions || !workflowQueues || !workflowEmpty) return;
+  const model = buildWorkflowModel();
+  const readyCount = model.collectionCandidates.length;
+  const activeCount = model.totalTargetsInStreams;
+  const hasLeadItems = model.leadItems.length > 0;
+  const visibleActiveTargets = [];
+  const activeSeen = new Set();
+  for (const row of Array.from(collectionSourceState.values()).filter(Boolean)) {
+    const key = canonicalTargetKey(row?.platform, row?.username);
+    if (!key || activeSeen.has(key)) continue;
+    activeSeen.add(key);
+    visibleActiveTargets.push({
+      platform: normalizePlatformName(row?.platform),
+      username: normalizeTargetUsername(row?.platform, row?.username),
+      status: String(row?.status || '').trim().toLowerCase(),
+      collected: Math.max(0, Number(row?.collected || 0)),
+    });
+  }
+
+  const activeWorkItems = readyCount + activeCount;
+  const hasWorkflowContent = Boolean(activeWorkItems || hasLeadItems || model.unqueriedSelectorCount);
+  const readyLaneCards = readyCount ? `
+    <div class="workflow-kanban-list">
+      ${model.collectionCandidates.map((item) => `
+        <article
+          class="workflow-kanban-card"
+          draggable="true"
+          tabindex="0"
+          data-workflow-lane-card="ready"
+          data-workflow-target-platform="${escapeAttr(item.platform)}"
+          data-workflow-target-username="${escapeAttr(item.username)}"
+        >
+          <span class="workflow-kanban-card-platform">${escapeHtml(platformDisplayName(item.platform))}</span>
+          <span class="workflow-kanban-card-name">${escapeHtml(item.username)}</span>
+          <span class="workflow-kanban-card-meta">Drag into Active Collection to queue</span>
+        </article>
+      `).join('')}
+    </div>
+  ` : '<p class="workflow-column-note">No recon-confirmed profiles are queued yet.</p>';
+  const activeLaneCards = visibleActiveTargets.length ? `
+    <div class="workflow-kanban-list">
+      ${visibleActiveTargets.map((item) => {
+        const statusLabel = item.status === 'ok'
+          ? 'Completed'
+          : item.status === 'error' || item.status === 'username_not_found' || item.status === 'empty' || item.status === 'blocked'
+            ? 'Issue'
+            : 'Running';
+        const itemClass = statusLabel === 'Issue' ? 'workflow-kanban-card is-issue' : 'workflow-kanban-card';
+        return `
+          <article
+            class="${itemClass}"
+            draggable="true"
+            tabindex="0"
+            data-workflow-lane-card="active"
+            data-workflow-target-platform="${escapeAttr(item.platform)}"
+            data-workflow-target-username="${escapeAttr(item.username)}"
+          >
+            <span class="workflow-kanban-card-platform">${escapeHtml(platformDisplayName(item.platform))}</span>
+            <span class="workflow-kanban-card-name">${escapeHtml(item.username || 'Unknown target')}</span>
+            <span class="workflow-kanban-card-meta">${statusLabel}${item.collected ? ` • ${item.collected} post${item.collected === 1 ? '' : 's'}` : ''}</span>
+          </article>
+        `;
+      }).join('')}
+    </div>
+  ` : '<p class="workflow-column-note">No collection runs are active yet.</p>';
+  const selectorCards = model.reconSuggestions.length ? `
+    <div class="workflow-selector-list">
+      ${model.reconSuggestions.map((item) => `
+        <article class="workflow-selector-card">
+          <span class="workflow-selector-type">${escapeHtml(item.type)}</span>
+          <strong class="workflow-selector-value">${escapeHtml(item.value)}</strong>
+          <div class="workflow-selector-actions">
+            <button
+              class="secondary-btn workflow-selector-btn"
+              type="button"
+              data-workflow-action="run_selector_pivot"
+              data-workflow-selector-type="${escapeAttr(item.type)}"
+              data-workflow-selector-value="${escapeAttr(item.value)}"
+            >Run Pivot</button>
+          </div>
+        </article>
+      `).join('')}
+    </div>
+  ` : '<p class="workflow-column-note">No unqueried selectors are available right now.</p>';
+  workflowSummary.textContent = activeWorkItems ? `${activeWorkItems} targets` : (hasWorkflowContent ? 'Overview' : 'Idle');
+  workflowActions.innerHTML = `
+    <div class="workflow-overview-strip">
+      <article class="workflow-overview-stat workflow-overview-stat-collection">
+        <span class="workflow-overview-label">Profiles Awaiting Collection</span>
+        <strong class="workflow-overview-value">${readyCount}</strong>
+        <span class="workflow-overview-meta">${activeCount} active stream${activeCount === 1 ? '' : 's'}</span>
+      </article>
+      <article class="workflow-overview-stat workflow-overview-stat-selectors">
+        <span class="workflow-overview-label">Unqueried Selectors</span>
+        <strong class="workflow-overview-value">${model.unqueriedSelectorCount}</strong>
+        <span class="workflow-overview-meta">${model.queriedSelectorCount} queried</span>
+      </article>
+      <article class="workflow-overview-stat workflow-overview-stat-leads">
+        <span class="workflow-overview-label">Open Leads</span>
+        <strong class="workflow-overview-value">${model.openLeadCount}</strong>
+        <span class="workflow-overview-meta">${model.checkedLeadCount} checked</span>
+      </article>
+    </div>
+  `;
+
+  const queueSections = `
+    <section class="workflow-queue-section workflow-board-column workflow-board-column-wide">
+      <details class="workflow-leads-panel">
+        <summary class="workflow-leads-summary">
+          <span>
+            <strong>Profiles Awaiting Collection</strong>
+            <span class="workflow-leads-summary-text">Expand to queue ready profiles or inspect active collection.</span>
+          </span>
+          <span class="workflow-queue-total">${readyCount}</span>
+        </summary>
+        <div class="workflow-profile-grid">
+          <section class="workflow-queue-section workflow-board-column workflow-board-column-action workflow-kanban-lane" data-workflow-lane="ready">
+            <div class="workflow-queue-head workflow-queue-head-compact">
+              <span class="workflow-queue-total">${readyCount}</span>
+            </div>
+            ${readyLaneCards}
+            <div class="workflow-inline-actions">
+              <button class="secondary-btn workflow-action-cta workflow-action-cta-attention" type="button" data-workflow-action="collect_recon_targets">Queue Ready Targets</button>
+              ${model.unqueriedSelectorCount ? '<button class="secondary-btn workflow-action-cta" type="button" data-workflow-action="recon_suggested">Open Recon Pivot</button>' : ''}
+            </div>
+          </section>
+          <section class="workflow-queue-section workflow-board-column workflow-board-column-active workflow-board-column-action workflow-kanban-lane" data-workflow-lane="active">
+            <div class="workflow-queue-head workflow-queue-head-compact">
+              <div class="workflow-icon-actions">
+                <button id="refreshStreamsBtn" class="icon-btn workflow-icon-btn" type="button" aria-label="Refresh streams" title="Refresh streams">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v6h-6"/></svg>
+                </button>
+                <button id="rerunFailedBtn" class="icon-btn workflow-icon-btn" type="button" aria-label="Rerun failed" title="Rerun failed">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.71"/><path d="M3 3v6h6"/><path d="M12 8v4l3 2"/></svg>
+                </button>
+              </div>
+              <span class="workflow-queue-total">${activeCount}</span>
+            </div>
+            <div class="workflow-state-list">
+              <div class="workflow-state-row">
+                <span class="workflow-state-label">Running</span>
+                <strong>${model.runningTargets}</strong>
+              </div>
+              <div class="workflow-state-row">
+                <span class="workflow-state-label">Completed</span>
+                <strong>${model.completedTargets}</strong>
+              </div>
+              <div class="workflow-state-row${model.issueTargets ? ' is-issue' : ''}">
+                <span class="workflow-state-label">Issues</span>
+                <strong>${model.issueTargets}</strong>
+              </div>
+            </div>
+            ${activeLaneCards}
+            <div class="workflow-inline-actions">
+              <button class="secondary-btn workflow-action-cta workflow-action-cta-attention" type="button" data-workflow-action="review_posts">Review Posts</button>
+              <button class="secondary-btn workflow-action-cta" type="button" data-workflow-action="open_manual_insert">Manual Insert</button>
+              ${model.failedTargets.length ? '<button class="secondary-btn workflow-action-cta" type="button" data-workflow-action="collect_failed">Retry Failed</button>' : ''}
+            </div>
+          </section>
+        </div>
+      </details>
+    </section>
+    <section class="workflow-queue-section workflow-board-column workflow-board-column-selectors workflow-board-column-wide">
+      <details class="workflow-leads-panel">
+        <summary class="workflow-leads-summary">
+          <span>
+            <strong>Unqueried Selectors</strong>
+            <span class="workflow-leads-summary-text">Pivot individually or run the full selector set.</span>
+          </span>
+          <span class="workflow-queue-total">${model.unqueriedSelectorCount}</span>
+        </summary>
+        ${selectorCards}
+        <div class="workflow-inline-actions">
+          <button class="secondary-btn workflow-action-cta workflow-action-cta-attention" type="button" data-workflow-action="run_all_selector_pivots">Run All Pivots</button>
+          <button class="secondary-btn workflow-action-cta" type="button" data-workflow-action="recon_suggested">Prefill Recon Pivot</button>
+        </div>
+      </details>
+    </section>
+    <section class="workflow-queue-section workflow-board-column workflow-board-column-leads workflow-board-column-wide">
+      <details class="workflow-leads-panel">
+        <summary class="workflow-leads-summary">
+          <span>
+            <strong>Leads</strong>
+            <span class="workflow-leads-summary-text">${model.openLeadCount} open${model.checkedLeadCount ? ` • ${model.checkedLeadCount} checked` : ''}</span>
+          </span>
+          <span class="workflow-queue-total">${model.leadItems.length}</span>
+        </summary>
+        <p class="workflow-column-note">Valid profile URLs that were found but cannot be queued into supported collection.</p>
+        ${model.leadItems.length ? `
+          <div class="workflow-lead-list">
+            ${model.leadItems.map((item) => {
+              const previewAttr = item.screenshotUrl ? ` data-preview-image="${escapeAttr(item.screenshotUrl)}"` : '';
+              const previewLabelAttr = item.screenshotUrl ? ` data-preview-label="${escapeAttr(item.siteLabel)}"` : '';
+              const favicon = faviconMarkup(item.siteLabel, item.url);
+              return `
+                <div class="workflow-lead-row${item.checked ? ' is-checked' : ''}">
+                  <input type="checkbox" class="workflow-lead-check" aria-label="Mark lead reviewed" data-workflow-lead-key="${escapeAttr(item.key)}"${item.checked ? ' checked' : ''} />
+                  <span class="workflow-lead-body">
+                    <span class="workflow-lead-site">${escapeHtml(item.siteLabel)}</span>
+                    <a class="workflow-lead-link lead-link" href="${escapeAttr(item.url)}" target="_blank" rel="noopener noreferrer"${previewAttr}${previewLabelAttr}>${favicon}<span>${escapeHtml(item.url)}</span></a>
+                  </span>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        ` : '<p class="workflow-column-note">No unsupported profile URLs are waiting for manual follow-up.</p>'}
+      </details>
+    </section>
+  `;
+
+  workflowQueues.innerHTML = hasWorkflowContent ? queueSections : '';
+  workflowEmpty.classList.toggle('hidden', hasWorkflowContent);
+}
+
 const THREAT_ORDER = {
   'Low Threat': 1,
   'Moderate Threat': 2,
@@ -681,16 +1363,169 @@ function caseProfileImageUrl(row) {
 }
 
 function showCaseWorkspace() {
+  closeCaseOpenLoadingOverlay();
   caseWorkspace?.classList.remove('hidden');
   dashboardPanel?.classList.add('hidden');
   dashboardContent?.classList.add('hidden');
+  setModalMode('chooser');
   setModalOpen(false);
+  syncModalActiveState();
+}
+
+function resetDashboardSession() {
+  if (controller) {
+    controller.abort();
+    controller = null;
+  }
+  if (requestTimer) {
+    window.clearTimeout(requestTimer);
+    requestTimer = null;
+  }
+  clearCollectionPolling();
+  pendingResultsLandingPreference = '';
+  activeCaseId = '';
+  activeCase = null;
+  activeCaseExplicitlySaved = false;
+  lastAutofilledCaseTitle = '';
+  activeTargets = [];
+  activeStartDate = '';
+  activeEndDate = '';
+  activeUsername = '';
+  latestFetchedPosts = [];
+  latestPosts = [];
+  latestRenderedPosts = [];
+  latestFaceClusters = [];
+  latestFaceRecognition = { available: false, reason: 'not_run' };
+  dashboardBaseStatus = '';
+  collectionProgressStatus = '';
+  if (searchInput instanceof HTMLInputElement) searchInput.value = '';
+  collectionContext?.classList.add('hidden');
+  updateStatusLine();
+  setDashboardCaseTitle('PANOPTO');
+}
+
+function setDashboardCaseTitle(title) {
+  const value = String(title || '').trim() || 'PANOPTO';
+  if (dashboardCaseTitle instanceof HTMLElement) {
+    dashboardCaseTitle.textContent = value;
+  }
+  document.title = value === 'PANOPTO' ? 'PANOPTO' : `${value} | PANOPTO`;
+}
+
+function isPlaceholderCaseTitle(title) {
+  const value = String(title || '').trim();
+  if (!value) return true;
+  if (/^untitled case$/i.test(value)) return true;
+  if (/^panopto$/i.test(value)) return true;
+  if (/^case [A-Za-z]{3} \d{1,2}, \d{4},/i.test(value)) return true;
+  return false;
+}
+
+function syncDashboardCaseTitleFromActiveCase() {
+  setDashboardCaseTitle(String(activeCase?.case_name || '').trim() || 'PANOPTO');
+}
+
+function syncCaseNameInputs(nextName) {
+  const value = String(nextName || '').trim();
+  if (caseSaveTitleInput instanceof HTMLInputElement) caseSaveTitleInput.value = value;
+  if (caseEditTitleInput instanceof HTMLInputElement) caseEditTitleInput.value = value;
+}
+
+function updateLocalActiveCaseName(nextName, options = {}) {
+  const value = String(nextName || '').trim();
+  if (!value) return;
+  const autofilled = options?.autofilled === true;
+  if (activeCase && typeof activeCase === 'object') {
+    activeCase.case_name = value;
+  }
+  if (activeCaseId) {
+    const idx = caseList.findIndex((row) => String(row?.case_id || '').trim() === String(activeCaseId || '').trim());
+    if (idx >= 0 && caseList[idx] && typeof caseList[idx] === 'object') {
+      caseList[idx] = { ...caseList[idx], case_name: value };
+    }
+  }
+  if (autofilled) lastAutofilledCaseTitle = value;
+  else if (String(lastAutofilledCaseTitle || '').trim().toLowerCase() !== value.toLowerCase()) lastAutofilledCaseTitle = '';
+  syncCaseNameInputs(value);
+  syncDashboardCaseTitleFromActiveCase();
+  renderCases();
+}
+
+function closeCaseOpenLoadingOverlay() {
+  if (caseOpenLoadingTimer) {
+    window.clearTimeout(caseOpenLoadingTimer);
+    caseOpenLoadingTimer = null;
+  }
+  caseOpenLoadingOverlay?.classList.add('hidden');
+}
+
+function scheduleCaseOpenLoadingOverlay(caseRow) {
+  closeCaseOpenLoadingOverlay();
+  const estimatedPosts = Number(caseRow?.post_count) || 0;
+  if (estimatedPosts < LARGE_CASE_POST_COUNT_THRESHOLD) return;
+  const caseName = String(caseRow?.case_name || '').trim() || 'Preparing case workspace';
+  if (caseOpenLoadingTitle instanceof HTMLElement) {
+    caseOpenLoadingTitle.textContent = caseName;
+  }
+  if (caseOpenLoadingMeta instanceof HTMLElement) {
+    caseOpenLoadingMeta.textContent = `Loading ${estimatedPosts.toLocaleString()} collected posts and building the dashboard.`;
+  }
+  caseOpenLoadingTimer = window.setTimeout(() => {
+    caseOpenLoadingTimer = null;
+    caseOpenLoadingOverlay?.classList.remove('hidden');
+  }, LARGE_CASE_LOADING_DELAY_MS);
 }
 
 function showDashboard() {
   caseWorkspace?.classList.add('hidden');
   dashboardPanel?.classList.remove('hidden');
   dashboardContent?.classList.remove('hidden');
+  syncDashboardCaseTitleFromActiveCase();
+  syncModalActiveState();
+}
+
+function hasAnyFetchedPosts(posts = latestFetchedPosts) {
+  return Array.isArray(posts) && posts.length > 0;
+}
+
+function resolveDefaultResultsView(preference = '', posts = latestFetchedPosts) {
+  const normalized = String(preference || '').trim().toLowerCase();
+  if (normalized === 'recon') return 'footprint';
+  if (normalized === 'collection') return 'posts';
+  return hasAnyFetchedPosts(posts) ? 'posts' : 'footprint';
+}
+
+function applyPendingResultsLanding(posts = latestFetchedPosts) {
+  if (!pendingResultsLandingPreference) return;
+  const nextView = resolveDefaultResultsView(pendingResultsLandingPreference, posts);
+  pendingResultsLandingPreference = '';
+  setResultsView(nextView);
+}
+
+function openLlmSandboxFromCaseWorkspace() {
+  closeCaseOpenLoadingOverlay();
+  clearCollectionPolling();
+  activeCaseId = '';
+  activeCase = null;
+  activeCaseExplicitlySaved = false;
+  lastAutofilledCaseTitle = '';
+  activeTargets = [];
+  activeStartDate = '';
+  activeEndDate = '';
+  latestFetchedPosts = [];
+  latestPosts = [];
+  latestRenderedPosts = [];
+  latestFaceClusters = [];
+  latestFaceRecognition = { available: false, reason: 'not_run' };
+  if (searchInput instanceof HTMLInputElement) searchInput.value = '';
+  collectionContext?.classList.add('hidden');
+  dashboardBaseStatus = 'Sandbox mode. No case or live collection loaded.';
+  collectionProgressStatus = '';
+  updateStatusLine();
+  setDashboardCaseTitle('PANOPTO');
+  renderLlmSandboxResult(latestSandboxPost);
+  showDashboard();
+  setResultsView('sandbox');
 }
 
 function caseRowMarkup(row) {
@@ -798,6 +1633,7 @@ function syncActiveCaseFromList() {
     dashboardBaseStatus = `Active case: ${found.case_name}`;
     updateStatusLine();
   }
+  syncDashboardCaseTitleFromActiveCase();
 }
 
 function setCaseEditModalOpen(isOpen) {
@@ -809,22 +1645,46 @@ function setCaseEditModalOpen(isOpen) {
 function setCaseSaveModalOpen(isOpen) {
   if (!caseSaveModal) return;
   caseSaveModal.classList.toggle('hidden', !isOpen);
+  if (isOpen && caseSaveForm instanceof HTMLElement) {
+    caseSaveForm.scrollTop = 0;
+  }
   syncModalActiveState();
 }
 
-async function loadCases() {
-  try {
-    const response = await fetch('/api/cases');
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const payload = await response.json();
-    caseList = Array.isArray(payload?.cases) ? payload.cases : [];
-    syncActiveCaseFromList();
-    renderCases();
-  } catch (error) {
-    console.error(error);
-    caseList = [];
-    renderCases();
+async function loadCases(options = {}) {
+  const retries = Number(options?.retries) || 0;
+  const retryDelayMs = Number(options?.retryDelayMs) || 0;
+  const preserveExistingOnError = options?.preserveExistingOnError === true;
+  const notifyOnFailure = options?.notifyOnFailure === true;
+  for (let attempt = 0; attempt <= retries; attempt += 1) {
+    try {
+      const response = await fetch('/api/cases');
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const payload = await response.json();
+      caseList = Array.isArray(payload?.cases) ? payload.cases : [];
+      syncActiveCaseFromList();
+      renderCases();
+      return caseList;
+    } catch (error) {
+      if (attempt < retries) {
+        // Startup can briefly race the local server; retry before blanking the case list.
+        await new Promise((resolve) => {
+          window.setTimeout(resolve, retryDelayMs);
+        });
+        continue;
+      }
+      console.error(error);
+      if (!preserveExistingOnError) {
+        caseList = [];
+        renderCases();
+      }
+      if (notifyOnFailure) {
+        showNotification(`Case list failed to load: ${error.message || 'unknown error'}`, 'error');
+      }
+      return caseList;
+    }
   }
+  return caseList;
 }
 
 async function deleteCaseAndContents(caseId) {
@@ -833,21 +1693,6 @@ async function deleteCaseAndContents(caseId) {
   const ok = window.confirm('Delete this case and all collected posts?');
   if (!ok) return;
   try {
-    const archiveSelectors = window.confirm('Would you like to save selectors to your internal Known Entities Database?');
-    if (archiveSelectors) {
-      const archiveResponse = await fetch('/api/known-entities/archive-case', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ case_id: id }),
-      });
-      if (!archiveResponse.ok) {
-        const archiveError = await parseErrorResponse(archiveResponse);
-        const continueDelete = window.confirm(
-          `Could not save selectors to Known Entities Database (${archiveError}). Continue deleting this case anyway?`,
-        );
-        if (!continueDelete) return;
-      }
-    }
     const response = await fetch(`/api/cases/${encodeURIComponent(id)}`, { method: 'DELETE' });
     if (!response.ok) {
       const message = await parseErrorResponse(response);
@@ -864,7 +1709,7 @@ async function deleteCaseAndContents(caseId) {
       showCaseWorkspace();
     }
     await loadCases();
-    showNotification(archiveSelectors ? 'Case deleted (selectors archived)' : 'Case deleted', 'success');
+    showNotification('Case deleted', 'success');
   } catch (error) {
     console.error(error);
     showNotification(`Delete failed: ${error.message || 'unknown error'}`, 'error');
@@ -989,7 +1834,7 @@ async function submitCaseEdit(event) {
   const nextLocation = String(caseEditLocationSelect?.value || 'Unknown').trim() || 'Unknown';
   if (nextStatus === 'Watchlist' && !nextCadence) {
     showNotification('Monitoring refresh cadence is required for Watchlist.', 'warn');
-    caseEditCadenceSelect?.focus();
+    focusWithoutScroll(caseEditCadenceSelect);
     return;
   }
   if (caseEditSaveBtn) caseEditSaveBtn.disabled = true;
@@ -1011,6 +1856,7 @@ async function submitCaseEdit(event) {
     }
     storeWatchlistCadence(id, nextStatus, nextCadence);
     await loadCases();
+    updateLocalActiveCaseName(nextName);
     closeCaseEditModal();
     if (nextStatus === 'Watchlist') {
       showNotification(`Case details updated (cadence: ${nextCadence})`, 'success');
@@ -1029,10 +1875,12 @@ async function openCase(caseId) {
   const id = String(caseId || '').trim();
   if (!id) return;
   const found = caseList.find((row) => String(row?.case_id || '') === id) || null;
+  scheduleCaseOpenLoadingOverlay(found);
   clearCollectionPolling();
   activeCaseId = id;
   activeCase = found;
   activeCaseExplicitlySaved = true;
+  lastAutofilledCaseTitle = '';
   activeTargets = [];
   activeStartDate = '';
   activeEndDate = '';
@@ -1043,14 +1891,21 @@ async function openCase(caseId) {
   activeFaceFilters.clear();
   latestFaceClusters = [];
   latestFaceRecognition = { available: false, reason: 'not_run' };
+  pendingResultsLandingPreference = 'auto';
   renderFaceRecognitionFilters();
   updateFilterToggleLabel();
   renderCollectionContext();
   dashboardBaseStatus = found ? `Active case: ${found.case_name}` : '';
   updateStatusLine();
+  syncDashboardCaseTitleFromActiveCase();
   seedReconFromCaseNotes(found);
+  setResultsView(Number(found?.post_count || 0) > 0 ? 'posts' : 'footprint');
   showDashboard();
-  await refreshPosts();
+  try {
+    await refreshPosts();
+  } finally {
+    closeCaseOpenLoadingOverlay();
+  }
 }
 
 function uniqueProfileImageUrls(posts) {
@@ -1166,9 +2021,34 @@ function normalizeCaseNotesReportPreferences(raw) {
     ? prefs.excluded_footprint_result_keys.map((item) => String(item || '').trim().toLowerCase()).filter(Boolean)
     : [];
   return {
-    excluded_sections: [...new Set(excludedSections)],
+    excluded_sections: [...new Set(excludedSections.filter((item) => !item.startsWith('digital_footprint_')))],
     excluded_footprint_result_keys: [...new Set(excludedFootprintResultKeys)],
   };
+}
+
+function caseNotesFootprintSourcePriority(source) {
+  const clean = String(source || '').trim().toLowerCase();
+  if (clean === 'osint industries') return 0;
+  if (clean === 'people data labs') return 1;
+  if (clean.startsWith('recon (osint_industries')) return 2;
+  if (clean.startsWith('recon (pdl')) return 3;
+  if (clean === 'numverify') return 4;
+  if (clean.startsWith('recon (')) return 5;
+  return 6;
+}
+
+function sortCaseNotesFootprintEntries(entries) {
+  return [...(Array.isArray(entries) ? entries : [])].sort((left, right) => {
+    const sourceDelta = caseNotesFootprintSourcePriority(left?.source) - caseNotesFootprintSourcePriority(right?.source);
+    if (sourceDelta !== 0) return sourceDelta;
+    const leftSite = String(left?.siteLabel || left?.source || '').trim().toLowerCase();
+    const rightSite = String(right?.siteLabel || right?.source || '').trim().toLowerCase();
+    if (leftSite !== rightSite) return leftSite.localeCompare(rightSite);
+    const leftSelector = String(left?.selectorValue || '').trim().toLowerCase();
+    const rightSelector = String(right?.selectorValue || '').trim().toLowerCase();
+    if (leftSelector !== rightSelector) return leftSelector.localeCompare(rightSelector);
+    return String(left?.profileUrl || '').trim().toLowerCase().localeCompare(String(right?.profileUrl || '').trim().toLowerCase());
+  });
 }
 
 function caseNotesFootprintResultKey(source, selectorType, selectorValue, summary) {
@@ -1231,16 +2111,10 @@ function inferSelectorValuesFromCaseNotes(notes) {
     if (exactKey && seenPhones.has(exactKey)) return;
     pushUnique(phones, seenPhones, `${clean} (phone hint)`, (v) => v.replace(/\s*\(phone hint\)$/i, '').replace(/[^\d+]/g, ''));
   };
-  const isMediumOrHighConfidenceSelector = (selectorType) => {
-    const confidence = selectorConfidenceLevel(selectorType);
-    return confidence === 'high' || confidence === 'medium';
-  };
-
   const ingest = (type, value) => {
     const selectorType = String(type || '').trim().toLowerCase();
     const selectorValue = String(value || '').trim();
     if (!selectorType || !selectorValue) return;
-    if (!isMediumOrHighConfidenceSelector(selectorType)) return;
     if (selectorType === 'email') {
       pushEmail(selectorValue);
       return;
@@ -1264,7 +2138,6 @@ function inferSelectorValuesFromCaseNotes(notes) {
   }
   for (const row of (Array.isArray(payload?.osint_profiles) ? payload.osint_profiles : [])) {
     if (!row || typeof row !== 'object') continue;
-    if (!isMediumOrHighConfidenceSelector(row.query_type)) continue;
     ingest(row.query_type, row.query_value);
     pushUsername(row.username);
     pushEmail(row.email);
@@ -1274,7 +2147,6 @@ function inferSelectorValuesFromCaseNotes(notes) {
   }
   for (const row of (Array.isArray(payload?.person_data_profiles) ? payload.person_data_profiles : [])) {
     if (!row || typeof row !== 'object') continue;
-    if (!isMediumOrHighConfidenceSelector(row.query_type)) continue;
     ingest(row.query_type, row.query_value);
     pushEmail(row.professional_email || row.work_email || row.email);
     for (const item of (Array.isArray(row.personal_emails) ? row.personal_emails : [])) pushEmail(item);
@@ -1284,7 +2156,6 @@ function inferSelectorValuesFromCaseNotes(notes) {
   }
   for (const row of (Array.isArray(payload?.numverify_profiles) ? payload.numverify_profiles : [])) {
     if (!row || typeof row !== 'object') continue;
-    if (!isMediumOrHighConfidenceSelector(row.query_type || 'phone')) continue;
     ingest(row.query_type, row.query_value);
     pushPhone(row.number || row.international_format || row.e164 || row.local_format);
   }
@@ -1294,11 +2165,11 @@ function inferSelectorValuesFromCaseNotes(notes) {
     const value = String(row.value || '').trim();
     if (!value) continue;
     if (attr.includes('email')) {
-      if (isMediumOrHighConfidenceSelector('email')) pushEmail(value);
+      pushEmail(value);
     } else if (attr.includes('phone')) {
-      if (isMediumOrHighConfidenceSelector('phone')) pushPhone(value);
+      pushPhone(value);
     } else if (attr.includes('name')) {
-      if (isMediumOrHighConfidenceSelector('name')) pushUsername(value);
+      pushUsername(value);
     }
   }
 
@@ -1312,6 +2183,8 @@ function inferSelectorValuesFromCaseNotes(notes) {
 function buildCaseNotesFootprintEntries(notes) {
   const snapshot = normalizeReconSnapshot(notes?.recon_snapshot);
   const payload = snapshot?.payload || {};
+  const prefs = normalizeCaseNotesReportPreferences(notes?.report_preferences);
+  const excludedFootprintResultKeys = new Set(prefs.excluded_footprint_result_keys);
   const entries = [];
   const addEntry = ({
     source,
@@ -1343,9 +2216,11 @@ function buildCaseNotesFootprintEntries(notes) {
       cleanSelectorValue,
       [cleanSiteLabel, cleanProfileUrl, cleanImageUrl, cleanSummary].filter(Boolean).join(' | '),
     );
-    const confidence = selectorConfidenceLevel(cleanSelectorType);
+    const legacyKey = caseNotesFootprintResultKey(cleanSource, cleanSelectorType, cleanSelectorValue, cleanSummary);
+    if (excludedFootprintResultKeys.has(key) || excludedFootprintResultKeys.has(legacyKey)) return;
     entries.push({
       key,
+      legacyKey,
       source: cleanSource,
       selectorType: cleanSelectorType,
       selectorValue: cleanSelectorValue,
@@ -1354,7 +2229,6 @@ function buildCaseNotesFootprintEntries(notes) {
       imageUrl: cleanImageUrl,
       metadata: metadataRows,
       summary: cleanSummary,
-      confidence,
     });
   };
 
@@ -1457,18 +2331,13 @@ function buildCaseNotesFootprintEntries(notes) {
     });
   }
 
-  return entries;
+  return sortCaseNotesFootprintEntries(entries);
 }
 
 function setCaseNotesSectionExcluded(sectionKey, excluded) {
   const key = String(sectionKey || '').trim().toLowerCase();
   if (!key) return;
-  if (key === 'digital_footprint') {
-    for (const level of ['digital_footprint_high', 'digital_footprint_medium', 'digital_footprint_low']) {
-      if (excluded) caseNotesExcludedSections.add(level);
-      else caseNotesExcludedSections.delete(level);
-    }
-  } else if (excluded) {
+  if (excluded) {
     caseNotesExcludedSections.add(key);
   } else {
     caseNotesExcludedSections.delete(key);
@@ -1481,13 +2350,7 @@ function renderCaseNotesSectionVisibility() {
     if (!(panel instanceof HTMLElement)) continue;
     const key = String(panel.getAttribute('data-case-notes-section-panel') || '').trim().toLowerCase();
     if (!key) continue;
-    const excluded = key === 'digital_footprint'
-      ? (
-        caseNotesExcludedSections.has('digital_footprint_high')
-        && caseNotesExcludedSections.has('digital_footprint_medium')
-        && caseNotesExcludedSections.has('digital_footprint_low')
-      )
-      : caseNotesExcludedSections.has(key);
+    const excluded = caseNotesExcludedSections.has(key);
     panel.classList.toggle('is-excluded', excluded);
     const button = panel.querySelector('[data-case-notes-section-toggle]');
     if (button instanceof HTMLButtonElement) {
@@ -1511,21 +2374,15 @@ function caseNotesMajorProfiles(profiles) {
 
 function renderCaseNotesFootprintResults() {
   if (!(caseNotesFootprintResults instanceof HTMLElement)) return;
-  if (!caseNotesFootprintEntries.length) {
+  const visibleEntries = caseNotesFootprintEntries.filter((entry) => !isCaseNotesFootprintEntryExcluded(entry));
+  if (!visibleEntries.length) {
     caseNotesFootprintResults.innerHTML = '<p class="case-notes-footprint-empty">No digital footprint results are currently attached to case notes.</p>';
     return;
   }
-  const groups = { high: [], medium: [], low: [] };
-  for (const entry of caseNotesFootprintEntries) {
-    const level = entry.confidence === 'high' ? 'high' : entry.confidence === 'medium' ? 'medium' : 'low';
-    groups[level].push(entry);
-  }
-  caseNotesFootprintResults.innerHTML = ['high', 'medium', 'low'].map((level) => {
-    const items = groups[level];
-    const title = `${level.charAt(0).toUpperCase()}${level.slice(1)} Confidence`;
-    const body = items.length
-      ? items.map((entry) => {
-        const excluded = caseNotesExcludedFootprintResultKeys.has(entry.key);
+  caseNotesFootprintResults.innerHTML = `
+    <section class="case-notes-footprint-group">
+      <h4>Digital Footprint Results <span>${visibleEntries.length}</span></h4>
+      <div class="case-notes-footprint-group-items">${visibleEntries.map((entry) => {
         const selectorType = String(entry.selectorType || '').trim().toLowerCase() || 'default';
         const selectorValue = String(entry.selectorValue || '').trim();
         const profileUrl = String(entry.profileUrl || '').trim();
@@ -1545,12 +2402,12 @@ function renderCaseNotesFootprintResults() {
           `
           : '<p class="case-notes-footprint-summary">No associated metadata captured.</p>';
         return `
-          <article class="case-notes-footprint-item${excluded ? ' is-excluded' : ''}">
+          <article class="case-notes-footprint-item">
             <div class="case-notes-footprint-item-head">
               <div class="case-notes-footprint-item-meta">
                 <span class="case-notes-footprint-source">${escapeHtml(entry.source)}</span>
               </div>
-              <button class="secondary-btn case-notes-footprint-toggle" type="button" data-case-notes-footprint-key="${escapeAttr(entry.key)}">${excluded ? 'Restore' : 'Remove'}</button>
+              <button class="secondary-btn case-notes-footprint-toggle" type="button" data-case-notes-footprint-key="${escapeAttr(entry.key)}">Remove</button>
             </div>
             <div class="case-notes-footprint-evidence">
               <div class="case-notes-footprint-media">
@@ -1564,7 +2421,6 @@ function renderCaseNotesFootprintResults() {
                     ${faviconMarkup(siteLabel, profileUrl || siteLabel)}
                     <span class="case-notes-footprint-site-name">${escapeHtml(siteLabel)}</span>
                   </div>
-                  ${selectorConfidenceBadgeMarkup(selectorType, selectorValue, { compact: true, scopeId: `case_notes|${entry.key}` })}
                 </div>
                 ${profileUrl ? `<div class="case-notes-footprint-url"><a href="${escapeAttr(profileUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(profileUrl)}</a></div>` : '<div class="case-notes-footprint-url case-notes-footprint-url-empty">No profile URL captured</div>'}
                 <div class="case-notes-footprint-selector case-notes-footprint-selector-${escapeAttr(selectorTypeColorToken(selectorType))}">
@@ -1576,15 +2432,10 @@ function renderCaseNotesFootprintResults() {
             </div>
           </article>
         `;
-      }).join('')
-      : '<p class="case-notes-footprint-empty">No results.</p>';
-    return `
-      <section class="case-notes-footprint-group case-notes-footprint-group-${escapeAttr(level)}">
-        <h4>${escapeHtml(title)} <span>${items.length}</span></h4>
-        <div class="case-notes-footprint-group-items">${body}</div>
-      </section>
-    `;
-  }).join('');
+      }).join('')}
+      </div>
+    </section>
+  `;
 }
 
 function normalizeKnownProfiles(rawProfiles) {
@@ -1597,6 +2448,7 @@ function normalizeKnownProfiles(rawProfiles) {
       url: String(item.url || '').trim(),
       image_url: normalizeProfileImageUrl(item.image_url),
       screenshot_url: String(item.screenshot_url || '').trim(),
+      collection_ready: item.collection_ready === true,
     });
   }
   return output;
@@ -1629,6 +2481,55 @@ function _collectionTargetFromKnownProfile(profile, siteKey) {
     platform: siteKey,
     username: adjustTargetUsernameForCollection(siteKey, handle),
   };
+}
+
+function collectionReadyTargetsFromKnownProfiles(profiles) {
+  const targetMap = new Map();
+  for (const profile of normalizeKnownProfiles(profiles)) {
+    if (profile.collection_ready !== true) continue;
+    const siteKey = _siteKeyFromKnownProfile(profile);
+    if (!CASE_NOTES_COLLECTION_READY_SITE_KEYS.has(siteKey)) continue;
+    const target = _collectionTargetFromKnownProfile(profile, siteKey);
+    if (!target) continue;
+    const key = canonicalTargetKey(target.platform, target.username);
+    if (!key || targetMap.has(key)) continue;
+    targetMap.set(key, {
+      platform: normalizePlatformName(target.platform),
+      username: adjustTargetUsernameForCollection(target.platform, target.username),
+    });
+  }
+  return Array.from(targetMap.values());
+}
+
+function collectionTargetFromProfileUrl(platformOrSite, profileUrl) {
+  const siteKey = normalizePlatformName(platformOrSite) || inferPlatformFromProfileUrl(profileUrl);
+  if (!CASE_NOTES_COLLECTION_READY_SITE_KEYS.has(siteKey)) return null;
+  const target = _collectionTargetFromKnownProfile({ url: profileUrl }, siteKey);
+  if (!target) return null;
+  return {
+    platform: normalizePlatformName(target.platform),
+    username: adjustTargetUsernameForCollection(target.platform, target.username),
+  };
+}
+
+function dedupeCollectionTargets(targets) {
+  const targetMap = new Map();
+  for (const item of Array.isArray(targets) ? targets : []) {
+    const platform = normalizePlatformName(item?.platform);
+    const username = adjustTargetUsernameForCollection(platform, normalizeTargetUsername(platform, item?.username));
+    const key = canonicalTargetKey(platform, username);
+    if (!platform || !username || !key || targetMap.has(key)) continue;
+    targetMap.set(key, { platform, username });
+  }
+  return Array.from(targetMap.values());
+}
+
+function collectionTargetsFromProfileRows(rows) {
+  return dedupeCollectionTargets(
+    (Array.isArray(rows) ? rows : [])
+      .map((row) => collectionTargetFromProfileUrl(row?.site, row?.profile_url))
+      .filter(Boolean),
+  );
 }
 
 function seedReconFromCaseNotes(caseRow) {
@@ -1895,6 +2796,7 @@ function mergeDiscoveredKnownProfiles(baseProfiles, discoveredProfiles) {
       url: String(item.url || current.url || '').trim(),
       image_url: normalizeProfileImageUrl(item.image_url) || normalizeProfileImageUrl(current.image_url),
       screenshot_url: String(item.screenshot_url || current.screenshot_url || '').trim(),
+      collection_ready: item.collection_ready === true || current.collection_ready === true,
     });
   }
   return Array.from(merged.values());
@@ -1969,6 +2871,8 @@ function caseNotesProfileCardMarkup(profile, index) {
   const url = String(safe.url || '').trim();
   const imageUrl = normalizeProfileImageUrl(safe.image_url) || USER_PLACEHOLDER_AVATAR_URL;
   const screenshotUrl = String(safe.screenshot_url || '').trim();
+  const collectionReady = safe.collection_ready === true;
+  const collectionReadySupported = CASE_NOTES_COLLECTION_READY_SITE_KEYS.has(site);
   const imageOptions = [USER_PLACEHOLDER_AVATAR_URL, ...caseNotesImageChoices.filter((item) => item !== USER_PLACEHOLDER_AVATAR_URL)];
   return `
     <article class="case-notes-profile-card" data-profile-index="${index}" data-screenshot-url="${escapeAttr(screenshotUrl)}">
@@ -1980,9 +2884,13 @@ function caseNotesProfileCardMarkup(profile, index) {
               <span>Platform</span>
               <select class="case-notes-profile-site">
                 <option value="">Select platform</option>
+                <option value="twitter"${site === 'twitter' ? ' selected' : ''}>Twitter/X</option>
+                <option value="reddit"${site === 'reddit' ? ' selected' : ''}>Reddit</option>
+                <option value="bluesky"${site === 'bluesky' ? ' selected' : ''}>Bluesky</option>
                 <option value="facebook"${site === 'facebook' ? ' selected' : ''}>Facebook</option>
                 <option value="instagram"${site === 'instagram' ? ' selected' : ''}>Instagram</option>
                 <option value="tiktok"${site === 'tiktok' ? ' selected' : ''}>TikTok</option>
+                <option value="youtube"${site === 'youtube' ? ' selected' : ''}>YouTube</option>
               </select>
             </label>
             <label class="field">
@@ -2002,6 +2910,10 @@ function caseNotesProfileCardMarkup(profile, index) {
             <span>URL</span>
             <input class="case-notes-profile-url" type="text" value="${escapeAttr(url)}" placeholder="https://..." />
           </label>
+          <label class="case-notes-profile-collection-toggle">
+            <input class="case-notes-profile-collection-ready" type="checkbox"${collectionReady ? ' checked' : ''}${collectionReadySupported ? '' : ' disabled'} />
+            <span>${collectionReadySupported ? 'Collection-ready' : 'Collection unavailable for this platform'}</span>
+          </label>
         </div>
       </div>
       <div class="case-notes-profile-shot">
@@ -2020,7 +2932,7 @@ function renderCaseNotesProfiles() {
   if (!caseNotesProfilesList) return;
   caseNotesKnownProfiles = caseNotesMajorProfiles(caseNotesKnownProfiles);
   if (!caseNotesKnownProfiles.length) {
-    caseNotesProfilesList.innerHTML = '<div class="empty">No major profiles yet. Add Facebook, Instagram, or TikTok profiles, or run recon.</div>';
+    caseNotesProfilesList.innerHTML = '<div class="empty">No major profiles yet. Add supported social profiles here, flag the collection-ready ones, or run recon.</div>';
     return;
   }
   caseNotesProfilesList.innerHTML = caseNotesKnownProfiles.map((profile, index) => caseNotesProfileCardMarkup(profile, index)).join('');
@@ -2029,14 +2941,98 @@ function renderCaseNotesProfiles() {
 function setCaseNotesModalOpen(isOpen) {
   if (!caseNotesModal) return;
   caseNotesModal.classList.toggle('hidden', !isOpen);
+  if (isOpen && caseNotesForm instanceof HTMLElement) {
+    caseNotesForm.scrollTop = 0;
+  }
   syncModalActiveState();
 }
 
-function closeCaseNotesModal() {
+function finalizeCaseNotesClose() {
   setCaseNotesModalOpen(false);
   if (activeInsightsTab === 'notes') {
-    setInsightsTab('ops');
+    setInsightsTab('geo');
   }
+}
+
+function captureCaseNotesDraft() {
+  if (!activeCaseId || !activeCase) return null;
+  syncKnownProfilesFromForm();
+  const name = String(caseNotesNameInput?.value || '').trim() || String(activeCase?.case_name || 'Untitled Case');
+  const location = String(caseNotesLocationInput?.value || '').trim();
+  const age = String(caseNotesAgeInput?.value || '').trim();
+  const akas = String(caseNotesAkasInput?.value || '').trim();
+  const context = String(caseNotesContextInput?.value || '').trim();
+  const threatRisk = String(caseNotesThreatInput?.value || '').trim();
+  const personal = String(caseNotesPersonalInput?.value || '').trim();
+  const selectorEmails = joinCommaSeparatedValues(splitCommaSeparatedValues(caseNotesSelectorEmailsInput?.value));
+  const selectorPhones = joinCommaSeparatedValues(splitCommaSeparatedValues(caseNotesSelectorPhonesInput?.value));
+  const selectorUsernames = joinCommaSeparatedValues(splitCommaSeparatedValues(caseNotesSelectorUsernamesInput?.value));
+  const subjectImage = String(caseNotesSubjectImageSelect?.value || '').trim();
+  const normalizedSubjectImage = subjectImage === USER_PLACEHOLDER_AVATAR_URL ? '' : normalizeProfileImageUrl(subjectImage);
+  const sanitizedProfiles = caseNotesMajorProfiles(caseNotesKnownProfiles)
+    .map((profile) => {
+      const site = String(profile.site || '').trim();
+      const url = String(profile.url || '').trim();
+      const normalizedProfile = { site, url };
+      return {
+        site,
+        url,
+        image_url: normalizeProfileImageUrl(profile.image_url),
+        screenshot_url: String(profile.screenshot_url || '').trim(),
+        collection_ready: CASE_NOTES_COLLECTION_READY_SITE_KEYS.has(_siteKeyFromKnownProfile(normalizedProfile)) && profile.collection_ready === true,
+      };
+    })
+    .filter((profile) => profile.site || profile.url || profile.image_url || profile.screenshot_url);
+  const snapshotPayload = filteredReconPayload(reconSnapshotCache?.payload || activeCase?.case_notes?.recon_snapshot?.payload || {});
+  return {
+    case_name: name,
+    known_location: location,
+    poi_image_url: normalizedSubjectImage,
+    case_notes: {
+      ...normalizeCaseNotesObject(activeCase?.case_notes || {}),
+      name,
+      location,
+      age,
+      akas,
+      subject_image_url: normalizedSubjectImage,
+      context,
+      threat_risk_assessment: threatRisk,
+      personal_details: personal,
+      selector_emails: selectorEmails,
+      selector_phone_numbers: selectorPhones,
+      selector_usernames: selectorUsernames,
+      known_profiles: sanitizedProfiles,
+      report_preferences: {
+        excluded_sections: Array.from(caseNotesExcludedSections.values()),
+        excluded_footprint_result_keys: Array.from(caseNotesExcludedFootprintResultKeys.values()),
+      },
+      recon_snapshot: {
+        ...(normalizeReconSnapshot(activeCase?.case_notes?.recon_snapshot) || {}),
+        payload: snapshotPayload,
+      },
+    },
+  };
+}
+
+function serializeCaseNotesDraft(draft) {
+  try {
+    return JSON.stringify(draft || {});
+  } catch (_error) {
+    return '';
+  }
+}
+
+function caseNotesHasUnsavedChanges() {
+  const draft = captureCaseNotesDraft();
+  if (!draft) return false;
+  return serializeCaseNotesDraft(draft) !== caseNotesInitialDraft;
+}
+
+function isCaseNotesFootprintEntryExcluded(entry) {
+  const key = String(entry?.key || '').trim().toLowerCase();
+  const legacyKey = String(entry?.legacyKey || '').trim().toLowerCase();
+  return (key && caseNotesExcludedFootprintResultKeys.has(key))
+    || (legacyKey && caseNotesExcludedFootprintResultKeys.has(legacyKey));
 }
 
 function syncKnownProfilesFromForm() {
@@ -2046,13 +3042,20 @@ function syncKnownProfilesFromForm() {
     const site = row.querySelector('.case-notes-profile-site');
     const url = row.querySelector('.case-notes-profile-url');
     const imageSelect = row.querySelector('.case-notes-profile-image-select');
+    const collectionReady = row.querySelector('.case-notes-profile-collection-ready');
     const selectedImage = imageSelect instanceof HTMLSelectElement ? String(imageSelect.value || '').trim() : '';
     const screenshot = String(row.getAttribute('data-screenshot-url') || '').trim();
-    return {
+    const profile = {
       site: site instanceof HTMLInputElement || site instanceof HTMLSelectElement ? String(site.value || '').trim() : '',
       url: url instanceof HTMLInputElement ? String(url.value || '').trim() : '',
       image_url: selectedImage === USER_PLACEHOLDER_AVATAR_URL ? '' : normalizeProfileImageUrl(selectedImage),
       screenshot_url: screenshot,
+    };
+    return {
+      ...profile,
+      collection_ready: CASE_NOTES_COLLECTION_READY_SITE_KEYS.has(_siteKeyFromKnownProfile(profile))
+        && collectionReady instanceof HTMLInputElement
+        && collectionReady.checked,
     };
   }).filter((profile) => CASE_NOTES_MAJOR_PROFILE_SITE_KEYS.has(_siteKeyFromKnownProfile(profile)));
 }
@@ -2135,78 +3138,70 @@ async function openCaseNotesModal() {
   renderCaseNotesProfiles();
   renderCaseNotesSectionVisibility();
   renderCaseNotesFootprintResults();
+  caseNotesInitialDraft = serializeCaseNotesDraft(captureCaseNotesDraft());
   setCaseNotesModalOpen(true);
+}
+
+async function saveCaseNotesDraft({ closeAfterSave = true, notify = true } = {}) {
+  if (!activeCaseId) return false;
+  if (caseNotesSaveInFlight) return caseNotesSaveInFlight;
+  const draft = captureCaseNotesDraft();
+  if (!draft) return false;
+  caseNotesSaveInFlight = (async () => {
+    if (caseNotesSaveBtn) caseNotesSaveBtn.disabled = true;
+    try {
+      const response = await fetch(`/api/cases/${encodeURIComponent(activeCaseId)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(draft),
+      });
+      if (!response.ok) {
+        const message = await parseErrorResponse(response);
+        throw new Error(message);
+      }
+      activeCase = {
+        ...(activeCase || {}),
+        case_name: draft.case_name,
+        known_location: draft.known_location,
+        poi_image_url: draft.poi_image_url,
+        case_notes: draft.case_notes,
+      };
+      reconSnapshotCache = normalizeReconSnapshot(draft.case_notes?.recon_snapshot);
+      caseNotesFootprintEntries = buildCaseNotesFootprintEntries(draft.case_notes);
+      caseNotesInitialDraft = serializeCaseNotesDraft(draft);
+      updateCollectionReadyProfilesButtonState();
+      await loadCases();
+      updateLocalActiveCaseName(draft.case_name);
+      if (closeAfterSave) finalizeCaseNotesClose();
+      else renderCaseNotesFootprintResults();
+      if (notify) showNotification('Case notes saved', 'success');
+      return true;
+    } catch (error) {
+      console.error(error);
+      showNotification(`Case notes save failed: ${error.message || 'unknown error'}`, 'error');
+      return false;
+    } finally {
+      if (caseNotesSaveBtn) caseNotesSaveBtn.disabled = false;
+      caseNotesSaveInFlight = null;
+    }
+  })();
+  return caseNotesSaveInFlight;
 }
 
 async function submitCaseNotes(event) {
   event.preventDefault();
-  if (!activeCaseId) return;
-  syncKnownProfilesFromForm();
-  const name = String(caseNotesNameInput?.value || '').trim() || String(activeCase?.case_name || 'Untitled Case');
-  const location = String(caseNotesLocationInput?.value || '').trim();
-  const age = String(caseNotesAgeInput?.value || '').trim();
-  const akas = String(caseNotesAkasInput?.value || '').trim();
-  const context = String(caseNotesContextInput?.value || '').trim();
-  const threatRisk = String(caseNotesThreatInput?.value || '').trim();
-  const personal = String(caseNotesPersonalInput?.value || '').trim();
-  const selectorEmails = joinCommaSeparatedValues(splitCommaSeparatedValues(caseNotesSelectorEmailsInput?.value));
-  const selectorPhones = joinCommaSeparatedValues(splitCommaSeparatedValues(caseNotesSelectorPhonesInput?.value));
-  const selectorUsernames = joinCommaSeparatedValues(splitCommaSeparatedValues(caseNotesSelectorUsernamesInput?.value));
-  const subjectImage = String(caseNotesSubjectImageSelect?.value || '').trim();
-  const normalizedSubjectImage = subjectImage === USER_PLACEHOLDER_AVATAR_URL ? '' : normalizeProfileImageUrl(subjectImage);
-  const sanitizedProfiles = caseNotesMajorProfiles(caseNotesKnownProfiles)
-    .map((profile) => ({
-      site: String(profile.site || '').trim(),
-      url: String(profile.url || '').trim(),
-      image_url: normalizeProfileImageUrl(profile.image_url),
-      screenshot_url: String(profile.screenshot_url || '').trim(),
-    }))
-    .filter((profile) => profile.site || profile.url || profile.image_url || profile.screenshot_url);
-  const notes = {
-    ...normalizeCaseNotesObject(activeCase?.case_notes || {}),
-    name,
-    location,
-    age,
-    akas,
-    subject_image_url: normalizedSubjectImage,
-    context,
-    threat_risk_assessment: threatRisk,
-    personal_details: personal,
-    selector_emails: selectorEmails,
-    selector_phone_numbers: selectorPhones,
-    selector_usernames: selectorUsernames,
-    known_profiles: sanitizedProfiles,
-    report_preferences: {
-      excluded_sections: Array.from(caseNotesExcludedSections.values()),
-      excluded_footprint_result_keys: Array.from(caseNotesExcludedFootprintResultKeys.values()),
-    },
-    recon_snapshot: reconSnapshotCache || normalizeReconSnapshot(activeCase?.case_notes?.recon_snapshot),
-  };
-  if (caseNotesSaveBtn) caseNotesSaveBtn.disabled = true;
-  try {
-    const response = await fetch(`/api/cases/${encodeURIComponent(activeCaseId)}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        case_name: name,
-        known_location: location,
-        poi_image_url: normalizedSubjectImage,
-        case_notes: notes,
-      }),
-    });
-    if (!response.ok) {
-      const message = await parseErrorResponse(response);
-      throw new Error(message);
-    }
-    await loadCases();
-    closeCaseNotesModal();
-    showNotification('Case notes saved', 'success');
-  } catch (error) {
-    console.error(error);
-    showNotification(`Case notes save failed: ${error.message || 'unknown error'}`, 'error');
-  } finally {
-    if (caseNotesSaveBtn) caseNotesSaveBtn.disabled = false;
+  await saveCaseNotesDraft({ closeAfterSave: true, notify: true });
+}
+
+async function closeCaseNotesModal() {
+  if (caseNotesSaveInFlight) {
+    const saved = await caseNotesSaveInFlight;
+    if (!saved) return;
+  } else if (caseNotesHasUnsavedChanges()) {
+    const saved = await saveCaseNotesDraft({ closeAfterSave: false, notify: false });
+    if (!saved) return;
   }
+  finalizeCaseNotesClose();
 }
 
 function exportCaseNotesPdf() {
@@ -2214,8 +3209,13 @@ function exportCaseNotesPdf() {
     showNotification('Open a case first.', 'warn');
     return;
   }
+  const draft = captureCaseNotesDraft();
   if (caseNotesExportPdfBtn) caseNotesExportPdfBtn.disabled = true;
-  fetch(`/api/cases/${encodeURIComponent(activeCaseId)}/notes.pdf`)
+  fetch(`/api/cases/${encodeURIComponent(activeCaseId)}/notes.pdf`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(draft || {}),
+  })
     .then(async (response) => {
       if (!response.ok) {
         const message = await parseErrorResponse(response);
@@ -2280,7 +3280,7 @@ async function submitCaseSave(event) {
   }
   if (nextStatus === 'Watchlist' && !nextCadence) {
     showNotification('Monitoring refresh cadence is required for Watchlist.', 'warn');
-    caseSaveCadenceSelect?.focus();
+    focusWithoutScroll(caseSaveCadenceSelect);
     return;
   }
   if (caseSaveSubmitBtn) caseSaveSubmitBtn.disabled = true;
@@ -2306,6 +3306,7 @@ async function submitCaseSave(event) {
     activeCaseExplicitlySaved = true;
     clearCollectionPolling();
     await loadCases();
+    updateLocalActiveCaseName(nextName);
     closeCaseSaveModal();
     showCaseWorkspace();
     if (nextStatus === 'Watchlist') {
@@ -2360,8 +3361,10 @@ async function createNewCaseAndLaunch() {
     activeCaseId = String(created?.case_id || '').trim();
     activeCase = created;
     activeCaseExplicitlySaved = false;
+    lastAutofilledCaseTitle = String(created?.case_name || '').trim();
     dashboardBaseStatus = `Active case: ${String(created?.case_name || 'Untitled Case')}`;
     updateStatusLine();
+    syncDashboardCaseTitleFromActiveCase();
     await loadCases();
     showDashboard();
     setupStatus.textContent = '';
@@ -2404,6 +3407,26 @@ function accountTag(post) {
 function llmAssessmentFromPost(post) {
   if (post?.llm_assessment && typeof post.llm_assessment === 'object') return post.llm_assessment;
   if (post?.metadata?.llm_assessment && typeof post.metadata.llm_assessment === 'object') return post.metadata.llm_assessment;
+  return null;
+}
+
+function identityIntelAssessmentFromPost(post) {
+  if (post?.identity_intel_assessment && typeof post.identity_intel_assessment === 'object') return post.identity_intel_assessment;
+  if (post?.metadata?.identity_intel_assessment && typeof post.metadata.identity_intel_assessment === 'object') {
+    return post.metadata.identity_intel_assessment;
+  }
+  return null;
+}
+
+function sandboxAnalysisStatusFromPost(post) {
+  if (post?.sandbox_analysis && typeof post.sandbox_analysis === 'object') return post.sandbox_analysis;
+  if (post?.metadata?.sandbox_analysis && typeof post.metadata.sandbox_analysis === 'object') return post.metadata.sandbox_analysis;
+  return null;
+}
+
+function sandboxDebugFromPost(post) {
+  if (post?.sandbox_debug && typeof post.sandbox_debug === 'object') return post.sandbox_debug;
+  if (post?.metadata?.sandbox_debug && typeof post.metadata.sandbox_debug === 'object') return post.metadata.sandbox_debug;
   return null;
 }
 
@@ -2677,7 +3700,8 @@ function renderLLMCoverage(posts) {
 }
 
 function renderLLMAssessmentDetail(post, index, options = {}) {
-  if (activeInsightsTab !== 'signals') return '';
+  const forceVisible = options.forceVisible === true;
+  if (!forceVisible && activeInsightsTab !== 'signals') return '';
   const assessment = llmAssessmentFromPost(post);
   if (!llmAssessmentHasIndicators(assessment)) return '';
   const editable = options.assessmentEditable !== false;
@@ -2760,10 +3784,219 @@ function renderPosts(posts) {
   renderVisuals(latestRenderedPosts);
 }
 
+function renderLlmSandboxExamples() {
+  if (!(llmSandboxExamples instanceof HTMLElement)) return;
+  llmSandboxExamples.innerHTML = LLM_SANDBOX_EXAMPLES.map((example, index) => `
+    <button type="button" class="llm-sandbox-example-btn" data-llm-sandbox-example="${index}">
+      ${escapeHtml(example)}
+    </button>
+  `).join('');
+}
+
+function renderLlmSandboxResult(post) {
+  if (!(llmSandboxResult instanceof HTMLElement)) return;
+  if (!post || typeof post !== 'object') {
+    llmSandboxResult.innerHTML = '<div class="empty">Run a sandbox analysis to preview tags and theme.</div>';
+    return;
+  }
+  llmSandboxResult.innerHTML = [
+    renderPostCard(post, 0, {
+      includeCardId: false,
+      fullContent: true,
+      assessmentEditable: false,
+      assessmentForceVisible: true,
+    }),
+    renderIdentityIntelDetail(post),
+    renderSandboxDebugDetail(post),
+  ].join('');
+}
+
+function renderIdentityIntelDetail(post) {
+  const assessment = identityIntelAssessmentFromPost(post);
+  const tags = Array.isArray(assessment?.tags) ? assessment.tags.filter((item) => item && typeof item === 'object') : [];
+  const theme = String(assessment?.theme || '').trim();
+  if (!tags.length && !theme) {
+    return `
+      <section class="identity-intel-card">
+        <div class="identity-intel-head">
+          <h4>Identity Intel</h4>
+          <span class="identity-intel-source">Parallel prompt</span>
+        </div>
+        <p class="identity-intel-empty">No identifying intel was extracted.</p>
+      </section>
+    `;
+  }
+  const pills = tags.length
+    ? tags.map((item) => {
+      const label = String(item.label || '').trim();
+      const intel = String(item.intel || 'inferred').trim().toLowerCase();
+      const prettyIntel = intel === 'stated' ? 'Stated' : (intel === 'none' ? 'None' : 'Inferred');
+      return `<span class="identity-intel-pill intel-${escapeAttr(intel)}"><strong>${escapeHtml(label)}</strong><em>Intel: ${escapeHtml(prettyIntel)}</em></span>`;
+    }).join('')
+    : '<span class="identity-intel-pill intel-none"><strong>No tags</strong><em>Intel: None</em></span>';
+  return `
+    <section class="identity-intel-card">
+      <div class="identity-intel-head">
+        <h4>Identity Intel</h4>
+        <span class="identity-intel-source">Parallel prompt</span>
+      </div>
+      <div class="identity-intel-pill-row">${pills}</div>
+      ${theme ? `<p class="identity-intel-theme">Theme: ${escapeHtml(theme)}</p>` : '<p class="identity-intel-empty">No analytic theme returned.</p>'}
+    </section>
+  `;
+}
+
+function renderSandboxDebugDetail(post) {
+  const debug = sandboxDebugFromPost(post);
+  const requestText = String(debug?.request_text || '').trim();
+  const threatMessages = Array.isArray(debug?.threat_messages) ? debug.threat_messages : [];
+  const identityMessages = Array.isArray(debug?.identity_messages) ? debug.identity_messages : [];
+  const combinedMessages = Array.isArray(debug?.combined_messages) ? debug.combined_messages : [];
+  const threatError = String(debug?.threat_error || '').trim();
+  const identityError = String(debug?.identity_error || '').trim();
+  const threatRaw = debug?.threat_raw && typeof debug.threat_raw === 'object' ? debug.threat_raw : {};
+  const threatNormalized = debug?.threat_normalized && typeof debug.threat_normalized === 'object' ? debug.threat_normalized : {};
+  const identityRaw = debug?.identity_raw && typeof debug.identity_raw === 'object' ? debug.identity_raw : {};
+  const identityNormalized = debug?.identity_normalized && typeof debug.identity_normalized === 'object' ? debug.identity_normalized : {};
+  return `
+    <details class="sandbox-debug-card">
+      <summary>Sandbox Debug JSON</summary>
+      <div class="sandbox-debug-grid">
+        <section class="sandbox-debug-block sandbox-debug-block-wide">
+          <h4>Request Text</h4>
+          <pre>${escapeHtml(requestText)}</pre>
+        </section>
+        <section class="sandbox-debug-block">
+          <h4>Combined Messages</h4>
+          <pre>${escapeHtml(JSON.stringify(combinedMessages, null, 2))}</pre>
+        </section>
+        <section class="sandbox-debug-block">
+          <h4>Threat Messages</h4>
+          <pre>${escapeHtml(JSON.stringify(threatMessages, null, 2))}</pre>
+        </section>
+        <section class="sandbox-debug-block">
+          <h4>Identity Messages</h4>
+          <pre>${escapeHtml(JSON.stringify(identityMessages, null, 2))}</pre>
+        </section>
+        <section class="sandbox-debug-block">
+          <h4>Threat Error</h4>
+          <pre>${escapeHtml(threatError || 'None')}</pre>
+        </section>
+        <section class="sandbox-debug-block">
+          <h4>Identity Error</h4>
+          <pre>${escapeHtml(identityError || 'None')}</pre>
+        </section>
+        <section class="sandbox-debug-block">
+          <h4>Threat Raw</h4>
+          <pre>${escapeHtml(JSON.stringify(threatRaw, null, 2))}</pre>
+        </section>
+        <section class="sandbox-debug-block">
+          <h4>Threat Normalized</h4>
+          <pre>${escapeHtml(JSON.stringify(threatNormalized, null, 2))}</pre>
+        </section>
+        <section class="sandbox-debug-block">
+          <h4>Identity Raw</h4>
+          <pre>${escapeHtml(JSON.stringify(identityRaw, null, 2))}</pre>
+        </section>
+        <section class="sandbox-debug-block">
+          <h4>Identity Normalized</h4>
+          <pre>${escapeHtml(JSON.stringify(identityNormalized, null, 2))}</pre>
+        </section>
+      </div>
+    </details>
+  `;
+}
+
+function clearLlmSandbox(resetText = false) {
+  latestSandboxPost = null;
+  renderLlmSandboxResult(null);
+  if (llmSandboxStatus) llmSandboxStatus.textContent = '';
+  if (resetText && llmSandboxTextInput instanceof HTMLTextAreaElement) llmSandboxTextInput.value = '';
+  if (llmSandboxSourceUrlInput instanceof HTMLInputElement) llmSandboxSourceUrlInput.value = '';
+}
+
+async function runLlmSandboxAnalysis() {
+  if (!(llmSandboxTextInput instanceof HTMLTextAreaElement)) return;
+  const text = String(llmSandboxTextInput.value || '').trim();
+  if (!text) {
+    if (llmSandboxStatus) llmSandboxStatus.textContent = 'Enter text to analyze.';
+    focusWithoutScroll(llmSandboxTextInput);
+    return;
+  }
+  if (llmSandboxRequestInFlight) return;
+  llmSandboxRequestInFlight = true;
+  if (llmSandboxAnalyzeBtn instanceof HTMLButtonElement) llmSandboxAnalyzeBtn.disabled = true;
+  if (llmSandboxStatus) llmSandboxStatus.textContent = 'Running OpenAI analysis...';
+  try {
+    const response = await fetch('/api/llm/sandbox', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text,
+        username: String(llmSandboxUsernameInput?.value || '').trim(),
+        platform: String(llmSandboxPlatformInput?.value || '').trim(),
+        source_url: String(llmSandboxSourceUrlInput?.value || '').trim(),
+      }),
+    });
+    if (!response.ok) {
+      const message = await parseErrorResponse(response);
+      throw new Error(message);
+    }
+    const payload = await response.json();
+    latestSandboxPost = payload?.post && typeof payload.post === 'object' ? payload.post : null;
+    renderLlmSandboxResult(latestSandboxPost);
+    const analysisStatus = payload?.analysis_status && typeof payload.analysis_status === 'object'
+      ? payload.analysis_status
+      : sandboxAnalysisStatusFromPost(latestSandboxPost);
+    if (llmSandboxStatus) {
+      const assessment = llmAssessmentFromPost(latestSandboxPost);
+      const identityAssessment = identityIntelAssessmentFromPost(latestSandboxPost);
+      const primaryCount = llmAssessmentPrimary(assessment).length;
+      const secondaryCount = llmAssessmentSecondary(assessment).length;
+      const theme = String(assessment?.underlying_theme || '').trim();
+      const intelTags = Array.isArray(identityAssessment?.tags) ? identityAssessment.tags.length : 0;
+      const intelTheme = String(identityAssessment?.theme || '').trim();
+      const threatChecked = Boolean(analysisStatus?.threat_checked);
+      const identityChecked = Boolean(analysisStatus?.identity_checked);
+      const threatPresent = Boolean(analysisStatus?.threat_present);
+      const identityPresent = Boolean(analysisStatus?.identity_present);
+      llmSandboxStatus.textContent = `Analysis complete. Threat checked: ${threatChecked ? 'yes' : 'no'} (${threatPresent ? `${primaryCount} primary, ${secondaryCount} secondary` : 'no findings'}). Identity checked: ${identityChecked ? 'yes' : 'no'} (${identityPresent ? `${intelTags} tags${intelTheme ? `, theme: ${intelTheme}` : ''}` : 'no findings'}).`;
+    }
+    const threatAssessment = llmAssessmentFromPost(latestSandboxPost);
+    const identityAssessment = identityIntelAssessmentFromPost(latestSandboxPost);
+    const sandboxDebug = sandboxDebugFromPost(latestSandboxPost);
+    const hasThreat = llmAssessmentHasIndicators(threatAssessment);
+    const hasIdentity = Boolean((Array.isArray(identityAssessment?.tags) && identityAssessment.tags.length) || String(identityAssessment?.theme || '').trim());
+    const threatChecked = Boolean(analysisStatus?.threat_checked);
+    const identityChecked = Boolean(analysisStatus?.identity_checked);
+    const threatError = String(sandboxDebug?.threat_error || '').trim();
+    const identityError = String(sandboxDebug?.identity_error || '').trim();
+    if (threatChecked && identityChecked && (hasThreat || hasIdentity)) {
+      showNotification('OpenAI sandbox call succeeded. Threat and identity checks were parsed into post metadata.', 'success');
+    } else if (threatChecked && identityChecked) {
+      showNotification('OpenAI sandbox call succeeded. Threat and identity checks ran, but no findings were returned.', 'warn');
+    } else if (threatError || identityError) {
+      showNotification(`OpenAI sandbox analysis error. ${[threatError && `Threat: ${threatError}`, identityError && `Identity: ${identityError}`].filter(Boolean).join(' | ')}`, 'error');
+    } else {
+      showNotification('OpenAI sandbox call returned, but one or more analyses did not parse cleanly into UI metadata.', 'warn');
+    }
+  } catch (error) {
+    console.error(error);
+    latestSandboxPost = null;
+    renderLlmSandboxResult(null);
+    if (llmSandboxStatus) llmSandboxStatus.textContent = `Sandbox analysis failed: ${error.message || 'unknown error'}`;
+    showNotification(`OpenAI sandbox call failed: ${error.message || 'unknown error'}`, 'error');
+  } finally {
+    llmSandboxRequestInFlight = false;
+    if (llmSandboxAnalyzeBtn instanceof HTMLButtonElement) llmSandboxAnalyzeBtn.disabled = false;
+  }
+}
+
 function renderPostCard(post, index, options = {}) {
   const includeCardId = options.includeCardId !== false;
   const fullContent = options.fullContent === true;
   const assessmentEditable = options.assessmentEditable !== false;
+  const assessmentForceVisible = options.assessmentForceVisible === true;
   const profileImageUrl = postProfileImageUrl(post) || USER_PLACEHOLDER_AVATAR_URL;
   return `
     <article ${includeCardId ? `id="post-card-${index}" ` : ''}class="card" data-post-index="${index}">
@@ -2780,7 +4013,7 @@ function renderPostCard(post, index, options = {}) {
         </div>
       </div>
       <div class="content">${postContentMarkup(post, index, { fullContent })}</div>
-      ${renderLLMAssessmentDetail(post, index, { assessmentEditable })}
+      ${renderLLMAssessmentDetail(post, index, { assessmentEditable, forceVisible: assessmentForceVisible })}
       ${renderQuoteNest(post)}
       ${renderPostMedia(post)}
     </article>
@@ -2954,53 +4187,6 @@ function renderFaceOverlays(faceDetections) {
   `;
 }
 
-function renderInlineFaceRecognitionControls() {
-  const rows = Array.isArray(latestFaceClusters) ? latestFaceClusters : [];
-  const normalizedRows = rows
-    .map((row) => {
-      const personId = String(row?.person_id || '').trim().toLowerCase();
-      const label = String(row?.label || '').trim() || personId;
-      const count = Number(row?.count || 0);
-      const color = String(row?.color || '').trim() || '#22c55e';
-      const avgConfidence = Number(row?.avg_confidence || 0);
-      return { personId, label, count, color, avgConfidence };
-    })
-    .filter((row) => row.personId && row.count > 0 && row.avgConfidence >= activeFaceMinConfidence);
-  const stats = latestFaceRecognition && typeof latestFaceRecognition === 'object'
-    ? latestFaceRecognition
-    : { available: false, reason: 'unknown' };
-  const reason = faceRecognitionReasonMessage(stats.reason);
-  const imagesAnalyzed = Number(stats.images_analyzed || 0);
-  const facesDetected = Number(stats.faces_detected || 0);
-  const status = String(stats.reason || '').toLowerCase() === 'ok'
-    ? `${reason} Images analyzed: ${imagesAnalyzed}. Faces detected: ${facesDetected}.`
-    : reason;
-  const chips = normalizedRows.length
-    ? normalizedRows
-      .map((row) => {
-        const activeClass = activeFaceFilters.has(row.personId) ? ' is-active' : '';
-        return `<button type="button" class="theme-filter-item face-filter-item${activeClass}" data-face-filter-inline="${escapeAttr(row.personId)}" style="--face-color:${escapeAttr(row.color)}"><span>${escapeHtml(row.label)}</span><em>${row.count} • ${formatConfidencePercent(row.avgConfidence)}</em></button>`;
-      })
-      .join('')
-    : '<span class="theme-filter-empty">No recurring faces detected in current results.</span>';
-  return `
-    <section class="media-face-controls">
-      <div class="media-face-controls-top">
-        <button type="button" class="secondary-btn media-face-run-btn" data-face-run-inline>Run Facial Recognition</button>
-        <p class="theme-filter-empty media-face-status">${escapeHtml(status)}</p>
-      </div>
-      <div class="filter-group media-face-threshold">
-        <label>
-          Min confidence
-          <input type="range" min="0" max="1" step="0.05" value="${escapeAttr(String(activeFaceMinConfidence))}" data-face-confidence-inline />
-          <span data-face-confidence-inline-value>${escapeHtml(formatConfidencePercent(activeFaceMinConfidence))}</span>
-        </label>
-      </div>
-      <div class="theme-filter-list media-face-chip-list">${chips}</div>
-    </section>
-  `;
-}
-
 function renderMediaGrid(posts) {
   const allItems = collectMediaItems(posts)
     .sort((left, right) => {
@@ -3013,13 +4199,9 @@ function renderMediaGrid(posts) {
     ? allItems.filter((item) => item.faceDetections.some((face) => activeFaceFilters.has(String(face?.personId || '').toLowerCase()) && facePassesConfidence(face)))
     : allItems;
   if (!items.length) {
-    return `
-      ${renderInlineFaceRecognitionControls()}
-      <div class="empty">No images or videos matched your current filters.</div>
-    `;
+    return '<div class="empty">No images or videos matched your current filters.</div>';
   }
   return `
-    ${renderInlineFaceRecognitionControls()}
     <section class="results-media-grid">
       ${items.map((item) => {
     const post = posts[item.postIndex];
@@ -3708,6 +4890,7 @@ function applyDashboardFilters(posts) {
 function rerenderFromCurrentFilters() {
   const filteredPosts = applyDashboardFilters(latestFetchedPosts);
   renderPosts(filteredPosts);
+  renderWorkflowPanel();
 }
 
 function dayKey(timestamp) {
@@ -3733,6 +4916,7 @@ function shortDayLabel(day) {
 }
 
 function renderTimeline(posts) {
+  if (!timelineTotal || !timelineChart || !timelineEmpty) return;
   timelineTotal.textContent = `${posts.length} post${posts.length === 1 ? '' : 's'}`;
   if (!posts.length) {
     timelineChart.innerHTML = '';
@@ -3930,128 +5114,6 @@ function summarizePostingRhythm(posts) {
   };
 }
 
-function renderPostingTimezoneMap(analysis) {
-  if (!postingTimezoneMap) return;
-  if (postingTimezoneMapInstance) {
-    postingTimezoneMapInstance.remove();
-    postingTimezoneMapInstance = null;
-    postingTimezoneMapLayer = null;
-  }
-  const insufficient = Boolean(analysis?.insufficient);
-  const offset = Number(analysis?.offset || 0);
-  const confidence = String(analysis?.confidence || 'low').toLowerCase();
-
-  if (insufficient) {
-    postingTimezoneMap.innerHTML = '<div class="posting-timezone-map-empty">Need at least 6 timestamped posts to highlight likely timezone.</div>';
-    return;
-  }
-
-  const minOffset = -12;
-  const maxOffset = 14;
-  const clampedOffset = Math.max(minOffset, Math.min(maxOffset, offset));
-  const confidenceClass = confidence === 'high' ? ' is-high' : confidence === 'medium' ? ' is-medium' : ' is-low';
-  const centerLongitude = Math.max(-180, Math.min(180, clampedOffset * 15));
-  const corridorHalfWidthDegrees = 15;
-
-  postingTimezoneMap.innerHTML = `
-    <div class="posting-timezone-map-shell${confidenceClass}">
-      <div class="posting-timezone-map-canvas" aria-hidden="true"></div>
-      <div class="posting-timezone-map-label">Likely timezone corridor: <strong>${escapeHtml(formatUtcOffsetLabel(clampedOffset))}</strong></div>
-    </div>
-  `;
-
-  const canvas = postingTimezoneMap.querySelector('.posting-timezone-map-canvas');
-  if (!(canvas instanceof HTMLElement)) return;
-  loadLeaflet()
-    .then((L) => {
-      if (!L) throw new Error('leaflet_unavailable');
-      postingTimezoneMapInstance = L.map(canvas, {
-        zoomControl: false,
-        attributionControl: false,
-        dragging: false,
-        scrollWheelZoom: false,
-        doubleClickZoom: false,
-        boxZoom: false,
-        keyboard: false,
-        tap: false,
-        touchZoom: false,
-        worldCopyJump: true,
-      }).setView([20, centerLongitude], 1);
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-        subdomains: 'abcd',
-        maxZoom: 4,
-        minZoom: 1,
-      }).addTo(postingTimezoneMapInstance);
-      postingTimezoneMapLayer = L.layerGroup().addTo(postingTimezoneMapInstance);
-
-      const west = centerLongitude - corridorHalfWidthDegrees;
-      const east = centerLongitude + corridorHalfWidthDegrees;
-      const addCorridor = (westBound, eastBound) => {
-        L.rectangle([[-85, westBound], [85, eastBound]], {
-          color: 'rgba(217, 119, 6, 0.9)',
-          weight: 1,
-          fillColor: 'rgba(245, 158, 11, 0.2)',
-          fillOpacity: 0.56,
-          interactive: false,
-        }).addTo(postingTimezoneMapLayer);
-      };
-      if (west < -180) {
-        addCorridor(west + 360, 180);
-        addCorridor(-180, east);
-      } else if (east > 180) {
-        addCorridor(west, 180);
-        addCorridor(-180, east - 360);
-      } else {
-        addCorridor(west, east);
-      }
-      postingTimezoneMapInstance.invalidateSize();
-    })
-    .catch(() => {
-      postingTimezoneMap.innerHTML = '<div class="posting-timezone-map-empty">Timezone map failed to load.</div>';
-    });
-}
-
-function renderPostingRhythm(posts) {
-  if (!postingTimezoneInference || !postingRhythmSummary || !postingHourChart || !postingSourceMix || !postingRhythmEmpty) return;
-  const analysis = summarizePostingRhythm(posts);
-  postingTimezoneInference.innerHTML = `
-    <span class="posting-timezone-kicker">Likely timezone</span>
-    <span class="posting-timezone-value">${escapeHtml(analysis.timezoneLabel)}</span>
-  `;
-  postingRhythmSummary.textContent = `${analysis.summary} ${analysis.sampleCount} timestamped post${analysis.sampleCount === 1 ? '' : 's'} analyzed (UTC timestamps shifted for inference only).`;
-  renderPostingTimezoneMap(analysis);
-
-  if (analysis.insufficient) {
-    postingHourChart.innerHTML = '';
-    postingSourceMix.innerHTML = '';
-    postingRhythmEmpty.classList.remove('hidden');
-    return;
-  }
-
-  postingRhythmEmpty.classList.add('hidden');
-  const maxCount = Math.max(...analysis.localHistogram, 1);
-  postingHourChart.innerHTML = analysis.localHistogram
-    .map((count, hour) => {
-      const heightPct = Math.max(5, Math.round((count / maxCount) * 100));
-      const sleepClass = ((hour - analysis.sleepWindowStart + 24) % 24) < 7 ? ' is-sleep' : '';
-      const workClass = ((hour - analysis.workWindowStart + 24) % 24) < 4 ? ' is-work' : '';
-      return `
-        <div class="posting-hour-cell${sleepClass}${workClass}">
-          <div class="posting-hour-bar-wrap">
-            <div class="posting-hour-bar" style="height:${heightPct}%"></div>
-          </div>
-          <span class="posting-hour-label">${hourLabel(hour).slice(0, 2)}</span>
-          <span class="posting-hour-count">${count}</span>
-        </div>
-      `;
-    })
-    .join('');
-
-  postingSourceMix.innerHTML = analysis.sources
-    .map(([source, count]) => `<span class="mix-pill"><span>${escapeHtml(source)}</span><strong>${count}</strong></span>`)
-    .join('');
-}
-
 function renderPatternPostingRhythm(posts, providedAnalysis = null) {
   if (
     !patternLifeTimezoneInference
@@ -4157,6 +5219,7 @@ function renderKeywordChart(posts) {
 }
 
 function renderTypeMix(posts) {
+  if (!typeMix) return;
   const counts = new Map();
   for (const post of posts) {
     const type = String(post.post_type || 'post').toLowerCase();
@@ -4256,7 +5319,7 @@ function renderFaceRecognitionFilters() {
   faceRecognitionFilterList.innerHTML = normalizedRows
     .map((row) => {
       const activeClass = activeFaceFilters.has(row.personId) ? ' is-active' : '';
-      return `<button type="button" class="theme-filter-item face-filter-item${activeClass}" data-face-filter="${escapeAttr(row.personId)}" style="--face-color:${escapeAttr(row.color)}"><span>${escapeHtml(row.label)}</span><em>${row.count} • ${formatConfidencePercent(row.avgConfidence)}</em></button>`;
+      return `<button type="button" class="theme-filter-item face-filter-item${activeClass}" data-face-filter="${escapeAttr(row.personId)}" style="--face-color:${escapeAttr(row.color)}"><span>${escapeHtml(row.label)}</span><em data-face-confidence-inline>${row.count} • ${formatConfidencePercent(row.avgConfidence)}</em></button>`;
     })
     .join('');
   updateFilterToggleLabel();
@@ -4335,7 +5398,6 @@ function refreshMapLayout() {
       patternLifeMapInstance.invalidateSize();
       updatePatternLifeMapViewport(latestPatternLifeMapPoints, latestPatternLifeMapRoutes);
     }
-    if (postingTimezoneMapInstance) postingTimezoneMapInstance.invalidateSize();
   });
 }
 
@@ -5924,7 +6986,7 @@ function renderCustomKeywordMix(posts) {
   const keywords = normalizeCustomKeywordList(configCustomKeywordList);
   if (!keywords.length) {
     customKeywordMix.innerHTML = '';
-    customKeywordMixEmpty.textContent = 'No custom keywords configured. Add keywords in Master Settings.';
+    customKeywordMixEmpty.textContent = 'No custom keywords configured. Add keywords in Settings.';
     customKeywordMixEmpty.classList.remove('hidden');
     return;
   }
@@ -6102,7 +7164,6 @@ function updateAiThreatAssessmentControls(posts) {
 
 function renderVisuals(posts) {
   renderTimeline(posts);
-  renderPostingRhythm(posts);
   renderKeywordChart(posts);
   renderLocationMap(posts);
   renderEntityMix(posts);
@@ -6121,6 +7182,8 @@ function renderVisuals(posts) {
 
 async function refreshPosts(options = {}) {
   const forceFaceRefresh = options && options.forceFaceRefresh === true;
+  const applyDefaultLanding = options && options.applyDefaultLanding === true;
+  const landingPreference = options && options.landingPreference;
   if (controller) controller.abort();
   controller = new AbortController();
 
@@ -6149,6 +7212,11 @@ async function refreshPosts(options = {}) {
     latestFetchedPosts = Array.isArray(data.posts) ? data.posts : [];
     _dashboardFilterCache = { rows: null, key: '', output: [] };
     rerenderFromCurrentFilters();
+    if (applyDefaultLanding) {
+      setResultsView(resolveDefaultResultsView(landingPreference, latestFetchedPosts));
+    } else {
+      applyPendingResultsLanding(latestFetchedPosts);
+    }
     dashboardBaseStatus = '';
     updateStatusLine();
   } catch (error) {
@@ -6169,39 +7237,52 @@ function queueRefresh() {
 }
 
 function applyResultsViewButtonState() {
+  const workflowMode = activeResultsView === 'workflow';
   const postView = activeResultsView === 'posts';
   const mediaView = activeResultsView === 'media';
   const footprintMode = activeResultsView === 'footprint';
   const patternLifeMode = activeResultsView === 'pattern';
   const timelineMode = activeResultsView === 'timeline';
   const entityGraphMode = activeResultsView === 'entitygraph';
+  const sandboxMode = activeResultsView === 'sandbox';
+  viewWorkflowBtn?.classList.toggle('is-active', workflowMode);
   viewPostsBtn?.classList.toggle('is-active', postView);
   viewMediaBtn?.classList.toggle('is-active', mediaView);
   viewFootprintBtn?.classList.toggle('is-active', footprintMode);
   viewPatternLifeBtn?.classList.toggle('is-active', patternLifeMode);
   viewTimelineBtn?.classList.toggle('is-active', timelineMode);
   viewEntityGraphBtn?.classList.toggle('is-active', entityGraphMode);
+  viewWorkflowBtn?.setAttribute('aria-pressed', String(workflowMode));
   viewPostsBtn?.setAttribute('aria-pressed', String(postView));
   viewMediaBtn?.setAttribute('aria-pressed', String(mediaView));
   viewFootprintBtn?.setAttribute('aria-pressed', String(footprintMode));
   viewPatternLifeBtn?.setAttribute('aria-pressed', String(patternLifeMode));
   viewTimelineBtn?.setAttribute('aria-pressed', String(timelineMode));
   viewEntityGraphBtn?.setAttribute('aria-pressed', String(entityGraphMode));
-  const hideStandardLayout = footprintMode || patternLifeMode || timelineMode || entityGraphMode;
+  const hideStandardLayout = workflowMode || footprintMode || patternLifeMode || timelineMode || entityGraphMode || sandboxMode;
   resultsEl?.classList.toggle('hidden', hideStandardLayout);
+  resultsColumn?.classList.toggle('hidden', hideStandardLayout);
   dashboardContent?.classList.toggle('media-grid-mode', mediaView);
   const insightsEl = dashboardContent?.querySelector('.insights');
   if (insightsEl instanceof HTMLElement) insightsEl.classList.toggle('hidden', hideStandardLayout || mediaView);
+  workflowView?.classList.toggle('hidden', !workflowMode);
   footprintView?.classList.toggle('hidden', !footprintMode);
   patternLifeView?.classList.toggle('hidden', !patternLifeMode);
   timelineView?.classList.toggle('hidden', !timelineMode);
   entityGraphView?.classList.toggle('hidden', !entityGraphMode);
-  if (filterMenu instanceof HTMLElement) filterMenu.classList.toggle('hidden', hideStandardLayout);
+  llmSandboxView?.classList.toggle('hidden', !sandboxMode);
+  if (feedControls instanceof HTMLElement) feedControls.classList.toggle('hidden', hideStandardLayout);
+  if (hideStandardLayout) {
+    filterPanel?.classList.add('hidden');
+    filterToggleBtn?.setAttribute('aria-expanded', 'false');
+  }
 }
 
 function setResultsView(mode) {
   const normalized = String(mode || '').trim().toLowerCase();
-  const next = normalized === 'media'
+  const next = (normalized === 'workflow' || normalized === 'nextsteps' || normalized === 'next_steps' || normalized === 'leads')
+    ? 'workflow'
+    : (normalized === 'media'
     ? 'media'
     : (normalized === 'footprint'
       ? 'footprint'
@@ -6209,7 +7290,9 @@ function setResultsView(mode) {
         ? 'pattern'
         : (normalized === 'timeline'
           ? 'timeline'
-          : ((normalized === 'entitygraph' || normalized === 'entity_graph' || normalized === 'graph') ? 'entitygraph' : 'posts'))));
+          : ((normalized === 'entitygraph' || normalized === 'entity_graph' || normalized === 'graph')
+            ? 'entitygraph'
+            : (normalized === 'sandbox' ? 'sandbox' : 'posts'))))));
   if (activeResultsView === next) return;
   activeResultsView = next;
   if (activeResultsView === 'footprint') {
@@ -6228,6 +7311,9 @@ function setResultsView(mode) {
   }
   if (activeResultsView === 'entitygraph') {
     renderFootprintEntityGraph();
+  }
+  if (activeResultsView === 'sandbox') {
+    renderLlmSandboxResult(latestSandboxPost);
   }
   renderPosts(latestPosts);
 }
@@ -6265,6 +7351,39 @@ function setModalOpen(isOpen) {
   syncModalActiveState();
 }
 
+async function closeSetupModal() {
+  if (lockModalUntilCollectionData && !collectionLoadedAnyData) {
+    setModalOpen(false);
+    return;
+  }
+  const reconIdle = modalMode === 'recon'
+    && reconResults.classList.contains('hidden')
+    && !String(reconStatus?.textContent || '').trim();
+  const collectionIdle = modalMode === 'collection'
+    && !String(setupStatus?.textContent || '').trim()
+    && !activeCollectionJobId
+    && !collectionLoadedAnyData;
+  if (reconIdle || collectionIdle) {
+    setModalMode('chooser');
+    return;
+  }
+  const shouldReturnToMainMenu = modalMode === 'chooser' && Boolean(String(activeCaseId || '').trim()) && !activeCaseExplicitlySaved;
+  if (!shouldReturnToMainMenu) {
+    setModalOpen(false);
+    return;
+  }
+  const discarded = await discardUnsavedActiveCase();
+  if (!discarded) {
+    showNotification('Could not discard the draft case.', 'error');
+    return;
+  }
+  clearCollectionPolling();
+  setModalMode('chooser');
+  setModalOpen(false);
+  await loadCases();
+  showCaseWorkspace();
+}
+
 function openManualInsertModal() {
   if (!activeCaseId) {
     showNotification('Open a case first.', 'warn');
@@ -6278,7 +7397,7 @@ function openManualInsertModal() {
   if (manualInsertStatus instanceof HTMLElement) manualInsertStatus.textContent = '';
   manualInsertModal?.classList.remove('hidden');
   syncModalActiveState();
-  manualInsertTextInput?.focus();
+  focusWithoutScroll(manualInsertTextInput);
 }
 
 function closeManualInsertModal() {
@@ -6304,9 +7423,12 @@ function syncModalActiveState() {
 function openConfigModal() {
   configModal?.classList.remove('hidden');
   configStatus.textContent = '';
+  if (configForm instanceof HTMLElement) {
+    configForm.scrollTop = 0;
+  }
   syncModalActiveState();
   loadConfig();
-  configPdlApiKeyInput?.focus();
+  focusWithoutScroll(configPdlApiKeyInput);
 }
 
 function closeConfigModal() {
@@ -6394,6 +7516,14 @@ async function loadConfig() {
       configSecretStateSummary.textContent = 'Unable to determine saved API key status right now.';
     }
   }
+}
+
+async function initializeApp() {
+  showCaseWorkspace();
+  await Promise.all([
+    loadConfig(),
+    loadCases({ retries: 4, retryDelayMs: 250, notifyOnFailure: true }),
+  ]);
 }
 
 async function saveConfig(event) {
@@ -6519,6 +7649,9 @@ async function submitManualInsert(event) {
 
 function setModalMode(mode) {
   modalMode = mode;
+  if (setupModal instanceof HTMLElement) {
+    setupModal.dataset.setupMode = mode;
+  }
   const chooser = mode === 'chooser';
   const recon = mode === 'recon';
   const collection = mode === 'collection';
@@ -6527,19 +7660,20 @@ function setModalMode(mode) {
   setupForm.classList.toggle('hidden', !collection);
   if (chooser) {
     setupTitle.textContent = 'Start Session';
-    setupSubtitle.textContent = 'Choose reconnaissance or go straight to collection.';
+    setupSubtitle.textContent = '';
   } else if (recon) {
     setupTitle.textContent = 'Reconnaissance';
-    setupSubtitle.textContent = 'Scan social platforms and enrichment sources for usernames, emails, phones, names, and wallets.';
+    setupSubtitle.textContent = '';
   } else {
     setupTitle.textContent = 'Start Collection';
-    setupSubtitle.textContent = 'Set targets and date range to fetch and visualize.';
+    setupSubtitle.textContent = '';
   }
 }
 
 function setSetupFormBusy(isBusy) {
   collectBtn.disabled = isBusy;
   closeSetupBtn.disabled = isBusy;
+  if (loadCollectionReadyProfilesBtn instanceof HTMLButtonElement) loadCollectionReadyProfilesBtn.disabled = isBusy;
   addTargetBtn.disabled = isBusy;
   autofillTargetsBtn.disabled = isBusy;
   startDateInput.disabled = isBusy;
@@ -6549,6 +7683,7 @@ function setSetupFormBusy(isBusy) {
       control.disabled = isBusy;
     }
   }
+  if (!isBusy) updateCollectionReadyProfilesButtonState();
 }
 
 function setReconBusy(isBusy) {
@@ -6567,7 +7702,7 @@ function setReconBusy(isBusy) {
   if (goReconAssessmentBtn instanceof HTMLButtonElement) {
     goReconAssessmentBtn.disabled = isBusy;
   }
-  toggleReconProgress(isBusy);
+  toggleReconProgress(false);
 }
 
 function setFootprintBusy(isBusy) {
@@ -6925,119 +8060,6 @@ function pivotSelectorActionMarkup(type, value, title = 'Pivot Search') {
   `;
 }
 
-function selectorConfidenceLevel(selectorType) {
-  const cleanType = String(selectorType || '').trim().toLowerCase();
-  if (cleanType === 'email' || cleanType === 'phone' || cleanType === 'wallet') return 'high';
-  if (cleanType === 'profile') return 'medium';
-  if (cleanType === 'username' || cleanType === 'name' || cleanType === 'location') return 'low';
-  return 'low';
-}
-
-function selectorConfidenceOverrideKey(selectorType, selectorValue, scopeId = '') {
-  const type = String(selectorType || '').trim().toLowerCase();
-  const value = String(selectorValue || '').trim().toLowerCase();
-  const scope = String(scopeId || '').trim().toLowerCase();
-  return scope ? `${scope}|${type}|${value}` : `${type}|${value}`;
-}
-
-function loadSelectorConfidenceOverrides() {
-  try {
-    if (!window?.localStorage) return;
-    const raw = String(window.localStorage.getItem(SELECTOR_CONFIDENCE_OVERRIDE_STORAGE_KEY) || '').trim();
-    if (!raw) return;
-    const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== 'object') return;
-    for (const [key, value] of Object.entries(parsed)) {
-      const cleanKey = String(key || '').trim().toLowerCase();
-      const level = String(value || '').trim().toLowerCase();
-      if (!cleanKey || !cleanKey.includes('|')) continue;
-      if (!SELECTOR_CONFIDENCE_LEVELS.includes(level)) continue;
-      selectorConfidenceOverrides.set(cleanKey, level);
-    }
-  } catch (error) {
-    console.warn('Unable to load selector confidence overrides:', error);
-  }
-}
-
-function saveSelectorConfidenceOverrides() {
-  try {
-    if (!window?.localStorage) return;
-    const payload = Object.fromEntries(selectorConfidenceOverrides.entries());
-    window.localStorage.setItem(SELECTOR_CONFIDENCE_OVERRIDE_STORAGE_KEY, JSON.stringify(payload));
-  } catch (error) {
-    console.warn('Unable to save selector confidence overrides:', error);
-  }
-}
-
-function selectorConfidenceLevelEffective(selectorType, selectorValue = '', scopeId = '') {
-  const key = selectorConfidenceOverrideKey(selectorType, selectorValue, scopeId);
-  const override = selectorConfidenceOverrides.get(key);
-  if (override && SELECTOR_CONFIDENCE_LEVELS.includes(override)) return override;
-  return selectorConfidenceLevel(selectorType);
-}
-
-function selectorConfidenceMeta(selectorType, selectorValue = '', scopeId = '') {
-  const level = selectorConfidenceLevelEffective(selectorType, selectorValue, scopeId);
-  if (level === 'high') {
-    return { level, label: 'High Confidence', short: 'High', guidance: 'Unique selector; stronger identity linkage.' };
-  }
-  if (level === 'medium') {
-    return { level, label: 'Medium Confidence', short: 'Medium', guidance: 'Handle reuse is possible across people/platforms.' };
-  }
-  return { level, label: 'Low Confidence', short: 'Low', guidance: 'Non-unique selector; corroborate with additional evidence.' };
-}
-
-function selectorConfidenceDisplayValue(selectorType, selectorValue) {
-  const type = String(selectorType || '').trim().toLowerCase();
-  const value = String(selectorValue || '').trim();
-  if (!value) return 'unknown';
-  if (type === 'username') return value.startsWith('@') ? value : `@${value}`;
-  return value;
-}
-
-function selectorConfidenceTooltip(selectorType, selectorValue, scopeId = '') {
-  const level = selectorConfidenceLevelEffective(selectorType, selectorValue, scopeId);
-  const displayValue = selectorConfidenceDisplayValue(selectorType, selectorValue);
-  if (level === 'high') {
-    return `Result is high confidence as it was returned by a unique selector >${displayValue}<`;
-  }
-  if (level === 'low') {
-    return `Result is low confidence since it was discovered via a nonunique selector >${displayValue}<`;
-  }
-  return `Result confidence is medium because selector uniqueness is mixed for >${displayValue}<`;
-}
-
-function selectorConfidenceBadgeMarkup(selectorType, selectorValue = '', options = {}) {
-  const scopeId = String(options?.scopeId || '').trim();
-  const meta = selectorConfidenceMeta(selectorType, selectorValue, scopeId);
-  const compact = options?.compact === true;
-  const label = compact ? meta.short : meta.label;
-  const tooltip = selectorConfidenceTooltip(selectorType, selectorValue, scopeId);
-  const key = selectorConfidenceOverrideKey(selectorType, selectorValue, scopeId);
-  return `<button type="button" class="selector-confidence-badge is-${escapeAttr(meta.level)}" data-confidence-key="${escapeAttr(key)}" data-confidence-type="${escapeAttr(String(selectorType || '').trim().toLowerCase())}" data-confidence-value="${escapeAttr(String(selectorValue || '').trim())}" title="${escapeAttr(tooltip)}">${escapeHtml(label)}</button>`;
-}
-
-function cycleSelectorConfidenceLevel(level) {
-  const clean = String(level || '').trim().toLowerCase();
-  const index = SELECTOR_CONFIDENCE_LEVELS.indexOf(clean);
-  if (index < 0) return SELECTOR_CONFIDENCE_LEVELS[0];
-  return SELECTOR_CONFIDENCE_LEVELS[(index + 1) % SELECTOR_CONFIDENCE_LEVELS.length];
-}
-
-function selectorConfidenceLevelFromOverrideKey(overrideKey, fallbackSelectorType = '') {
-  const cleanKey = String(overrideKey || '').trim().toLowerCase();
-  const override = selectorConfidenceOverrides.get(cleanKey);
-  if (override && SELECTOR_CONFIDENCE_LEVELS.includes(override)) return override;
-  return selectorConfidenceLevel(fallbackSelectorType);
-}
-
-function rerenderConfidenceOverriddenViews() {
-  const payload = latestReconPayload && typeof latestReconPayload === 'object' ? latestReconPayload : emptyReconPayload();
-  renderReconResults(payload, footprintReconResults);
-  renderReconResults(payload, reconResults);
-  renderKnownSelectorsPanel(payload);
-}
-
 function toReconBadge(row, clsName = 'lead', options = {}) {
   const removable = options?.removable === true;
   const rowKey = reconRowVisibilityKey(row);
@@ -7057,20 +8079,26 @@ function toReconBadge(row, clsName = 'lead', options = {}) {
   const selectorTypeClass = selectorTypeColorToken(selectorType);
   const selectorKey = sourceSelectorKey(selectorType, selectorValue);
   const selectorAttr = selectorKey ? ` data-source-selector-key="${escapeAttr(selectorKey)}"` : '';
-  const confidenceBadge = selectorConfidenceBadgeMarkup(selectorType, selectorValue, { compact: true, scopeId: rowKey });
   const pivotMarkup = options?.pivotable === false ? '' : pivotSelectorActionMarkup(selectorType, selectorValue, 'Pivot from selector');
+  const collectTarget = options?.collectable ? collectionTargetFromProfileUrl(row?.site, url) : null;
+  const collectMarkup = collectTarget
+    ? `<button type="button" class="known-selector-action recon-pill-action" data-recon-collect-platform="${escapeAttr(collectTarget.platform)}" data-recon-collect-username="${escapeAttr(collectTarget.username)}" title="Add to collection">Collect</button>`
+    : '';
   const removeMarkup = removable
     ? `<button type="button" class="known-selector-action recon-pill-remove recon-pill-action" data-recon-remove="${escapeAttr(rowKey)}" title="Remove result">×</button>`
     : '';
-  if (!url) return `<span class="recon-pill ${escapeHtml(classes)} recon-pill-${escapeAttr(selectorTypeClass)}"${selectorAttr}>${content}${confidenceBadge}${pivotMarkup}${removeMarkup}</span>`;
+  const actionsMarkup = pivotMarkup || collectMarkup || removeMarkup
+    ? `<span class="recon-pill-actions">${pivotMarkup}${collectMarkup}${removeMarkup}</span>`
+    : '';
+  if (!url) return `<span class="recon-pill ${escapeHtml(classes)} recon-pill-${escapeAttr(selectorTypeClass)}"${selectorAttr}><span class="recon-pill-main">${content}</span>${actionsMarkup}</span>`;
   const previewAttr = screenshotUrl ? ` data-preview-image="${escapeAttr(screenshotUrl)}"` : '';
   const previewLabelAttr = screenshotUrl ? ` data-preview-label="${escapeAttr(label)}"` : '';
   return `
     <span class="recon-pill ${escapeHtml(classes)} recon-pill-${escapeAttr(selectorTypeClass)}"${selectorAttr}${previewAttr}${previewLabelAttr}>
-      <a class="lead-link recon-pill-link" target="_blank" rel="noopener noreferrer" href="${escapeHtml(url)}">${content}</a>
-      ${confidenceBadge}
-      ${pivotMarkup}
-      ${removeMarkup}
+      <span class="recon-pill-main">
+        <a class="lead-link recon-pill-link" target="_blank" rel="noopener noreferrer" href="${escapeHtml(url)}">${content}</a>
+      </span>
+      ${actionsMarkup}
     </span>
   `;
 }
@@ -7095,9 +8123,14 @@ function footprintSelectorEvidenceLabel(selectorType, selectorValue) {
 
 function sourceSelectorKey(selectorType, selectorValue) {
   const type = String(selectorType || '').trim().toLowerCase();
-  const value = String(selectorValue || '').trim();
+  const value = normalizeKnownSelectorValue(type, selectorValue);
   if (!type || !value) return '';
   return `${type}|${value.toLowerCase()}`;
+}
+
+function sourceSelectorAttr(selectorType, selectorValue) {
+  const key = sourceSelectorKey(selectorType, selectorValue);
+  return key ? ` data-source-selector-key="${escapeAttr(key)}"` : '';
 }
 
 function sourceSelectorParts(key) {
@@ -7106,6 +8139,74 @@ function sourceSelectorParts(key) {
   const [type, ...rest] = raw.split('|');
   const value = rest.join('|').trim();
   return { type: String(type || '').trim(), value };
+}
+
+function resetFootprintSelectorMatchFocus() {
+  activeFootprintSelectorMatchKey = '';
+  activeFootprintSelectorMatchIndex = -1;
+  activeKnownSelectorFocusKey = '';
+  activeKnownSelectorFocusIndex = -1;
+  if (!(footprintReconResults instanceof HTMLElement)) return;
+  footprintReconResults.querySelectorAll('.selector-match').forEach((element) => element.classList.remove('selector-match'));
+  footprintReconResults.querySelectorAll('.selector-match-active').forEach((element) => element.classList.remove('selector-match-active'));
+  footprintKnownSelectorsGroups?.querySelectorAll('.known-selector-pill-focus').forEach((element) => element.classList.remove('known-selector-pill-focus'));
+}
+
+function escapeSelectorLiteral(value) {
+  const text = String(value || '');
+  if (globalThis.CSS && typeof globalThis.CSS.escape === 'function') return globalThis.CSS.escape(text);
+  return text.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+}
+
+function focusFootprintSelectorMatch(selectorKey, options = {}) {
+  const key = String(selectorKey || '').trim().toLowerCase();
+  const advance = options?.advance === true;
+  const preserveIndex = options?.preserveIndex === true;
+  const suppressStatus = options?.suppressStatus === true;
+  const previousKey = activeFootprintSelectorMatchKey;
+  const previousIndex = activeFootprintSelectorMatchIndex;
+  if (!(footprintReconResults instanceof HTMLElement) || !key || key === 'all') {
+    resetFootprintSelectorMatchFocus();
+    return false;
+  }
+  resetFootprintSelectorMatchFocus();
+  const matches = Array.from(
+    footprintReconResults.querySelectorAll(`[data-source-selector-key="${escapeSelectorLiteral(key)}"]`),
+  ).filter((element) => element instanceof HTMLElement);
+  const knownPills = Array.from(footprintKnownSelectorsGroups?.querySelectorAll('[data-known-focus-key]') || []);
+  for (const pill of knownPills) {
+    const isActive = String(pill.getAttribute('data-known-focus-key') || '').trim().toLowerCase() === key;
+    pill.classList.toggle('known-selector-pill-focus', isActive);
+  }
+  if (!matches.length) {
+    activeFootprintSelectorMatchKey = key;
+    activeFootprintSelectorMatchIndex = -1;
+    activeKnownSelectorFocusKey = '';
+    activeKnownSelectorFocusIndex = -1;
+    if (!suppressStatus && footprintReconStatus) {
+      const parts = sourceSelectorParts(key);
+      footprintReconStatus.textContent = `No visible footprint sources found for ${formatSelectorLabel(parts.type, parts.value)}.`;
+    }
+    return false;
+  }
+  let nextIndex = 0;
+  if (preserveIndex && previousKey === key && previousIndex >= 0) {
+    nextIndex = Math.min(previousIndex, matches.length - 1);
+  } else if (advance && previousKey === key && previousIndex >= 0) {
+    nextIndex = (previousIndex + 1) % matches.length;
+  }
+  activeFootprintSelectorMatchKey = key;
+  activeFootprintSelectorMatchIndex = nextIndex;
+  matches.forEach((element) => element.classList.add('selector-match'));
+  const active = matches[nextIndex];
+  if (!(active instanceof HTMLElement)) return false;
+  active.classList.add('selector-match-active');
+  active.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+  if (!suppressStatus && footprintReconStatus) {
+    const parts = sourceSelectorParts(key);
+    footprintReconStatus.textContent = `Focused ${formatSelectorLabel(parts.type, parts.value)} source ${nextIndex + 1}/${matches.length}.`;
+  }
+  return true;
 }
 
 function collectSourceSelectorFilterOptions(results) {
@@ -7121,7 +8222,6 @@ function collectSourceSelectorFilterOptions(results) {
     if (!metaByKey.has(key)) {
       metaByKey.set(key, {
         label: formatSelectorLabel(type, value),
-        confidenceLevel: selectorConfidenceMeta(type, value).level,
       });
     }
   }
@@ -7130,9 +8230,66 @@ function collectSourceSelectorFilterOptions(results) {
       key,
       count,
       label: metaByKey.get(key)?.label || key,
-      confidenceLevel: metaByKey.get(key)?.confidenceLevel || 'low',
     }))
     .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+}
+
+function collectKnownSelectors(payload) {
+  const selectorMap = new Map(KNOWN_SELECTOR_GROUPS.map((type) => [type, new Set()]));
+  const rows = Array.isArray(payload?.results) ? payload.results : [];
+  const selectors = Array.isArray(payload?.selectors) ? payload.selectors : [];
+  const osintProfiles = Array.isArray(payload?.osint_profiles) ? payload.osint_profiles : [];
+  const numverifyProfiles = Array.isArray(payload?.numverify_profiles) ? payload.numverify_profiles : [];
+  const personDataProfiles = Array.isArray(payload?.person_data_profiles) ? payload.person_data_profiles : [];
+  const leads = Array.isArray(payload?.leads) ? payload.leads : [];
+
+  for (const selector of selectors) addKnownSelector(selectorMap, selector?.type, selector?.value);
+  for (const row of rows) addKnownSelector(selectorMap, row?.selector_type, row?.selector);
+
+  for (const profile of osintProfiles) {
+    const moduleName = String(profile?.module || '').trim().toLowerCase();
+    if (moduleName === 'hibp') continue;
+    addKnownSelector(selectorMap, 'email', profile?.email);
+    addKnownSelector(selectorMap, 'phone', profile?.phone);
+    addKnownSelector(selectorMap, 'username', profile?.username);
+    addKnownSelector(selectorMap, 'name', profile?.name);
+    addKnownSelector(selectorMap, 'location', profile?.location);
+    addKnownSelector(selectorMap, 'phone', profile?.phone_hint);
+    addKnownSelector(selectorMap, 'email', profile?.email_hint);
+  }
+
+  for (const profile of personDataProfiles) {
+    addKnownSelector(selectorMap, 'name', profile?.full_name);
+    addKnownSelector(selectorMap, 'location', profile?.location_name);
+    addKnownSelector(selectorMap, 'email', profile?.professional_email || profile?.work_email);
+    for (const row of (Array.isArray(profile?.personal_emails) ? profile.personal_emails : [])) addKnownSelector(selectorMap, 'email', row);
+    addKnownSelector(selectorMap, 'phone', profile?.mobile_phone);
+    for (const row of (Array.isArray(profile?.personal_phones) ? profile.personal_phones : [])) addKnownSelector(selectorMap, 'phone', row);
+    for (const row of (Array.isArray(profile?.professional_phones) ? profile.professional_phones : [])) addKnownSelector(selectorMap, 'phone', row);
+  }
+
+  for (const profile of numverifyProfiles) {
+    addKnownSelector(selectorMap, 'phone', profile?.number || profile?.international_format || profile?.e164);
+    addKnownSelector(selectorMap, 'location', profile?.location);
+  }
+
+  for (const lead of leads) {
+    const leadType = String(lead?.lead_type || '').trim().toLowerCase();
+    if (leadType !== 'attribute') continue;
+    const attr = String(lead?.attribute || '').trim().toLowerCase();
+    const value = String(lead?.value || '').trim();
+    if (!value) continue;
+    if (attr.includes('company') || attr.includes('breach') || attr.includes('site') || attr.includes('job title') || attr === 'title') continue;
+    if (attr.includes('email')) addKnownSelector(selectorMap, 'email', value);
+    else if (attr.includes('phone')) addKnownSelector(selectorMap, 'phone', value);
+    else if (attr.includes('name')) addKnownSelector(selectorMap, 'name', value);
+    else if (attr.includes('location')) addKnownSelector(selectorMap, 'location', value);
+    else addKnownSelector(selectorMap, inferKnownSelectorType(value), value);
+  }
+
+  return Object.fromEntries(
+    KNOWN_SELECTOR_GROUPS.map((type) => [type, Array.from(selectorMap.get(type) || []).sort((a, b) => a.localeCompare(b))]),
+  );
 }
 
 const KNOWN_SELECTOR_GROUPS = ['email', 'phone', 'username', 'name', 'location'];
@@ -7156,16 +8313,32 @@ function normalizeKnownSelectorValue(type, value) {
   const raw = String(value || '').trim();
   if (!raw) return '';
   if (normalizedType === 'location') {
-    // Remove categorical prefixes from location payload fragments (e.g., "Country: CA City: Halifax").
-    const stripped = raw
-      .replace(/\b(?:country|state|city|raw)\s*:\s*/gi, '')
-      .replace(/\s{2,}/g, ' ')
-      .trim();
-    return stripped;
+    const labeledParts = Array.from(
+      raw.matchAll(/\b(city|state|province|region|country|location|biolocation|bio location|loc)\s*[:=]\s*([^|,;]+?)(?=\s+\b(?:city|state|province|region|country|location|biolocation|bio location|loc)\s*[:=]|$)/gi),
+    )
+      .map((match) => ({
+        label: String(match[1] || '').trim().toLowerCase(),
+        value: String(match[2] || '').trim(),
+      }))
+      .filter((item) => item.value);
+    if (labeledParts.length) {
+      const preferredOrder = ['city', 'state', 'province', 'region', 'location', 'biolocation', 'bio location', 'loc', 'country'];
+      for (const label of preferredOrder) {
+        const hit = labeledParts.find((item) => item.label === label && item.value);
+        if (hit) return _cleanLocationEntityLabel(hit.value);
+      }
+      return _cleanLocationEntityLabel(labeledParts[0].value);
+    }
+    return _cleanLocationEntityLabel(raw);
   }
   if (normalizedType === 'email') return raw.toLowerCase();
   if (normalizedType === 'phone') return raw.replace(/[^\d+]/g, '');
-  if (normalizedType === 'username') return raw.replace(/^@+/, '');
+  if (normalizedType === 'username') {
+    return raw
+      .replace(/^@+/, '')
+      .replace(/\.bsky\.social$/i, '')
+      .trim();
+  }
   if (normalizedType === 'name') return raw.replace(/\s+/g, ' ');
   return raw;
 }
@@ -7467,6 +8640,21 @@ function maybeAutofillCaseNotesLikelyName(options = {}) {
   caseNotesNameInput.classList.add('case-notes-name-autofill');
 }
 
+function maybeAutofillActiveCaseTitleFromLikelyName(options = {}) {
+  if (!activeCase || typeof activeCase !== 'object') return;
+  const force = options?.force === true;
+  const candidate = calculatedLikelyNameForCaseNotes();
+  if (!candidate) return;
+  const current = String(activeCase?.case_name || '').trim();
+  const previousAuto = String(lastAutofilledCaseTitle || '').trim();
+  const canReplace = force
+    || !current
+    || isPlaceholderCaseTitle(current)
+    || (previousAuto && current.toLowerCase() === previousAuto.toLowerCase());
+  if (!canReplace) return;
+  updateLocalActiveCaseName(candidate, { autofilled: true });
+}
+
 function maybeAutofillCaseNotesLikelyLocation(options = {}) {
   if (!(caseNotesLocationInput instanceof HTMLInputElement)) return;
   if (!(caseNotesModal instanceof HTMLElement) || caseNotesModal.classList.contains('hidden')) return;
@@ -7505,230 +8693,6 @@ function syncOpenCaseNotesKnownProfilesFromRecon() {
   renderCaseNotesSubjectImageOptions(selectedSubject);
   renderCaseNotesSubjectImagePreview(selectedSubject);
   renderCaseNotesProfiles();
-}
-
-function collectKnownSelectors(payload) {
-  const selectorMap = new Map(KNOWN_SELECTOR_GROUPS.map((type) => [type, new Set()]));
-  const selectorStats = new Map();
-  const confidenceScoreForType = (selectorType) => {
-    const level = selectorConfidenceLevel(selectorType);
-    if (level === 'high') return 3;
-    if (level === 'medium') return 2;
-    return 1;
-  };
-  const statKeyFor = (type, value) => `${String(type || '').trim().toLowerCase()}|${String(value || '').trim().toLowerCase()}`;
-  const ensureStat = (type, value) => {
-    const key = statKeyFor(type, value);
-    if (!selectorStats.has(key)) {
-      selectorStats.set(key, {
-        queried: false,
-        queryHits: 0,
-        querySignal: 0,
-        sourceKeys: new Set(),
-        profileKeys: new Set(),
-        evidenceKeys: new Set(),
-        queryConfidenceScore: 0,
-        queryConfidenceType: '',
-        queryConfidenceValue: '',
-      });
-    }
-    return selectorStats.get(key);
-  };
-  const trackKnownSelector = (
-    type,
-    rawValue,
-    {
-      queried = false,
-      queryWeight = 1,
-      querySelectorType = '',
-      querySelectorValue = '',
-      sourceKey = '',
-      profileKey = '',
-      evidenceKey = '',
-    } = {},
-  ) => {
-    const normalizedType = String(type || '').trim().toLowerCase();
-    const normalizedValue = addKnownSelector(selectorMap, normalizedType, rawValue);
-    if (!normalizedType || !normalizedValue) return;
-    const stat = ensureStat(normalizedType, normalizedValue);
-    if (queried) {
-      stat.queried = true;
-      stat.queryHits += 1;
-      stat.querySignal += Number.isFinite(Number(queryWeight)) ? Math.max(0, Number(queryWeight)) : 1;
-      const confidenceType = String(querySelectorType || normalizedType).trim().toLowerCase();
-      const confidenceValue = String(querySelectorValue || rawValue || '').trim();
-      const confidenceScore = confidenceScoreForType(confidenceType);
-      if (confidenceScore >= stat.queryConfidenceScore) {
-        stat.queryConfidenceScore = confidenceScore;
-        stat.queryConfidenceType = confidenceType;
-        stat.queryConfidenceValue = confidenceValue;
-      }
-    }
-    const cleanSourceKey = String(sourceKey || '').trim().toLowerCase();
-    if (cleanSourceKey) stat.sourceKeys.add(cleanSourceKey);
-    const cleanProfileKey = String(profileKey || '').trim().toLowerCase();
-    if (cleanProfileKey) stat.profileKeys.add(cleanProfileKey);
-    const cleanEvidenceKey = String(evidenceKey || '').trim().toLowerCase();
-    if (cleanEvidenceKey) stat.evidenceKeys.add(cleanEvidenceKey);
-  };
-  const sortByPriority = (type, values) => {
-    const typed = String(type || '').trim().toLowerCase();
-    const scoreFor = (value) => {
-      const stat = selectorStats.get(statKeyFor(typed, value));
-      if (!stat) return 0;
-      const queriedBoost = stat.queried ? 1_000_000 : 0;
-      const queryWeight = Math.min(10_000, stat.querySignal) * 100;
-      const sourceDiversity = stat.sourceKeys.size * 1_000;
-      const profileFrequency = stat.profileKeys.size * 100;
-      const evidenceFrequency = stat.evidenceKeys.size;
-      return queriedBoost + queryWeight + sourceDiversity + profileFrequency + evidenceFrequency;
-    };
-    return [...values].sort((a, b) => scoreFor(b) - scoreFor(a) || a.localeCompare(b));
-  };
-  const rows = Array.isArray(payload?.results) ? payload.results : [];
-  const selectors = Array.isArray(payload?.selectors) ? payload.selectors : [];
-  const osintProfiles = Array.isArray(payload?.osint_profiles) ? payload.osint_profiles : [];
-  const numverifyProfiles = Array.isArray(payload?.numverify_profiles) ? payload.numverify_profiles : [];
-  const personDataProfiles = Array.isArray(payload?.person_data_profiles) ? payload.person_data_profiles : [];
-  const leads = Array.isArray(payload?.leads) ? payload.leads : [];
-
-  for (const selector of selectors) {
-    const selectorType = String(selector?.type || '').trim().toLowerCase();
-    const selectorValue = String(selector?.value || '').trim();
-    trackKnownSelector(selector?.type, selector?.value, {
-      queried: true,
-      queryWeight: selectorQueryPriorityWeight(selectorType),
-      querySelectorType: selectorType,
-      querySelectorValue: selectorValue,
-      sourceKey: 'query_input',
-      profileKey: `query_input|${selectorType}|${selectorValue.toLowerCase()}`,
-      evidenceKey: `query_input|${selectorType}|${selectorValue.toLowerCase()}`,
-    });
-  }
-  for (const row of rows) {
-    const source = String(row?.source || row?.site_key || row?.site || 'result').trim().toLowerCase();
-    const selectorType = String(row?.selector_type || '').trim().toLowerCase();
-    const selectorValue = String(row?.selector || '').trim();
-    const profileUrl = String(row?.profile_url || '').trim().toLowerCase();
-    const profileIdentity = profileUrl || `${source}|${selectorType}|${selectorValue.toLowerCase()}`;
-    trackKnownSelector(selectorType, selectorValue, {
-      queried: true,
-      queryWeight: selectorQueryPriorityWeight(selectorType),
-      querySelectorType: selectorType,
-      querySelectorValue: selectorValue,
-      sourceKey: `result:${source}`,
-      profileKey: `result:${profileIdentity}`,
-      evidenceKey: `result:${source}|${profileIdentity}`,
-    });
-  }
-
-  for (const profile of osintProfiles) {
-    const moduleName = String(profile?.module || '').trim().toLowerCase();
-    if (isHibpModuleName(moduleName)) continue;
-    const queryType = String(profile?.query_type || '').trim().toLowerCase();
-    const queryValue = String(profile?.query_value || '').trim();
-    const profileKey = [
-      moduleName || 'osint',
-      String(profile?.profile_url || '').trim().toLowerCase(),
-      String(profile?.website || '').trim().toLowerCase(),
-      String(profile?.username || '').trim().toLowerCase(),
-      String(profile?.email || '').trim().toLowerCase(),
-      String(profile?.phone || '').trim().toLowerCase(),
-      String(profile?.name || '').trim().toLowerCase(),
-      String(profile?.title || '').trim().toLowerCase(),
-    ].join('|');
-    trackKnownSelector('email', profile?.email, { queried: true, querySelectorType: queryType, querySelectorValue: queryValue, sourceKey: `osint:${moduleName || 'unknown'}`, profileKey, evidenceKey: `osint:${moduleName}|email|${profileKey}` });
-    trackKnownSelector('phone', profile?.phone, { queried: true, querySelectorType: queryType, querySelectorValue: queryValue, sourceKey: `osint:${moduleName || 'unknown'}`, profileKey, evidenceKey: `osint:${moduleName}|phone|${profileKey}` });
-    trackKnownSelector('username', profile?.username, { queried: true, querySelectorType: queryType, querySelectorValue: queryValue, sourceKey: `osint:${moduleName || 'unknown'}`, profileKey, evidenceKey: `osint:${moduleName}|username|${profileKey}` });
-    trackKnownSelector('name', profile?.name, { queried: true, querySelectorType: queryType, querySelectorValue: queryValue, sourceKey: `osint:${moduleName || 'unknown'}`, profileKey, evidenceKey: `osint:${moduleName}|name|${profileKey}` });
-    trackKnownSelector('location', profile?.location, { queried: true, querySelectorType: queryType, querySelectorValue: queryValue, sourceKey: `osint:${moduleName || 'unknown'}`, profileKey, evidenceKey: `osint:${moduleName}|location|${profileKey}` });
-    trackKnownSelector('phone', profile?.phone_hint, { queried: true, querySelectorType: queryType, querySelectorValue: queryValue, sourceKey: `osint:${moduleName || 'unknown'}`, profileKey, evidenceKey: `osint:${moduleName}|phone_hint|${profileKey}` });
-    trackKnownSelector('email', profile?.email_hint, { queried: true, querySelectorType: queryType, querySelectorValue: queryValue, sourceKey: `osint:${moduleName || 'unknown'}`, profileKey, evidenceKey: `osint:${moduleName}|email_hint|${profileKey}` });
-  }
-
-  for (const profile of personDataProfiles) {
-    const queryType = String(profile?.query_type || '').trim().toLowerCase();
-    const queryValue = String(profile?.query_value || '').trim();
-    const profileKey = [
-      String(profile?.id || '').trim().toLowerCase(),
-      String(profile?.full_name || '').trim().toLowerCase(),
-      String(profile?.query_type || '').trim().toLowerCase(),
-      String(profile?.query_value || '').trim().toLowerCase(),
-    ].join('|');
-    trackKnownSelector('name', profile?.full_name, { queried: true, querySelectorType: queryType, querySelectorValue: queryValue, sourceKey: 'pdl', profileKey, evidenceKey: `pdl|name|${profileKey}` });
-    trackKnownSelector('location', profile?.location_name, { queried: true, querySelectorType: queryType, querySelectorValue: queryValue, sourceKey: 'pdl', profileKey, evidenceKey: `pdl|location|${profileKey}` });
-    trackKnownSelector('email', profile?.professional_email || profile?.work_email, { queried: true, querySelectorType: queryType, querySelectorValue: queryValue, sourceKey: 'pdl', profileKey, evidenceKey: `pdl|professional_email|${profileKey}` });
-    for (const row of (Array.isArray(profile?.personal_emails) ? profile.personal_emails : [])) {
-      trackKnownSelector('email', row, { queried: true, querySelectorType: queryType, querySelectorValue: queryValue, sourceKey: 'pdl', profileKey, evidenceKey: `pdl|personal_email|${profileKey}|${String(row || '').trim().toLowerCase()}` });
-    }
-    trackKnownSelector('phone', profile?.mobile_phone, { queried: true, querySelectorType: queryType, querySelectorValue: queryValue, sourceKey: 'pdl', profileKey, evidenceKey: `pdl|mobile_phone|${profileKey}` });
-    for (const row of (Array.isArray(profile?.personal_phones) ? profile.personal_phones : [])) {
-      trackKnownSelector('phone', row, { queried: true, querySelectorType: queryType, querySelectorValue: queryValue, sourceKey: 'pdl', profileKey, evidenceKey: `pdl|personal_phone|${profileKey}|${String(row || '').trim().toLowerCase()}` });
-    }
-    for (const row of (Array.isArray(profile?.professional_phones) ? profile.professional_phones : [])) {
-      trackKnownSelector('phone', row, { queried: true, querySelectorType: queryType, querySelectorValue: queryValue, sourceKey: 'pdl', profileKey, evidenceKey: `pdl|professional_phone|${profileKey}|${String(row || '').trim().toLowerCase()}` });
-    }
-  }
-
-  for (const profile of numverifyProfiles) {
-    const queryType = String(profile?.query_type || 'phone').trim().toLowerCase();
-    const queryValue = String(profile?.query_value || profile?.number || profile?.international_format || '').trim();
-    const profileKey = [
-      String(profile?.number || profile?.international_format || profile?.e164 || '').trim().toLowerCase(),
-      String(profile?.country_code || '').trim().toLowerCase(),
-      String(profile?.carrier || '').trim().toLowerCase(),
-    ].join('|');
-    trackKnownSelector('phone', profile?.number || profile?.international_format || profile?.e164, {
-      queried: true,
-      querySelectorType: queryType,
-      querySelectorValue: queryValue,
-      sourceKey: 'numverify',
-      profileKey,
-      evidenceKey: `numverify|phone|${profileKey}`,
-    });
-    trackKnownSelector('location', profile?.location, {
-      queried: true,
-      querySelectorType: queryType,
-      querySelectorValue: queryValue,
-      sourceKey: 'numverify',
-      profileKey,
-      evidenceKey: `numverify|location|${profileKey}`,
-    });
-  }
-
-  for (const lead of leads) {
-    const leadType = String(lead?.lead_type || '').trim().toLowerCase();
-    if (leadType !== 'attribute') continue;
-    const attr = String(lead?.attribute || '').trim().toLowerCase();
-    const value = String(lead?.value || '').trim();
-    if (!value) continue;
-    if (attr.includes('company') || attr.includes('breach') || attr.includes('site') || attr.includes('job title') || attr === 'title') continue;
-    const leadSource = String(lead?.source || 'lead').trim().toLowerCase();
-    const profileName = String(lead?.profile_name || '').trim().toLowerCase();
-    const leadProfileUrl = String(lead?.profile_url || '').trim().toLowerCase();
-    const profileKey = `${leadSource}|${profileName || leadProfileUrl || value.toLowerCase()}`;
-    const evidenceKey = `${leadSource}|${attr}|${value.toLowerCase()}|${profileKey}`;
-    if (attr.includes('email')) trackKnownSelector('email', value, { sourceKey: `lead:${leadSource}`, profileKey, evidenceKey });
-    else if (attr.includes('phone')) trackKnownSelector('phone', value, { sourceKey: `lead:${leadSource}`, profileKey, evidenceKey });
-    else if (attr.includes('name')) trackKnownSelector('name', value, { sourceKey: `lead:${leadSource}`, profileKey, evidenceKey });
-    else if (attr.includes('location')) trackKnownSelector('location', value, { sourceKey: `lead:${leadSource}`, profileKey, evidenceKey });
-    else trackKnownSelector(inferKnownSelectorType(value), value, { sourceKey: `lead:${leadSource}`, profileKey, evidenceKey });
-  }
-
-  return Object.fromEntries(
-    KNOWN_SELECTOR_GROUPS.map((type) => [
-      type,
-      sortByPriority(type, Array.from(selectorMap.get(type) || []))
-        .map((value) => {
-          const stat = selectorStats.get(statKeyFor(type, value));
-          return {
-            value,
-            confidence_source_type: String(stat?.queryConfidenceType || type).trim().toLowerCase(),
-            confidence_source_value: String(stat?.queryConfidenceValue || value).trim(),
-          };
-        }),
-    ]),
-  );
 }
 
 function titleCaseLabel(value) {
@@ -9437,9 +10401,7 @@ function personDataProfileMarkup(profile, totalProfiles = 0, pdlProfiles = [], o
   const location = String(profile.location_name || '').trim();
   const queryType = String(profile.query_type || '').trim() || 'unknown';
   const queryValue = String(profile.query_value || '').trim() || 'unknown';
-  const profileConfidenceBadge = selectorConfidenceBadgeMarkup(queryType, queryValue, { compact: true, scopeId: profileKey });
-  const profileSelectorKey = sourceSelectorKey(queryType, queryValue);
-  const profileSelectorAttr = profileSelectorKey ? ` data-source-selector-key="${escapeAttr(profileSelectorKey)}"` : '';
+  const profileSelectorAttr = sourceSelectorAttr(queryType, queryValue);
   const proEmail = String(profile.professional_email || profile.work_email || '').trim();
   const personalEmails = Array.isArray(profile.personal_emails) ? profile.personal_emails.filter(Boolean).map((item) => String(item).trim()) : [];
   const mobilePhone = String(profile.mobile_phone || profile.phone || '').trim();
@@ -9473,9 +10435,8 @@ function personDataProfileMarkup(profile, totalProfiles = 0, pdlProfiles = [], o
       <span class="pdl-contact-heading">${escapeHtml(heading)}</span>
       <div class="recon-pills pdl-contact-pills">
         ${values.length ? values.map((value) => `
-          <span class="recon-pill">
+          <span class="recon-pill"${sourceSelectorAttr(contactSelectorType(heading), value)}>
             <span>${escapeHtml(value)}</span>
-            ${selectorConfidenceBadgeMarkup(contactSelectorType(heading) || queryType, value, { compact: true, scopeId: pdlContactVisibilityKey(profile, heading.replace(/s$/, ''), value) })}
             ${pivotSelectorActionMarkup(contactSelectorType(heading), value, 'Pivot Search')}
             ${removable ? `<button type="button" class="known-selector-action recon-pill-remove recon-pill-action" data-pdl-contact-remove="${escapeAttr(pdlContactVisibilityKey(profile, heading.replace(/s$/, ''), value))}" title="Remove value">×</button>` : ''}
           </span>
@@ -9554,21 +10515,21 @@ function personDataProfileMarkup(profile, totalProfiles = 0, pdlProfiles = [], o
     for (const url of fallbackProfileUrls) addRow({ profile_url: url, site: siteFromUrl(url) });
     return rows.filter((row) => !hiddenPdlProfileUrlKeys.has(String(row?.profile_url || '').trim().toLowerCase()));
   })();
+  const pdlCollectionTargets = collectionTargetsFromProfileRows(mergedProfileRows);
   return `
     <div class="recon-group">
       <p>Person Data Profile${totalProfiles > 1 ? ` (${totalProfiles} matches)` : ''}</p>
       <div class="pdl-poi-profile"${profileSelectorAttr}>
         ${removable ? `<button type="button" class="known-selector-action recon-tile-remove" data-pdl-profile-remove="${escapeAttr(profileKey)}" title="Remove Person Data Profile">×</button>` : ''}
         <div class="recon-pills">
-          <span class="recon-pill">${escapeHtml(fullName || `${queryType}: ${queryValue}`)}</span>
-          ${profileConfidenceBadge}
+          <span class="recon-pill"${sourceSelectorAttr('name', fullName || '')}>${escapeHtml(fullName || `${queryType}: ${queryValue}`)}</span>
         </div>
         <div class="pdl-poi-grid">
-          <div class="pdl-poi-field">
+          <div class="pdl-poi-field"${sourceSelectorAttr('name', fullName)}>
             <span class="pdl-poi-label">Name</span>
             <strong>${escapeHtml(fullName || 'Unnamed')}</strong>
           </div>
-          <div class="pdl-poi-field">
+          <div class="pdl-poi-field"${sourceSelectorAttr('location', location)}>
             <span class="pdl-poi-label">Location</span>
             <strong>${escapeHtml(location || 'Unknown')}</strong>
           </div>
@@ -9579,15 +10540,19 @@ function personDataProfileMarkup(profile, totalProfiles = 0, pdlProfiles = [], o
           </div>
         </div>
         <div class="pdl-profiles-block">
-          <span class="pdl-contact-heading">Profiles</span>
+          <div class="recon-group-head">
+            <span class="pdl-contact-heading">Profiles</span>
+            ${pdlCollectionTargets.length ? `<button type="button" class="secondary-btn recon-group-collect-all" data-recon-collect-all="pdl" data-recon-collect-all-targets="${escapeAttr(JSON.stringify(pdlCollectionTargets))}">Collect All</button>` : ''}
+          </div>
           <div class="recon-pills">
             ${mergedProfileRows.length
     ? mergedProfileRows.map((row) => {
       const rowWithSelector = { ...row, selector_type: queryType, selector: String(queryValue || '').trim() };
-      if (!removable) return toReconBadge(rowWithSelector, 'lead', { pivotable: false });
-      return toReconBadge(rowWithSelector, 'lead', {
+      if (!removable) return toReconBadge(rowWithSelector, 'success', { pivotable: false, collectable: true });
+      return toReconBadge(rowWithSelector, 'success', {
         removable: true,
         pivotable: false,
+        collectable: true,
       }).replace('data-recon-remove=', 'data-pdl-url-remove=');
     }).join('')
     : '<span class="recon-pill">No profile URLs returned by People Data Labs.</span>'}
@@ -9634,12 +10599,22 @@ function osintProfilesMarkup(profiles, rows = [], options = {}) {
     const classAttr = cls ? ` ${cls}` : '';
     return `<a class="recon-pill lead-link${classAttr}" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer"${previewAttr}${previewLabelAttr}>${escapeHtml(label)}</a>`;
   };
+  const selectorTypeForOsintField = (label) => {
+    const clean = String(label || '').trim().toLowerCase();
+    if (clean === 'email' || clean === 'email_hint') return 'email';
+    if (clean === 'phone' || clean === 'phone_hint') return 'phone';
+    if (clean === 'location' || clean === 'biolocation') return 'location';
+    if (clean === 'name') return 'name';
+    if (clean === 'username' || clean === 'handle') return 'username';
+    return '';
+  };
   const valueItem = (label, value, options = {}) => {
     if (value === null || value === undefined) return '';
     const clean = typeof value === 'string' ? value.trim() : String(value).trim();
     if (!clean) return '';
     const wideClass = options?.wide ? ' osint-value-wide' : '';
-    return `<div class="osint-value${wideClass}"><span class="osint-key">${escapeHtml(label)}</span><strong>${escapeHtml(clean)}</strong></div>`;
+    const selectorAttr = sourceSelectorAttr(selectorTypeForOsintField(label), clean);
+    return `<div class="osint-value${wideClass}"${selectorAttr}><span class="osint-key">${escapeHtml(label)}</span><strong>${escapeHtml(clean)}</strong></div>`;
   };
   const rowsByUrl = new Map();
   for (const row of resultRows) {
@@ -9679,15 +10654,12 @@ function osintProfilesMarkup(profiles, rows = [], options = {}) {
     const website = entry.website;
     const siteLabel = normalizedSiteLabel(profile?.module || rowsByUrl.get(profileUrl.toLowerCase())?.site || 'osint');
     const row = rowsByUrl.get(profileUrl.toLowerCase());
-    const selectorKey = sourceSelectorKey(
+    const collectTarget = collectionTargetFromProfileUrl(row?.site || siteLabel, profileUrl);
+    const selectorAttr = sourceSelectorAttr(
       profile?.query_type || row?.selector_type,
       profile?.query_value || row?.selector,
     );
-    const selectorType = String(profile?.query_type || row?.selector_type || '').trim().toLowerCase() || 'name';
-    const confidenceBadge = selectorConfidenceBadgeMarkup(selectorType, String(profile?.query_value || row?.selector || '').trim(), { compact: true, scopeId: profileKey });
-    const selectorAttr = selectorKey ? ` data-source-selector-key="${escapeAttr(selectorKey)}"` : '';
     const websiteLink = website && website !== profileUrl ? linkPill('Website', website, `${title} website`, 'osint-website-link') : '';
-    const confidenceAction = `<div class="osint-profile-confidence">${confidenceBadge}</div>`;
     const profileAction = profileUrl
       ? `
         <a class="known-selector-action osint-profile-open" href="${escapeHtml(profileUrl)}" target="_blank" rel="noopener noreferrer" title="Open profile URL" aria-label="Open profile URL">
@@ -9702,8 +10674,11 @@ function osintProfilesMarkup(profiles, rows = [], options = {}) {
     const removeAction = removable
       ? `<button type="button" class="known-selector-action recon-tile-remove" data-osint-remove="${escapeAttr(profileKey)}" title="Remove OSINT tile">×</button>`
       : '';
-    const topActions = confidenceAction || profileAction || removeAction
-      ? `<div class="osint-profile-actions">${confidenceAction}${profileAction}${removeAction}</div>`
+    const collectAction = collectTarget
+      ? `<button type="button" class="known-selector-action osint-profile-collect" data-recon-collect-platform="${escapeAttr(collectTarget.platform)}" data-recon-collect-username="${escapeAttr(collectTarget.username)}" title="Add to collection">Collect</button>`
+      : '';
+    const topActions = profileAction || collectAction || removeAction
+      ? `<div class="osint-profile-actions">${profileAction}${collectAction}${removeAction}</div>`
       : '';
     const imageUrl = normalizeExternalUrl(profile?.picture_url || profile?.avatar_url || '') || normalizeExternalUrl(row?.picture_url || '');
     const siteIcon = faviconMarkup(siteLabel, profileUrl || website);
@@ -9747,10 +10722,10 @@ function osintProfilesMarkup(profiles, rows = [], options = {}) {
           ${avatarMarkup}
           <div>
             <p class="osint-profile-site">${siteIcon}<span>${escapeHtml(siteLabel)}</span></p>
-            <h4>${escapeHtml(title)}</h4>
-            ${displayName && displayName.toLowerCase() !== title.toLowerCase() ? `<p>${escapeHtml(displayName)}</p>` : ''}
+            <h4${sourceSelectorAttr('username', username) || sourceSelectorAttr('name', displayName || title)}>${escapeHtml(title)}</h4>
+            ${displayName && displayName.toLowerCase() !== title.toLowerCase() ? `<p${sourceSelectorAttr('name', displayName)}>${escapeHtml(displayName)}</p>` : ''}
             ${username && username.toLowerCase() !== title.toLowerCase() && username.toLowerCase() !== displayName.toLowerCase()
-    ? `<p>@${escapeHtml(username)}</p>`
+    ? `<p${sourceSelectorAttr('username', username)}>@${escapeHtml(username)}</p>`
     : ''}
           </div>
         </div>
@@ -9795,6 +10770,7 @@ function hibpAggregateMarkup(profiles, specRows = []) {
     normalized = normalized.replace(/^["']+|["']+$/g, '').trim();
     if (/:\s*\d/.test(normalized)) normalized = normalized.split(':')[0].trim();
     if (!normalized) return '';
+    if (/^(true|false|null|none|yes|no)$/i.test(normalized)) return '';
     if (/^\d+$/.test(normalized)) return '';
     if (/^\d{4}-\d{2}-\d{2}/.test(normalized)) return '';
     if (normalized.length > 96) return '';
@@ -9841,27 +10817,43 @@ function hibpAggregateMarkup(profiles, specRows = []) {
       }
       return undefined;
     };
-    const walk = (node) => {
+    const walk = (node, hintedName = '') => {
       if (node === null || node === undefined) return;
       if (Array.isArray(node)) {
-        for (const item of node) walk(item);
+        for (const item of node) walk(item, hintedName);
         return;
       }
       if (typeof node === 'string') {
         const parsed = parseMaybeJson(node);
         if (parsed !== null) {
-          walk(parsed);
+          walk(parsed, hintedName);
           return;
         }
         for (const part of node.split(/[,;\n]+/g)) append(part);
         return;
       }
       if (typeof node === 'object') {
-        const nameValue = objectValue(node, ['name', 'title', 'breach', 'breach_name', 'breachname']);
+        const hasKeyAlias = (candidate, aliases) => aliases.includes(String(candidate || '').toLowerCase());
+        const isBreachRecord = Object.keys(node).some((key) => hasKeyAlias(key, [
+          'breach', 'breach_name', 'breachname',
+          'creation_date', 'breach_date', 'date', 'added_date', 'modified_date',
+          'picture_url', 'picture url', 'logo', 'logo_url', 'logo url', 'favicon', 'icon',
+        ]));
+        const nameValue = objectValue(node, ['breach', 'breach_name', 'breachname']);
+        const fallbackName = sanitizeBreachName(hintedName);
+        const resolvedName = sanitizeBreachName(nameValue) ? nameValue : fallbackName;
         const dateValue = objectValue(node, ['creation_date', 'breach_date', 'date', 'added_date', 'modified_date', 'creation date', 'breach date', 'added date', 'modified date']);
         const logoValue = objectValue(node, ['picture_url', 'picture url', 'logo', 'logo_url', 'logo url', 'favicon', 'icon']);
-        if (nameValue !== undefined) append(nameValue, dateValue, logoValue);
-        for (const item of Object.values(node)) walk(item);
+        if (resolvedName !== undefined) append(resolvedName, dateValue, logoValue);
+        for (const [key, item] of Object.entries(node)) {
+          const lowered = String(key || '').toLowerCase();
+          if (!lowered.includes('breach') && !lowered.includes('pwn')) continue;
+          if (item && typeof item === 'object' && !Array.isArray(item) && !isBreachRecord) {
+            for (const [childKey, childValue] of Object.entries(item)) walk(childValue, childKey);
+            continue;
+          }
+          walk(item, hintedName);
+        }
         return;
       }
       // Ignore primitive numeric/boolean values (e.g. PwnCount) that are not breach names.
@@ -9872,12 +10864,6 @@ function hibpAggregateMarkup(profiles, specRows = []) {
 
   for (const profile of hibpProfiles) {
     const bucket = ensureSelector(profile?.query_type, profile?.query_value);
-    const directProfileBreach = breachEntry(
-      profile?.title || profile?.name || profile?.breach,
-      profile?.creation_date,
-      profile?.picture_url,
-    );
-    if (directProfileBreach) bucket.breaches.set(directProfileBreach.key, directProfileBreach);
     for (const breach of parseBreachesFromValue(profile?.breach)) bucket.breaches.set(breach.key, breach);
     for (const breach of parseBreachesFromValue(profile?.parsed_values)) bucket.breaches.set(breach.key, breach);
     for (const breach of parseBreachesFromValue(profile?.spec_format)) bucket.breaches.set(breach.key, breach);
@@ -9904,9 +10890,11 @@ function hibpAggregateMarkup(profiles, specRows = []) {
   if (!selectorRows.length) return '';
   const cards = selectorRows.map((row) => {
     const selectorLabel = formatSelectorLabel(row.selectorType, row.selectorValue);
+    const selectorKey = sourceSelectorKey(row.selectorType, row.selectorValue);
+    const selectorAttr = selectorKey ? ` data-source-selector-key="${escapeAttr(selectorKey)}"` : '';
     const breaches = Array.from(row.breaches.values()).sort((a, b) => a.name.localeCompare(b.name));
     return `
-      <article class="hibp-selector-result">
+      <article class="hibp-selector-result"${selectorAttr}>
         <p>${escapeHtml(selectorLabel)}</p>
         <div class="recon-pills">
           ${breaches.length
@@ -9933,24 +10921,25 @@ function hibpAggregateMarkup(profiles, specRows = []) {
 function numverifyProfilesMarkup(profiles) {
   const items = Array.isArray(profiles) ? profiles : [];
   if (!items.length) return '';
+  const selectorTypeForNumverifyField = (label) => {
+    const clean = String(label || '').trim().toLowerCase();
+    if (['number', 'international_format', 'local_format', 'e164'].includes(clean)) return 'phone';
+    if (clean === 'location') return 'location';
+    return '';
+  };
   const valueItem = (label, value) => {
     const clean = String(value || '').trim();
     if (!clean) return '';
-    return `<div class="osint-value"><span class="osint-key">${escapeHtml(label)}</span><strong>${escapeHtml(clean)}</strong></div>`;
+    return `<div class="osint-value"${sourceSelectorAttr(selectorTypeForNumverifyField(label), clean)}><span class="osint-key">${escapeHtml(label)}</span><strong>${escapeHtml(clean)}</strong></div>`;
   };
   const cards = items.map((profile, index) => {
     const title = String(profile?.title || profile?.number || `Phone Result ${index + 1}`).trim();
-    const queryType = String(profile?.query_type || 'phone').trim().toLowerCase() || 'phone';
-    const confidenceBadge = selectorConfidenceBadgeMarkup(queryType, String(profile?.query_value || profile?.number || '').trim(), {
-      compact: true,
-      scopeId: `numverify|${String(profile?.number || profile?.international_format || profile?.e164 || title || '').trim().toLowerCase()}`,
-    });
+    const selectorAttr = sourceSelectorAttr(profile?.query_type || 'phone', profile?.query_value || profile?.number || profile?.international_format || profile?.e164 || '');
     return `
-      <article class="osint-profile-card">
+      <article class="osint-profile-card"${selectorAttr}>
         <div class="osint-profile-head">
           <div class="osint-profile-avatar empty">Phone</div>
           <div>
-            <div class="osint-profile-confidence">${confidenceBadge}</div>
             <h4>${escapeHtml(title)}</h4>
             <p>${profile?.valid ? 'Valid number' : 'Invalid or not recognized'}</p>
           </div>
@@ -9978,20 +10967,12 @@ function numverifyProfilesMarkup(profiles) {
   `;
 }
 
-function knownSelectorPillMarkup(type, value, confidenceSourceType = '', confidenceSourceValue = '') {
+function knownSelectorPillMarkup(type, value) {
   const key = `${type}|${String(value || '').toLowerCase()}`;
   if (hiddenKnownSelectorKeys.has(key)) return '';
-  const confidenceType = String(confidenceSourceType || type).trim().toLowerCase();
-  const confidenceValue = String(confidenceSourceValue || value).trim();
-  const confidence = selectorConfidenceMeta(confidenceType, confidenceValue);
-  const typeLabel = selectorTypeDisplayLabel(type);
   return `
-    <span class="known-selector-pill known-selector-pill-${escapeAttr(type)}" data-known-focus-key="${escapeAttr(key)}" title="${escapeAttr(confidence.guidance)}">
-      <span class="known-selector-main">
-        <span class="known-selector-type">${escapeHtml(typeLabel)}</span>
-        <span class="known-selector-value">${escapeHtml(value)}</span>
-      </span>
-      ${selectorConfidenceBadgeMarkup(confidenceType, confidenceValue, { compact: true, scopeId: `known_selector|${key}` })}
+    <span class="known-selector-pill known-selector-pill-${escapeAttr(type)}" data-known-focus-key="${escapeAttr(key)}">
+      <span class="known-selector-value">${escapeHtml(value)}</span>
       <button type="button" class="known-selector-action pivot" data-known-pivot-type="${escapeAttr(type)}" data-known-pivot-value="${escapeAttr(value)}" title="Pivot Search" aria-label="Pivot Search">
         <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="11" cy="11" r="6.5"></circle><path d="M16.5 16.5L21 21"></path></svg>
       </button>
@@ -10003,8 +10984,6 @@ function knownSelectorPillMarkup(type, value, confidenceSourceType = '', confide
 function hideResultsForSelector(selectorKey) {
   const cleanKey = String(selectorKey || '').trim().toLowerCase();
   if (!cleanKey || cleanKey === 'all') return false;
-  const { type, value } = sourceSelectorParts(cleanKey);
-  if (!type || !value) return false;
   const payload = latestReconPayload && typeof latestReconPayload === 'object' ? latestReconPayload : emptyReconPayload();
   const rows = Array.isArray(payload?.results) ? payload.results : [];
   const osintProfiles = Array.isArray(payload?.osint_profiles) ? payload.osint_profiles : [];
@@ -10012,9 +10991,7 @@ function hideResultsForSelector(selectorKey) {
   let hiddenCount = 0;
 
   for (const row of rows) {
-    const rowType = String(row?.selector_type || '').trim().toLowerCase();
-    const rowValue = String(row?.selector || '').trim().toLowerCase();
-    if (rowType !== type || rowValue !== value) continue;
+    if (sourceSelectorKey(row?.selector_type, row?.selector) !== cleanKey) continue;
     const rowKey = reconRowVisibilityKey(row);
     if (!hiddenReconRowKeys.has(rowKey)) {
       hiddenReconRowKeys.add(rowKey);
@@ -10031,73 +11008,17 @@ function hideResultsForSelector(selectorKey) {
   }
 
   for (const profile of osintProfiles) {
-    const queryType = String(profile?.query_type || '').trim().toLowerCase();
-    const queryValue = String(profile?.query_value || '').trim().toLowerCase();
-    if (queryType === type && queryValue === value) {
+    if (sourceSelectorKey(profile?.query_type, profile?.query_value) === cleanKey) {
       hiddenOsintTileKeys.add(osintTileVisibilityKey(profile));
     }
   }
 
   for (const profile of pdlProfiles) {
-    const queryType = String(profile?.query_type || '').trim().toLowerCase();
-    const queryValue = String(profile?.query_value || '').trim().toLowerCase();
-    if (queryType === type && queryValue === value) {
+    if (sourceSelectorKey(profile?.query_type, profile?.query_value) === cleanKey) {
       hiddenPdlProfileKeys.add(pdlProfileVisibilityKey(profile));
     }
   }
-
-  hiddenKnownSelectorKeys.add(cleanKey);
   return hiddenCount > 0;
-}
-
-function focusKnownSelectorInstances(selectorKey) {
-  const cleanKey = String(selectorKey || '').trim().toLowerCase();
-  if (!cleanKey || cleanKey === 'all') return false;
-  if (!(footprintReconResults instanceof HTMLElement)) return false;
-  const payload = latestReconPayload && typeof latestReconPayload === 'object' ? latestReconPayload : emptyReconPayload();
-  if (activeFootprintSourceSelectorKey !== 'all') {
-    activeFootprintSourceSelectorKey = 'all';
-    renderReconResults(payload, footprintReconResults);
-  }
-  const candidates = Array.from(footprintReconResults.querySelectorAll('[data-source-selector-key]'));
-  const matches = candidates.filter((node) => String(node.getAttribute('data-source-selector-key') || '').trim().toLowerCase() === cleanKey);
-  for (const node of candidates) {
-    node.classList.remove('selector-match', 'selector-match-active');
-  }
-  const knownPills = Array.from(footprintKnownSelectorsGroups?.querySelectorAll('[data-known-focus-key]') || []);
-  for (const pill of knownPills) {
-    const isActive = String(pill.getAttribute('data-known-focus-key') || '').trim().toLowerCase() === cleanKey;
-    pill.classList.toggle('known-selector-pill-focus', isActive);
-  }
-  if (!matches.length) {
-    activeKnownSelectorFocusKey = '';
-    activeKnownSelectorFocusIndex = -1;
-    if (footprintReconStatus) footprintReconStatus.textContent = `No visible instances found for ${cleanKey}.`;
-    return false;
-  }
-  const nextIndex = activeKnownSelectorFocusKey === cleanKey
-    ? (activeKnownSelectorFocusIndex + 1) % matches.length
-    : 0;
-  activeKnownSelectorFocusKey = cleanKey;
-  activeKnownSelectorFocusIndex = nextIndex;
-  for (const node of matches) node.classList.add('selector-match');
-  const current = matches[nextIndex];
-  current.classList.add('selector-match-active');
-  current.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
-  const parts = sourceSelectorParts(cleanKey);
-  const label = formatSelectorLabel(parts.type, parts.value);
-  if (footprintReconStatus) footprintReconStatus.textContent = `Selector focus: ${label} (${nextIndex + 1}/${matches.length})`;
-  return true;
-}
-
-function renderFootprintLikelyName(payload) {
-  if (!(footprintLikelyNameValue instanceof HTMLElement)) return;
-  const summary = collectLikelyNameSummary(payload || {});
-  const value = String(summary?.name || '').trim();
-  footprintLikelyNameValue.textContent = value || 'Unknown';
-  if (footprintLikelyName instanceof HTMLElement) {
-    footprintLikelyName.classList.toggle('is-empty', !value);
-  }
 }
 
 function renderKnownSelectorsPanel(payload) {
@@ -10113,12 +11034,9 @@ function renderKnownSelectorsPanel(payload) {
   let total = 0;
   const sections = KNOWN_SELECTOR_GROUPS
     .map((type) => {
-      const items = Array.isArray(known?.[type]) ? known[type] : [];
-      const pills = items
-        .map((item) => knownSelectorPillMarkup(type, item?.value, item?.confidence_source_type, item?.confidence_source_value))
-        .filter(Boolean)
-        .join('');
-      const count = pills ? items.filter((item) => !hiddenKnownSelectorKeys.has(`${type}|${String(item?.value || '').toLowerCase()}`)).length : 0;
+      const values = Array.isArray(known?.[type]) ? known[type] : [];
+      const pills = values.map((value) => knownSelectorPillMarkup(type, value)).filter(Boolean).join('');
+      const count = pills ? values.filter((value) => !hiddenKnownSelectorKeys.has(`${type}|${String(value || '').toLowerCase()}`)).length : 0;
       total += Math.max(0, count);
       return `
         <section class="known-selector-group">
@@ -10272,7 +11190,6 @@ function applyReconPayload(payload, options = {}) {
   if (notifyModules) notifyReconApiModules(normalized);
   renderReconResults(normalized, footprintReconResults);
   if (!footprintOnly) renderReconResults(normalized);
-  renderFootprintLikelyName(normalized);
   renderKnownSelectorsPanel(normalized);
   renderLeadsList();
   renderFootprintTimeline();
@@ -10282,6 +11199,7 @@ function applyReconPayload(payload, options = {}) {
   const statusText = `${statusPrefix}: ${normalized.present_count || 0} account match(es) found across ${normalized.checked || 0} checks.`;
   if (footprintReconStatus) footprintReconStatus.textContent = statusText;
   if (!footprintOnly) reconStatus.textContent = statusText;
+  maybeAutofillActiveCaseTitleFromLikelyName();
   maybeAutofillCaseNotesLikelyName();
   maybeAutofillCaseNotesLikelyLocation();
   syncOpenCaseNotesKnownProfilesFromRecon();
@@ -10356,42 +11274,27 @@ function renderReconResults(payload, targetEl = reconResults) {
     if (!isLikelyAccountProfileUrl(row?.profile_url)) return false;
     return true;
   });
+  const supportedPresentTargets = collectionTargetsFromProfileRows(nonPdlSupportedPresent);
   const knownPresentNoUrl = Array.isArray(payload?.known_present_without_url)
     ? payload.known_present_without_url
     : results.filter((row) => row.status === 'present' && !String(row.profile_url || '').trim());
   const unknown = results.filter((row) => row.status === 'unknown');
-  const querySelectors = Array.isArray(payload?.selectors) ? payload.selectors : [];
-  const confidenceCounts = { high: 0, medium: 0, low: 0 };
-  for (const selector of querySelectors) {
-    const level = selectorConfidenceLevel(selector?.type);
-    confidenceCounts[level] = (confidenceCounts[level] || 0) + 1;
-  }
-  const confidenceNote = (() => {
-    const total = querySelectors.length;
-    if (!total) return '';
-    if (confidenceCounts.low > 0) {
-      return `<div class="recon-confidence-note warn">Confidence warning: ${confidenceCounts.low} low-confidence selector(s) queried (non-unique, e.g. names/usernames). Validate matches with unique selectors like email/phone.</div>`;
-    }
-    if (confidenceCounts.medium > 0) {
-      return `<div class="recon-confidence-note medium">Confidence caution: ${confidenceCounts.medium} medium-confidence selector(s) queried (usernames can be reused). Corroborate with other evidence.</div>`;
-    }
-    return '<div class="recon-confidence-note high">High-confidence query set detected (unique selectors such as email/phone/wallet).</div>';
-  })();
   const showHibpAggregate = targetEl === footprintReconResults;
   const activeSelectorLabel = activeFootprintSourceSelectorKey === 'all'
     ? ''
     : (sourceSelectorOptions.find((item) => item.key === activeFootprintSourceSelectorKey)?.label || activeFootprintSourceSelectorKey);
   const sourceSelectorFilterMarkup = showSourceSelectorFilter
     ? `
-      <div class="recon-group">
-        <p>Source Selector Filter</p>
+      <div class="filter-section">
+        <p class="filter-label">Source Selector</p>
+        <p class="viz-empty footprint-filter-panel-copy">${activeSelectorLabel ? `Active: <strong>${escapeHtml(activeSelectorLabel)}</strong>` : 'Show all selectors or narrow to one source.'}</p>
         <div class="type-mix">
           <button type="button" class="mix-pill mix-filter-pill${activeFootprintSourceSelectorKey === 'all' ? ' is-active' : ''}" data-footprint-source-selector="all">
             <span>All selectors</span>
             <strong>${rawResults.length}</strong>
           </button>
           ${sourceSelectorOptions.map((item) => `
-            <div class="mix-pill mix-filter-pill mix-filter-pill-with-clear mix-filter-pill-confidence-${escapeAttr(item.confidenceLevel)}${item.key === activeFootprintSourceSelectorKey ? ' is-active' : ''}">
+            <div class="mix-pill mix-filter-pill mix-filter-pill-with-clear${item.key === activeFootprintSourceSelectorKey ? ' is-active' : ''}">
               <button type="button" class="mix-pill-select" data-footprint-source-selector="${escapeAttr(item.key)}">
                 <span>${escapeHtml(item.label)}</span>
                 <strong>${item.count}</strong>
@@ -10404,34 +11307,41 @@ function renderReconResults(payload, targetEl = reconResults) {
     `
     : '';
 
+  if (targetEl === footprintReconResults && footprintFilterMenu && footprintFilterPanel && footprintFilterToggleBtn) {
+    footprintFilterMenu.classList.toggle('hidden', !showSourceSelectorFilter);
+    footprintFilterPanel.innerHTML = sourceSelectorFilterMarkup || '<p class="viz-empty">No filters available.</p>';
+    if (!showSourceSelectorFilter) {
+      footprintFilterPanel.classList.add('hidden');
+      footprintFilterToggleBtn.setAttribute('aria-expanded', 'false');
+    }
+    updateFootprintFilterToggleLabel();
+  }
+
   targetEl.classList.remove('hidden');
   targetEl.innerHTML = `
-    ${sourceSelectorFilterMarkup}
-    <div class="recon-summary">
-      ${activeSelectorLabel ? `Filtered by ${escapeHtml(activeSelectorLabel)} • ` : ''}
-      Checked ${results.length} records • ${nonPdlSupportedPresent.length} collection-ready with URL • ${nonPdlLeadPresent.length} unsupported with URL • ${knownPresentNoUrl.length} known without URL • ${unknown.length} unknown
-    </div>
-    ${confidenceNote}
     ${osintProfilesMarkup(osintProfiles, results, { removable: targetEl === footprintReconResults })}
     <div class="recon-status-stack">
     <div class="recon-group">
-      <p>Collection-ready with account URL</p>
+      <div class="recon-group-head">
+        <p>Collection-ready with account URL</p>
+        ${supportedPresentTargets.length ? `<button type="button" class="secondary-btn recon-group-collect-all" data-recon-collect-all="supported" data-recon-collect-all-targets="${escapeAttr(JSON.stringify(supportedPresentTargets))}">Collect All</button>` : ''}
+      </div>
       <div class="recon-pills">
         ${nonPdlSupportedPresent.length
-    ? nonPdlSupportedPresent.map((row) => toReconBadge(row, 'success', { removable: targetEl === footprintReconResults, pivotable: false })).join('')
+    ? nonPdlSupportedPresent.map((row) => toReconBadge(row, 'success', { removable: targetEl === footprintReconResults, pivotable: false, collectable: true })).join('')
     : '<span class="recon-pill">No supported profiles with direct URLs</span>'}
       </div>
     </div>
     <div class="recon-group">
       <p>Unsupported with account URL</p>
       <div class="recon-pills">
-        ${nonPdlLeadPresent.length ? nonPdlLeadPresent.map((row) => toReconBadge(row, 'lead', { removable: targetEl === footprintReconResults, pivotable: false })).join('') : '<span class="recon-pill">No unsupported account URLs detected</span>'}
+        ${nonPdlLeadPresent.length ? nonPdlLeadPresent.map((row) => toReconBadge(row, 'neutral', { removable: targetEl === footprintReconResults, pivotable: false })).join('') : '<span class="recon-pill">No unsupported account URLs detected</span>'}
       </div>
     </div>
     <div class="recon-group">
       <p>Known present without direct account URL</p>
       <div class="recon-pills">
-        ${knownPresentNoUrl.length ? knownPresentNoUrl.map((row) => toReconBadge(row, 'warn', { removable: targetEl === footprintReconResults, pivotable: false })).join('') : '<span class="recon-pill">No known-present no-URL results</span>'}
+        ${knownPresentNoUrl.length ? knownPresentNoUrl.map((row) => toReconBadge(row, 'neutral', { removable: targetEl === footprintReconResults, pivotable: false })).join('') : '<span class="recon-pill">No known-present no-URL results</span>'}
       </div>
     </div>
     </div>
@@ -10439,6 +11349,13 @@ function renderReconResults(payload, targetEl = reconResults) {
     ${personDataProfileMarkup(personDataProfile, personDataProfiles.length, pdlProfiles, { removable: targetEl === footprintReconResults })}
     ${showHibpAggregate ? hibpAggregateMarkup(allOsintProfiles, osintSpecRows) : ''}
   `;
+  if (targetEl === footprintReconResults) {
+    if (activeFootprintSourceSelectorKey === 'all') {
+      resetFootprintSelectorMatchFocus();
+    } else {
+      focusFootprintSelectorMatch(activeFootprintSourceSelectorKey, { preserveIndex: true, suppressStatus: true });
+    }
+  }
 }
 
 function renderLeadsList() {
@@ -10446,6 +11363,7 @@ function renderLeadsList() {
   if (!reconLeads.length) {
     leadsList.innerHTML = '';
     leadsEmpty.classList.remove('hidden');
+    renderWorkflowPanel();
     return;
   }
   leadsEmpty.classList.add('hidden');
@@ -10478,6 +11396,7 @@ function renderLeadsList() {
       return `<div class="signal-row${source === 'pdl' ? ' pdl' : ''}">${content}<strong>lead</strong></div>`;
     })
     .join('');
+  renderWorkflowPanel();
 }
 
 function fillTargetsFromRecon(targets) {
@@ -10538,7 +11457,25 @@ function summarizeErrors(errors) {
 function normalizePlatformName(value) {
   const platform = String(value || '').trim().toLowerCase();
   if (!platform) return '';
-  if (platform === 'x' || platform === 'twitter/x' || platform === 'x.com') return 'twitter';
+  if (
+    platform === 'x'
+    || platform === 'twitter/x'
+    || platform === 'twitter / x'
+    || platform === 'twitter (x)'
+    || platform === 'x.com'
+    || platform === 'twitter.com'
+    || platform.includes('twitter')
+    || platform.includes('x.com')
+  ) return 'twitter';
+  if (platform === 'bsky' || platform.includes('bluesky') || platform.includes('bsky.app') || platform.includes('bsky.social')) return 'bluesky';
+  if (platform.includes('youtube') || platform.includes('youtu.be')) return 'youtube';
+  if (platform.includes('reddit')) return 'reddit';
+  if (platform.includes('tiktok')) return 'tiktok';
+  if (platform.includes('instagram')) return 'instagram';
+  if (platform.includes('facebook')) return 'facebook';
+  if (platform.includes('linkedin')) return 'linkedin';
+  if (platform.includes('github')) return 'github';
+  if (platform.includes('gitlab')) return 'gitlab';
   return platform;
 }
 
@@ -10577,6 +11514,138 @@ function showNotification(message, type = 'info') {
   }, 4200);
 }
 
+function ensureProgressNotification(key) {
+  if (!notificationsEl) return null;
+  const normalizedKey = String(key || '').trim().toLowerCase();
+  if (!normalizedKey) return null;
+  let record = progressNotificationState.get(normalizedKey);
+  if (record?.el instanceof HTMLElement) return record;
+
+  const el = document.createElement('div');
+  el.className = 'toast toast-progress info';
+  el.setAttribute('data-progress-key', normalizedKey);
+  el.innerHTML = `
+    <div class="toast-progress-head">
+      <strong class="toast-progress-title"></strong>
+      <span class="toast-progress-state"></span>
+    </div>
+    <div class="toast-progress-message"></div>
+    <div class="toast-progress-bar" aria-hidden="true"><span class="toast-progress-bar-fill"></span></div>
+  `;
+  notificationsEl.appendChild(el);
+  record = {
+    key: normalizedKey,
+    el,
+    titleEl: el.querySelector('.toast-progress-title'),
+    stateEl: el.querySelector('.toast-progress-state'),
+    messageEl: el.querySelector('.toast-progress-message'),
+    timer: null,
+    removeTimer: null,
+    startedAt: 0,
+    message: '',
+  };
+  progressNotificationState.set(normalizedKey, record);
+  return record;
+}
+
+function formatProgressNotificationElapsed(startedAt) {
+  if (!(startedAt > 0)) return 'Working';
+  const elapsedSeconds = Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
+  return `Running • ${formatReconElapsed(elapsedSeconds)}`;
+}
+
+function renderProgressNotification(record, options = {}) {
+  if (!record?.el) return;
+  const {
+    title = 'In progress',
+    message = '',
+    type = 'info',
+    running = false,
+    stateLabel = '',
+  } = options;
+  const nextType = ['info', 'success', 'warn', 'error'].includes(type) ? type : 'info';
+  record.el.className = `toast toast-progress ${nextType}${running ? ' running' : ''}`;
+  if (record.titleEl instanceof HTMLElement) record.titleEl.textContent = String(title || '').trim();
+  if (record.messageEl instanceof HTMLElement) record.messageEl.textContent = String(message || '').trim();
+  if (record.stateEl instanceof HTMLElement) {
+    record.stateEl.textContent = String(stateLabel || '').trim();
+  }
+}
+
+function clearProgressNotificationTimers(record) {
+  if (!record) return;
+  if (record.timer) {
+    clearInterval(record.timer);
+    record.timer = null;
+  }
+  if (record.removeTimer) {
+    clearTimeout(record.removeTimer);
+    record.removeTimer = null;
+  }
+}
+
+function beginProgressNotification(key, options = {}) {
+  const record = ensureProgressNotification(key);
+  if (!record) return;
+  clearProgressNotificationTimers(record);
+  record.startedAt = Date.now();
+  record.message = String(options.message || '').trim();
+  renderProgressNotification(record, {
+    title: options.title || 'In progress',
+    message: record.message,
+    type: options.type || 'info',
+    running: true,
+    stateLabel: formatProgressNotificationElapsed(record.startedAt),
+  });
+  record.timer = window.setInterval(() => {
+    renderProgressNotification(record, {
+      title: options.title || 'In progress',
+      message: record.message,
+      type: options.type || 'info',
+      running: true,
+      stateLabel: formatProgressNotificationElapsed(record.startedAt),
+    });
+  }, 1000);
+}
+
+function updateProgressNotification(key, options = {}) {
+  const record = ensureProgressNotification(key);
+  if (!record) return;
+  if (typeof options.message === 'string') record.message = options.message.trim();
+  renderProgressNotification(record, {
+    title: options.title || record.titleEl?.textContent || 'In progress',
+    message: record.message,
+    type: options.type || 'info',
+    running: true,
+    stateLabel: options.stateLabel || formatProgressNotificationElapsed(record.startedAt),
+  });
+}
+
+function finishProgressNotification(key, options = {}) {
+  const normalizedKey = String(key || '').trim().toLowerCase();
+  const record = normalizedKey ? progressNotificationState.get(normalizedKey) : null;
+  if (!record?.el) return;
+  clearProgressNotificationTimers(record);
+  if (typeof options.message === 'string') record.message = options.message.trim();
+  const type = options.type || 'success';
+  const stateLabel = options.stateLabel
+    || (type === 'error' ? 'Failed' : type === 'warn' ? 'Attention' : 'Complete');
+  renderProgressNotification(record, {
+    title: options.title || record.titleEl?.textContent || 'Finished',
+    message: record.message,
+    type,
+    running: false,
+    stateLabel,
+  });
+  record.removeTimer = window.setTimeout(() => {
+    record.el.classList.add('fade-out');
+    window.setTimeout(() => {
+      record.el.remove();
+      progressNotificationState.delete(normalizedKey);
+    }, 220);
+  }, Number.isFinite(options.lingerMs) ? options.lingerMs : 4200);
+}
+
 function showNotificationOnce(key, message, type = 'info') {
   const normalizedKey = String(key || '').trim().toLowerCase();
   if (!normalizedKey) {
@@ -10606,6 +11675,11 @@ function notifyReconApiModules(payload) {
   if (hasPdl) showNotification('People Data Labs queried successfully.', 'success');
   if (hasOsint) showNotification('OSINT Industries queried successfully.', 'success');
   if (hasNumverify) showNotification('Numverify queried successfully.', 'success');
+}
+
+function formatCollectionPhaseLabel(phase, stage = 0, totalStages = 0) {
+  const cleanPhase = String(phase || 'running').replace(/_/g, ' ').trim() || 'running';
+  return totalStages ? `${cleanPhase} (${stage}/${totalStages})` : cleanPhase;
 }
 
 function updateStatusLine() {
@@ -10661,13 +11735,18 @@ function updateFilterToggleLabel() {
   filterToggleBtn.textContent = activeCount > 0 ? `Filters (${activeCount})` : 'Filters';
 }
 
+function updateFootprintFilterToggleLabel() {
+  if (!footprintFilterToggleBtn) return;
+  const activeCount = activeFootprintSourceSelectorKey !== 'all' ? 1 : 0;
+  footprintFilterToggleBtn.textContent = activeCount > 0 ? `Filters (${activeCount})` : 'Filters';
+}
+
 function setInsightsTab(tabName) {
-  const next = String(tabName || '').trim().toLowerCase();
-  if (!next) return;
+  const requested = String(tabName || '').trim().toLowerCase();
+  const next = requested === 'signals' ? 'signals' : 'geo';
   const previousTab = activeInsightsTab;
   activeInsightsTab = next;
   const tabs = [
-    { name: 'ops', btn: insightsTabOps, panel: insightsPanelOps },
     { name: 'geo', btn: insightsTabGeo, panel: insightsPanelGeo },
     { name: 'signals', btn: insightsTabSignals, panel: insightsPanelSignals },
   ];
@@ -10711,16 +11790,18 @@ function getFailedTargetsFromStreamState() {
 }
 
 function updateStreamActionButtons() {
-  if (refreshStreamsBtn) {
+  const refreshControl = document.getElementById('refreshStreamsBtn');
+  if (refreshControl) {
     const canRefresh = Boolean(activeCollectionJobId);
-    refreshStreamsBtn.disabled = !canRefresh;
-    refreshStreamsBtn.title = canRefresh ? 'Fetch latest job status now' : 'No active collection job';
+    refreshControl.disabled = !canRefresh;
+    refreshControl.title = canRefresh ? 'Fetch latest job status now' : 'No active collection job';
   }
-  if (rerunFailedBtn) {
+  const rerunControl = document.getElementById('rerunFailedBtn');
+  if (rerunControl) {
     const failedTargets = getFailedTargetsFromStreamState();
     const canRerun = !activeCollectionJobId && failedTargets.length > 0 && Boolean(activeStartDate && activeEndDate);
-    rerunFailedBtn.disabled = !canRerun;
-    rerunFailedBtn.title = canRerun ? 'Start a new collection for failed targets' : 'No failed targets to rerun';
+    rerunControl.disabled = !canRerun;
+    rerunControl.title = canRerun ? 'Start a new collection for failed targets' : 'No failed targets to rerun';
   }
 }
 
@@ -10831,8 +11912,9 @@ function renderCollectionStreams() {
   const rows = Array.from(collectionSourceState.values());
   if (!rows.length) {
     collectionStreams.innerHTML = '';
-    collectionStreamsEmpty.classList.remove('hidden');
+    collectionStreamsEmpty.classList.add('hidden');
     collectionStreamsSummary.textContent = 'Idle';
+    renderWorkflowPanel();
     updateStreamActionButtons();
     return;
   }
@@ -10888,6 +11970,7 @@ function renderCollectionStreams() {
   if (!totalPending && totalIssues) {
     showNotificationOnce('stream_summary_issue', `${totalIssues} target${totalIssues === 1 ? '' : 's'} reported issues.`, 'warn');
   }
+  renderWorkflowPanel();
   updateStreamActionButtons();
 }
 
@@ -10947,6 +12030,7 @@ function applyCollectionPayload(data) {
   latestFaceRecognition = { available: false, reason: 'not_run' };
   renderFaceRecognitionFilters();
   rerenderFromCurrentFilters();
+  applyPendingResultsLanding(latestFetchedPosts);
   applyCollectionPerTarget(data?.per_target);
   dashboardBaseStatus = '';
   updateStatusLine();
@@ -11011,13 +12095,19 @@ async function pollCollectionJob(nonce = collectionPollNonce) {
         lockModalUntilCollectionData = false;
         setModalOpen(false);
         showNotification('Initial results loaded', 'success');
+        updateProgressNotification('collection-main', {
+          title: 'Collection Running',
+          message: `Initial results loaded: ${snapshot.posts.length} post${snapshot.posts.length === 1 ? '' : 's'} available while collection continues.`,
+        });
       }
     }
 
     if (data.status === 'completed') {
+      let completedPosts = 0;
       if (data.result && Array.isArray(data.result.posts)) {
         applyCollectionPayload(data.result);
         processCollectionErrors(data.result.errors);
+        completedPosts = data.result.posts.length;
         if (data.result.posts.length > 0 && !collectionLoadedAnyData) {
           collectionLoadedAnyData = true;
           lockModalUntilCollectionData = false;
@@ -11029,6 +12119,13 @@ async function pollCollectionJob(nonce = collectionPollNonce) {
       collectionProgressStatus = 'collection complete';
       updateStatusLine();
       showNotification('Collection complete', 'success');
+      finishProgressNotification('collection-main', {
+        title: 'Collection Complete',
+        message: completedPosts > 0
+          ? `Collection finished with ${completedPosts} post${completedPosts === 1 ? '' : 's'}.`
+          : 'Collection finished with no posts found.',
+        type: 'success',
+      });
       if (!collectionLoadedAnyData) {
         setupStatus.textContent = 'Collection completed with no posts found. Review targets/date range.';
       }
@@ -11044,6 +12141,11 @@ async function pollCollectionJob(nonce = collectionPollNonce) {
       lockModalUntilCollectionData = false;
       addLeadEntry('collection failed', '');
       showNotification(`Collection failed: ${message}`, 'error');
+      finishProgressNotification('collection-main', {
+        title: 'Collection Failed',
+        message: String(message || 'background collection failed'),
+        type: 'error',
+      });
       clearCollectionPolling();
       return;
     }
@@ -11053,6 +12155,10 @@ async function pollCollectionJob(nonce = collectionPollNonce) {
     const totalStages = Number(data.total_stages || 0);
     collectionProgressStatus = `collecting ${phase}${totalStages ? ` (${stage}/${totalStages})` : ''}`;
     updateStatusLine();
+    updateProgressNotification('collection-main', {
+      title: 'Collection Running',
+      message: `Status: ${formatCollectionPhaseLabel(phase, stage, totalStages)}.`,
+    });
     if (lastCollectionPhase !== phase) {
       lastCollectionPhase = phase;
       showNotification(`Collection progress: ${phase}`, 'info');
@@ -11065,6 +12171,12 @@ async function pollCollectionJob(nonce = collectionPollNonce) {
     console.error(error);
     collectionProgressStatus = `collection status retrying: ${error.message || 'unknown error'}`;
     updateStatusLine();
+    updateProgressNotification('collection-main', {
+      title: 'Collection Retrying',
+      message: `Status retry pending: ${String(error.message || 'unknown error')}`,
+      type: 'warn',
+      stateLabel: 'Retrying',
+    });
     scheduleCollectionPoll(1600, nonce);
   }
 }
@@ -11226,8 +12338,7 @@ function reconExampleText(selectorType) {
     name: 'Example: Jane Doe',
     wallet: 'Example: 0x742d35Cc6634C0532925a3b844Bc454e4438f44e',
   };
-  const confidence = selectorConfidenceMeta(normalizedType);
-  return `${exampleByType[normalizedType] || exampleByType.username} • ${confidence.label}: ${confidence.guidance}`;
+  return exampleByType[normalizedType] || exampleByType.username;
 }
 
 function selectorOptionsMarkup(selectedType = 'username') {
@@ -11283,98 +12394,6 @@ function parseReconSelectorsFromRows(container = reconSelectorsList) {
     selectors.push({ type: normalizedType, value });
   }
   return selectors;
-}
-
-function selectorsFromTargetsForKnownEntities(targets) {
-  const rows = Array.isArray(targets) ? targets : [];
-  const output = [];
-  const seen = new Set();
-  for (const row of rows) {
-    const platform = normalizePlatformName(row?.platform);
-    const username = String(row?.username || '').trim().replace(/^@+/, '').toLowerCase();
-    if (!username) continue;
-    const usernameKey = `username|${username}`;
-    if (!seen.has(usernameKey)) {
-      seen.add(usernameKey);
-      output.push({ type: 'username', value: username });
-    }
-    if (platform) {
-      const platformKey = `platform_username|${platform}|${username}`;
-      if (!seen.has(platformKey)) {
-        seen.add(platformKey);
-        output.push({ type: 'platform_username', value: `${platform}|${username}` });
-      }
-    }
-  }
-  return output;
-}
-
-function selectorsFromReconForKnownEntities(selectors) {
-  const rows = Array.isArray(selectors) ? selectors : [];
-  const output = [];
-  const seen = new Set();
-  for (const row of rows) {
-    if (!row || typeof row !== 'object') continue;
-    const type = String(row.type || '').trim().toLowerCase();
-    const value = String(row.value || '').trim();
-    if (!type || !value) continue;
-    const key = `${type}|${value.toLowerCase()}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    output.push({ type, value });
-  }
-  return output;
-}
-
-async function maybeRestoreArchivedCaseForSelectors(selectors) {
-  const rows = Array.isArray(selectors) ? selectors : [];
-  if (!rows.length) return false;
-  try {
-    const matchResponse = await fetch('/api/known-entities/match', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ selectors: rows }),
-    });
-    if (!matchResponse.ok) return false;
-    const matchPayload = await matchResponse.json();
-    const matches = Array.isArray(matchPayload?.matches) ? matchPayload.matches : [];
-    if (!matches.length) return false;
-    const best = matches[0] || {};
-    const shouldRestore = window.confirm(
-      'This selector is associated with a Known Enitity, would you like to retrieve the case file from archive?',
-    );
-    if (!shouldRestore) return false;
-
-    const archiveId = String(best.archive_id || '').trim();
-    if (!archiveId) return false;
-    const restoreResponse = await fetch('/api/known-entities/restore', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ archive_id: archiveId }),
-    });
-    if (!restoreResponse.ok) {
-      const message = await parseErrorResponse(restoreResponse);
-      throw new Error(message);
-    }
-    const restorePayload = await restoreResponse.json();
-    const restoredCase = restorePayload?.case && typeof restorePayload.case === 'object' ? restorePayload.case : null;
-    if (!restoredCase) return false;
-    clearCollectionPolling();
-    activeCaseId = String(restoredCase.case_id || '').trim();
-    activeCase = restoredCase;
-    activeCaseExplicitlySaved = true;
-    await loadCases();
-    showDashboard();
-    setModalOpen(false);
-    await refreshPosts();
-    const restoredName = String(restoredCase.case_name || 'Archived case').trim() || 'Archived case';
-    showNotification(`Restored archived case: ${restoredName}`, 'success');
-    return true;
-  } catch (error) {
-    console.error(error);
-    showNotification(`Archive lookup failed: ${error.message || 'unknown error'}`, 'error');
-    return false;
-  }
 }
 
 async function consumeReconStream(selectors, handlers = {}) {
@@ -11457,14 +12476,14 @@ async function runRecon(event) {
     reconStatus.textContent = 'Enter at least one valid selector value.';
     return;
   }
-  const archivedRestored = await maybeRestoreArchivedCaseForSelectors(selectorsFromReconForKnownEntities(selectors));
-  if (archivedRestored) {
-    reconStatus.textContent = 'Known entity case restored from archive.';
-    return;
-  }
 
   setReconBusy(true);
   reconStatus.textContent = `Running reconnaissance for ${selectors.length} selector(s)...`;
+  beginProgressNotification('recon-main', {
+    title: 'Recon Running',
+    message: `Scanning ${selectors.length} selector${selectors.length === 1 ? '' : 's'}.`,
+    type: 'info',
+  });
   reconResults.classList.add('hidden');
   useReconTargetsBtn.classList.add('hidden');
   useReconTargetsBtn.disabled = true;
@@ -11486,6 +12505,11 @@ async function runRecon(event) {
     latestReconPayload = payload;
     setReconSnapshotFromPayload(payload);
     applyReconPayload(payload, { statusPrefix: 'Recon complete', notifyModules: true });
+    finishProgressNotification('recon-main', {
+      title: 'Recon Complete',
+      message: `Processed ${selectors.length} selector${selectors.length === 1 ? '' : 's'}.`,
+      type: 'success',
+    });
     if (reconTargets.length > 0) {
       useReconTargetsBtn.classList.remove('hidden');
       useReconTargetsBtn.disabled = false;
@@ -11514,6 +12538,11 @@ async function runRecon(event) {
     applyReconPayload(latestReconPayload, { statusPrefix: 'Recon failed' });
     reconStatus.textContent = `Recon failed: ${error.message || 'unknown error'}`;
     if (footprintReconStatus) footprintReconStatus.textContent = `Recon failed: ${error.message || 'unknown error'}`;
+    finishProgressNotification('recon-main', {
+      title: 'Recon Failed',
+      message: String(error.message || 'unknown error'),
+      type: 'error',
+    });
   } finally {
     setReconBusy(false);
   }
@@ -11526,12 +12555,12 @@ function openAssessmentFromRecon() {
   }
   setModalOpen(false);
   showDashboard();
-  setResultsView('posts');
-  setInsightsTab('signals');
+  pendingResultsLandingPreference = 'recon';
+  setResultsView('footprint');
   if (!Array.isArray(latestPosts) || !latestPosts.length) {
     queueRefresh();
   }
-  showNotification('Opened assessment view without running collection.', 'info');
+  showNotification('Opened digital footprint view without running collection.', 'info');
 }
 
 async function runFootprintRecon(event) {
@@ -11542,16 +12571,16 @@ async function runFootprintRecon(event) {
     if (footprintReconStatus) footprintReconStatus.textContent = 'Enter at least one valid selector value.';
     return;
   }
-  const archivedRestored = await maybeRestoreArchivedCaseForSelectors(selectorsFromReconForKnownEntities(selectors));
-  if (archivedRestored) {
-    if (footprintReconStatus) footprintReconStatus.textContent = 'Known entity case restored from archive.';
-    return;
-  }
 
   setFootprintBusy(true);
   toggleFootprintPivotProgress(false);
   activeFootprintSourceSelectorKey = 'all';
   if (footprintReconStatus) footprintReconStatus.textContent = `Running reconnaissance for ${selectors.length} selector(s)...`;
+  beginProgressNotification('recon-footprint', {
+    title: 'Recon Running',
+    message: `Queued ${selectors.length} selector${selectors.length === 1 ? '' : 's'} for digital footprint recon.`,
+    type: 'info',
+  });
   footprintReconResults?.classList.add('hidden');
   footprintUseTargetsBtn?.classList.add('hidden');
   if (footprintUseTargetsBtn instanceof HTMLButtonElement) footprintUseTargetsBtn.disabled = true;
@@ -11563,6 +12592,10 @@ async function runFootprintRecon(event) {
       onStart: (event) => {
         const total = Number(event?.selectors_total) || selectors.length;
         if (footprintReconStatus) footprintReconStatus.textContent = `Recon stream started for ${total} selector(s)...`;
+        updateProgressNotification('recon-footprint', {
+          title: 'Recon Running',
+          message: `Stream opened for ${total} selector${total === 1 ? '' : 's'}.`,
+        });
       },
       onProgress: (event) => {
         const idx = Number(event?.selector_index) || 1;
@@ -11570,6 +12603,10 @@ async function runFootprintRecon(event) {
         const type = String(event?.selector_type || '').trim();
         const value = String(event?.selector_value || '').trim();
         if (footprintReconStatus) footprintReconStatus.textContent = `Recon in progress (${idx}/${total}): ${formatSelectorLabel(type, value)}`;
+        updateProgressNotification('recon-footprint', {
+          title: 'Recon Running',
+          message: `Selector ${idx}/${total}: ${formatSelectorLabel(type, value)}`,
+        });
       },
       onChunk: (chunkPayload, event) => {
         aggregate = mergeReconPayloads(aggregate, chunkPayload);
@@ -11584,6 +12621,11 @@ async function runFootprintRecon(event) {
     latestReconPayload = aggregate;
     setReconSnapshotFromPayload(aggregate);
     applyReconPayload(aggregate, { statusPrefix: 'Recon complete', footprintOnly: true, notifyModules: true });
+    finishProgressNotification('recon-footprint', {
+      title: 'Recon Complete',
+      message: `Processed ${selectors.length} selector${selectors.length === 1 ? '' : 's'}.`,
+      type: 'success',
+    });
     if (reconTargets.length > 0) {
       footprintUseTargetsBtn?.classList.remove('hidden');
       if (footprintUseTargetsBtn instanceof HTMLButtonElement) footprintUseTargetsBtn.disabled = false;
@@ -11598,6 +12640,11 @@ async function runFootprintRecon(event) {
     latestReconPayload = emptyReconPayload();
     applyReconPayload(latestReconPayload, { statusPrefix: 'Recon failed', footprintOnly: true });
     if (footprintReconStatus) footprintReconStatus.textContent = `Recon failed: ${error.message || 'unknown error'}`;
+    finishProgressNotification('recon-footprint', {
+      title: 'Recon Failed',
+      message: String(error.message || 'unknown error'),
+      type: 'error',
+    });
   } finally {
     setFootprintBusy(false);
   }
@@ -11622,6 +12669,11 @@ async function pivotKnownSelector(selectorType, selectorValue) {
   setFootprintBusy(true);
   toggleFootprintPivotProgress(true, `Pivot recon: ${pivotType}`);
   if (footprintReconStatus) footprintReconStatus.textContent = `Pivoting on ${pivotLabel}...`;
+  beginProgressNotification('recon-pivot', {
+    title: 'Recon Running',
+    message: `Pivoting on ${pivotLabel}.`,
+    type: 'info',
+  });
   if (footprintSelectorsList instanceof HTMLElement) {
     const existing = parseReconSelectorsFromRows(footprintSelectorsList);
     const exists = existing.some((row) => String(row?.type || '').toLowerCase() === pivotType && String(row?.value || '').toLowerCase() === value.toLowerCase());
@@ -11636,6 +12688,10 @@ async function pivotKnownSelector(selectorType, selectorValue) {
         const type = String(event?.selector_type || '').trim();
         const value = String(event?.selector_value || '').trim();
         if (footprintReconStatus) footprintReconStatus.textContent = `Pivot recon running (${idx}/${total}): ${formatSelectorLabel(type, value)}`;
+        updateProgressNotification('recon-pivot', {
+          title: 'Recon Running',
+          message: `Selector ${idx}/${total}: ${formatSelectorLabel(type, value)}`,
+        });
       },
       onChunk: (chunkPayload, event) => {
         aggregate = mergeReconPayloads(aggregate, chunkPayload);
@@ -11652,6 +12708,11 @@ async function pivotKnownSelector(selectorType, selectorValue) {
     latestReconPayload = aggregate;
     setReconSnapshotFromPayload(aggregate);
     applyReconPayload(aggregate, { statusPrefix: 'Pivot appended', footprintOnly: true, notifyModules: true });
+    finishProgressNotification('recon-pivot', {
+      title: 'Recon Complete',
+      message: `Appended results for ${pivotLabel}.`,
+      type: 'success',
+    });
     if (reconTargets.length > 0) {
       footprintUseTargetsBtn?.classList.remove('hidden');
       if (footprintUseTargetsBtn instanceof HTMLButtonElement) footprintUseTargetsBtn.disabled = false;
@@ -11659,6 +12720,11 @@ async function pivotKnownSelector(selectorType, selectorValue) {
   } catch (error) {
     console.error(error);
     if (footprintReconStatus) footprintReconStatus.textContent = `Pivot failed: ${error.message || 'unknown error'}`;
+    finishProgressNotification('recon-pivot', {
+      title: 'Recon Failed',
+      message: String(error.message || 'unknown error'),
+      type: 'error',
+    });
   } finally {
     toggleFootprintPivotProgress(false);
     setFootprintBusy(false);
@@ -11700,6 +12766,8 @@ async function startBackgroundCollection(targets, startDate, endDate, options = 
   }
 
   collectionLoadedAnyData = false;
+  pendingResultsLandingPreference = 'collection';
+  setResultsView('posts');
   lockModalUntilCollectionData = Boolean(lockModal);
   lastCollectionPhase = '';
   lastCollectionUpdatedAt = '';
@@ -11719,6 +12787,11 @@ async function startBackgroundCollection(targets, startDate, endDate, options = 
   }
 
   try {
+    beginProgressNotification('collection-main', {
+      title: 'Collection Starting',
+      message: `Submitting ${targets.length} target${targets.length === 1 ? '' : 's'} for collection.`,
+      type: 'info',
+    });
     const response = await fetch('/api/collect/start', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -11735,7 +12808,9 @@ async function startBackgroundCollection(targets, startDate, endDate, options = 
     }
     const data = await response.json();
 
-    activeTargets = targets;
+    activeTargets = appendResults
+      ? dedupeWorkflowTargets([...(Array.isArray(activeTargets) ? activeTargets : []), ...targets])
+      : dedupeWorkflowTargets(targets);
     activeUsername = targets.length === 1 ? targets[0].username : '';
     activeStartDate = startDate;
     activeEndDate = endDate;
@@ -11752,6 +12827,10 @@ async function startBackgroundCollection(targets, startDate, endDate, options = 
     setupStatus.textContent = setupMessage;
     collectionProgressStatus = 'collection queued';
     updateStatusLine();
+    updateProgressNotification('collection-main', {
+      title: 'Collection Queued',
+      message: `Worker queued for ${targets.length} target${targets.length === 1 ? '' : 's'}. Waiting for live status.`,
+    });
     if (showStartNotification) {
       showNotification(`${statusPrefix} started`, 'info');
     }
@@ -11762,6 +12841,11 @@ async function startBackgroundCollection(targets, startDate, endDate, options = 
       collectionProgressStatus = 'collection failed: missing job id';
       updateStatusLine();
       showNotification(`${statusPrefix} failed: missing job id`, 'error');
+      finishProgressNotification('collection-main', {
+        title: 'Collection Failed',
+        message: 'Missing job id from backend.',
+        type: 'error',
+      });
     }
     updateStreamActionButtons();
     return true;
@@ -11771,6 +12855,11 @@ async function startBackgroundCollection(targets, startDate, endDate, options = 
     collectionProgressStatus = `collection failed: ${error.message || 'unknown error'}`;
     updateStatusLine();
     showNotification(`${statusPrefix} failed: ${error.message || 'unknown error'}`, 'error');
+    finishProgressNotification('collection-main', {
+      title: 'Collection Failed',
+      message: String(error.message || 'unknown error'),
+      type: 'error',
+    });
     updateStreamActionButtons();
     return false;
   }
@@ -11788,11 +12877,6 @@ async function collectAndOpen(event) {
   }
   if (endDate < startDate) {
     setupStatus.textContent = 'End date must be on or after start date.';
-    return;
-  }
-  const archivedRestored = await maybeRestoreArchivedCaseForSelectors(selectorsFromTargetsForKnownEntities(targets));
-  if (archivedRestored) {
-    setupStatus.textContent = 'Known entity case restored from archive.';
     return;
   }
 
@@ -11813,34 +12897,6 @@ searchInput.addEventListener('input', queueRefresh);
 resultsEl?.addEventListener('click', async (event) => {
   const target = event.target;
   if (!(target instanceof HTMLElement)) return;
-
-  const runInlineFaceBtn = target.closest('[data-face-run-inline]');
-  if (runInlineFaceBtn instanceof HTMLElement) {
-    const original = runInlineFaceBtn.textContent || 'Run Facial Recognition';
-    runInlineFaceBtn.setAttribute('aria-busy', 'true');
-    runInlineFaceBtn.textContent = 'Running...';
-    try {
-      await refreshPosts({ forceFaceRefresh: true });
-    } finally {
-      runInlineFaceBtn.removeAttribute('aria-busy');
-      runInlineFaceBtn.textContent = original;
-    }
-    return;
-  }
-
-  const inlineFaceFilter = target.closest('[data-face-filter-inline]');
-  if (inlineFaceFilter instanceof HTMLElement) {
-    const personId = String(inlineFaceFilter.getAttribute('data-face-filter-inline') || '').trim().toLowerCase();
-    if (!personId) return;
-    if (activeFaceFilters.has(personId)) {
-      activeFaceFilters.delete(personId);
-    } else {
-      activeFaceFilters.add(personId);
-    }
-    renderFaceRecognitionFilters();
-    renderPosts(latestPosts);
-    return;
-  }
 
   const assessmentNode = target.closest('.llm-assessment[data-post-index]');
   const assessmentPostIndex = assessmentNode instanceof HTMLElement
@@ -11965,12 +13021,6 @@ resultsEl?.addEventListener('click', async (event) => {
 resultsEl?.addEventListener('input', (event) => {
   const target = event.target;
   if (!(target instanceof HTMLInputElement)) return;
-  if (!target.hasAttribute('data-face-confidence-inline')) return;
-  const next = Number(target.value);
-  activeFaceMinConfidence = Number.isFinite(next) ? Math.max(0, Math.min(1, next)) : 0;
-  renderFaceRecognitionFilters();
-  _dashboardFilterCache = { rows: null, key: '', output: [] };
-  rerenderFromCurrentFilters();
 });
 caseSearchInput?.addEventListener('input', renderCases);
 caseStatusFilter?.addEventListener('change', renderCases);
@@ -11978,6 +13028,7 @@ caseThreatFilter?.addEventListener('change', renderCases);
 caseSortSelect?.addEventListener('change', renderCases);
 openNewCaseBtn?.addEventListener('click', createNewCaseAndLaunch);
 generateDemoCaseBtn?.addEventListener('click', generateDemoCase);
+openLlmSandboxBtn?.addEventListener('click', openLlmSandboxFromCaseWorkspace);
 caseTiles?.addEventListener('click', (event) => {
   const path = typeof event.composedPath === 'function' ? event.composedPath() : [];
   const elementPath = path.filter((node) => node instanceof Element);
@@ -12017,8 +13068,9 @@ clearSearchBtn?.addEventListener('click', () => {
   if (!searchInput.value) return;
   searchInput.value = '';
   queueRefresh();
-  searchInput.focus();
+  focusWithoutScroll(searchInput);
 });
+viewWorkflowBtn?.addEventListener('click', () => setResultsView('workflow'));
 viewPostsBtn?.addEventListener('click', () => setResultsView('posts'));
 viewMediaBtn?.addEventListener('click', () => setResultsView('media'));
 viewFootprintBtn?.addEventListener('click', () => setResultsView('footprint'));
@@ -12030,21 +13082,254 @@ setupForm.addEventListener('submit', collectAndOpen);
 reconForm.addEventListener('submit', runRecon);
 footprintReconForm?.addEventListener('submit', runFootprintRecon);
 runAiThreatAssessmentBtn?.addEventListener('click', runAiThreatAssessment);
+llmSandboxAnalyzeBtn?.addEventListener('click', runLlmSandboxAnalysis);
+llmSandboxClearBtn?.addEventListener('click', () => clearLlmSandbox(true));
+llmSandboxExamples?.addEventListener('click', (event) => {
+  const target = event.target instanceof Element ? event.target.closest('[data-llm-sandbox-example]') : null;
+  if (!(target instanceof HTMLElement) || !(llmSandboxTextInput instanceof HTMLTextAreaElement)) return;
+  const index = Number(target.getAttribute('data-llm-sandbox-example'));
+  const example = Number.isFinite(index) ? LLM_SANDBOX_EXAMPLES[index] : '';
+  if (!example) return;
+  llmSandboxTextInput.value = example;
+  focusWithoutScroll(llmSandboxTextInput);
+  if (llmSandboxStatus) llmSandboxStatus.textContent = 'Example loaded. Run analysis when ready.';
+});
+llmSandboxTextInput?.addEventListener('keydown', (event) => {
+  if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+    event.preventDefault();
+    runLlmSandboxAnalysis();
+  }
+});
 attachReconPreviewHandlers(reconResults);
 attachReconPreviewHandlers(footprintReconResults);
 attachReconPreviewHandlers(leadsList);
-footprintReconResults?.addEventListener('click', (event) => {
-  const target = event.target;
-  if (!(target instanceof Element)) return;
-  const clearSelectorBtn = target.closest('[data-footprint-source-clear]');
-  if (clearSelectorBtn instanceof Element) {
-    const key = String(clearSelectorBtn.getAttribute('data-footprint-source-clear') || '').trim().toLowerCase();
-    if (!key) return;
-    hideResultsForSelector(key);
-    if (activeFootprintSourceSelectorKey === key) activeFootprintSourceSelectorKey = 'all';
-    applyReconPayload(latestReconPayload || emptyReconPayload(), { statusPrefix: 'Selector records cleared', footprintOnly: true });
+function handleWorkflowAction(action) {
+  const model = buildWorkflowModel();
+  if (action === 'recon_suggested') {
+    openReconSetupWithSelectors(model.reconSuggestions, { message: 'Loaded suggested selectors from the current case workflow.' });
+    return true;
+  }
+  if (action === 'run_all_selector_pivots') {
+    void runFootprintReconWithSelectors(model.reconSuggestions, {
+      append: true,
+      statusPrefix: 'Workflow Pivots',
+      statusLabel: 'Workflow pivots running',
+    });
+    return true;
+  }
+  if (action === 'collect_recon_targets') {
+    openCollectionSetupWithTargets(model.collectionCandidates, { message: 'Loaded recon-discovered profiles into collection targets.' });
+    return true;
+  }
+  if (action === 'collect_failed') {
+    openCollectionSetupWithTargets(model.failedTargets, { message: 'Loaded failed targets for retry.' });
+    return true;
+  }
+  if (action === 'review_posts') {
+    setResultsView('posts');
+    return true;
+  }
+  if (action === 'review_streams') {
+    setResultsView('workflow');
+    const card = collectionStreams?.closest('.workflow-view-card');
+    if (card instanceof HTMLElement) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    return true;
+  }
+  if (action === 'review_footprint') {
+    setResultsView('footprint');
+    return true;
+  }
+  if (action === 'open_manual_insert') {
+    openManualInsertModal();
+    return true;
+  }
+  if (action === 'focus_leads') {
+    setResultsView('workflow');
+    const card = leadsList?.closest('.workflow-view-card');
+    if (card instanceof HTMLElement) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    return true;
+  }
+  return false;
+}
+workflowActions?.addEventListener('click', (event) => {
+  const target = event.target instanceof Element ? event.target.closest('[data-workflow-action]') : null;
+  if (!(target instanceof HTMLElement)) return;
+  const action = String(target.getAttribute('data-workflow-action') || '').trim().toLowerCase();
+  handleWorkflowAction(action);
+});
+workflowQueues?.addEventListener('click', (event) => {
+  const leadCheckbox = event.target instanceof Element ? event.target.closest('[data-workflow-lead-key]') : null;
+  if (leadCheckbox instanceof HTMLInputElement) return;
+  if (workflowDragHappened) {
+    workflowDragHappened = false;
     return;
   }
+  const actionTarget = event.target instanceof Element ? event.target.closest('[data-workflow-action]') : null;
+  if (actionTarget instanceof HTMLElement) {
+    const action = String(actionTarget.getAttribute('data-workflow-action') || '').trim().toLowerCase();
+    if (handleWorkflowAction(action)) return;
+  }
+  const refreshTarget = event.target instanceof Element ? event.target.closest('#refreshStreamsBtn') : null;
+  if (refreshTarget instanceof HTMLButtonElement) {
+    if (!activeCollectionJobId) return;
+    showNotification('Refreshing collection status…', 'info');
+    scheduleCollectionPoll(25, collectionPollNonce);
+    return;
+  }
+  const rerunTarget = event.target instanceof Element ? event.target.closest('#rerunFailedBtn') : null;
+  if (rerunTarget instanceof HTMLButtonElement) {
+    if (activeCollectionJobId) return;
+    const failedTargets = getFailedTargetsFromStreamState();
+    if (!failedTargets.length) {
+      showNotification('No failed targets to rerun.', 'warn');
+      return;
+    }
+    const startDate = activeStartDate || startDateInput.value;
+    const endDate = activeEndDate || endDateInput.value;
+    if (!startDate || !endDate) {
+      showNotification('Set a date range before rerunning failed targets.', 'warn');
+      return;
+    }
+    rerunTarget.disabled = true;
+    const refreshControl = document.getElementById('refreshStreamsBtn');
+    if (refreshControl instanceof HTMLButtonElement) refreshControl.disabled = true;
+    void (async () => {
+      await startBackgroundCollection(failedTargets, startDate, endDate, {
+        lockModal: false,
+        setupMessage: 'Rerunning failed collection targets in background.',
+        statusPrefix: 'Failed-target rerun',
+        showStartNotification: true,
+        appendResults: true,
+        resetStreamState: false,
+      });
+      updateStreamActionButtons();
+    })();
+    return;
+  }
+  const laneCard = event.target instanceof Element ? event.target.closest('[data-workflow-lane-card]') : null;
+  if (laneCard instanceof HTMLElement) return;
+  const target = event.target instanceof Element ? event.target.closest('[data-workflow-selector-type], [data-workflow-target-platform]') : null;
+  if (!(target instanceof HTMLElement)) return;
+  const selectorType = String(target.getAttribute('data-workflow-selector-type') || '').trim().toLowerCase();
+  const selectorValue = String(target.getAttribute('data-workflow-selector-value') || '').trim();
+  if (selectorType && selectorValue) {
+    const explicitAction = String(target.getAttribute('data-workflow-action') || '').trim().toLowerCase();
+    if (explicitAction === 'run_selector_pivot') {
+      void runFootprintReconWithSelectors([{ type: selectorType, value: selectorValue }], {
+        append: true,
+        statusPrefix: 'Workflow Pivot',
+        statusLabel: 'Workflow pivot running',
+      });
+      return;
+    }
+    openReconSetupWithSelectors([{ type: selectorType, value: selectorValue }], { message: 'Loaded selector into recon.' });
+    return;
+  }
+  const platform = String(target.getAttribute('data-workflow-target-platform') || '').trim().toLowerCase();
+  const username = String(target.getAttribute('data-workflow-target-username') || '').trim();
+  if (platform && username) {
+    openCollectionSetupWithTargets([{ platform, username }], { message: 'Loaded target into collection.' });
+  }
+});
+workflowQueues?.addEventListener('change', async (event) => {
+  const checkbox = event.target instanceof Element ? event.target.closest('[data-workflow-lead-key]') : null;
+  if (!(checkbox instanceof HTMLInputElement)) return;
+  const leadKey = String(checkbox.getAttribute('data-workflow-lead-key') || '').trim().toLowerCase();
+  if (!leadKey) return;
+  const existing = workflowLeadChecklistKeysFromNotes();
+  if (checkbox.checked) existing.add(leadKey);
+  else existing.delete(leadKey);
+  checkbox.disabled = true;
+  const saved = await saveWorkflowLeadChecklist([...existing]);
+  checkbox.disabled = false;
+  if (!saved) {
+    checkbox.checked = !checkbox.checked;
+    return;
+  }
+  renderWorkflowPanel();
+});
+workflowQueues?.addEventListener('dragstart', (event) => {
+  const card = event.target instanceof Element ? event.target.closest('[data-workflow-lane-card][data-workflow-target-platform][data-workflow-target-username]') : null;
+  if (!(card instanceof HTMLElement) || !(event.dataTransfer instanceof DataTransfer)) return;
+  const lane = String(card.getAttribute('data-workflow-lane-card') || '').trim().toLowerCase();
+  const platform = String(card.getAttribute('data-workflow-target-platform') || '').trim().toLowerCase();
+  const username = String(card.getAttribute('data-workflow-target-username') || '').trim();
+  if (!lane || !platform || !username) return;
+  activeWorkflowDragTarget = { lane, platform, username };
+  workflowDragHappened = false;
+  card.classList.add('is-dragging');
+  event.dataTransfer.effectAllowed = lane === 'ready' ? 'move' : 'copy';
+  event.dataTransfer.setData('text/plain', JSON.stringify(activeWorkflowDragTarget));
+});
+workflowQueues?.addEventListener('dragend', (event) => {
+  const card = event.target instanceof Element ? event.target.closest('[data-workflow-lane-card]') : null;
+  if (card instanceof HTMLElement) card.classList.remove('is-dragging');
+  for (const lane of workflowQueues.querySelectorAll('[data-workflow-lane]')) {
+    lane.classList.remove('is-drop-target');
+  }
+  activeWorkflowDragTarget = null;
+});
+workflowQueues?.addEventListener('dragover', (event) => {
+  const lane = event.target instanceof Element ? event.target.closest('[data-workflow-lane]') : null;
+  if (!(lane instanceof HTMLElement) || !activeWorkflowDragTarget) return;
+  const laneKey = String(lane.getAttribute('data-workflow-lane') || '').trim().toLowerCase();
+  if (activeWorkflowDragTarget.lane === 'ready' && laneKey === 'active') {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+    lane.classList.add('is-drop-target');
+  }
+});
+workflowQueues?.addEventListener('dragleave', (event) => {
+  const lane = event.target instanceof Element ? event.target.closest('[data-workflow-lane]') : null;
+  if (!(lane instanceof HTMLElement)) return;
+  if (event.relatedTarget instanceof Node && lane.contains(event.relatedTarget)) return;
+  lane.classList.remove('is-drop-target');
+});
+workflowQueues?.addEventListener('drop', async (event) => {
+  const lane = event.target instanceof Element ? event.target.closest('[data-workflow-lane]') : null;
+  if (!(lane instanceof HTMLElement)) return;
+  event.preventDefault();
+  lane.classList.remove('is-drop-target');
+  const laneKey = String(lane.getAttribute('data-workflow-lane') || '').trim().toLowerCase();
+  const dragTarget = activeWorkflowDragTarget;
+  activeWorkflowDragTarget = null;
+  workflowDragHappened = true;
+  if (!dragTarget || dragTarget.lane !== 'ready' || laneKey !== 'active') return;
+  await moveWorkflowTargetToActiveLane(dragTarget.platform, dragTarget.username);
+});
+
+function handleReconCollectionAction(event) {
+  const target = event.target;
+  if (!(target instanceof Element)) return;
+  const collectAllBtn = target.closest('[data-recon-collect-all-targets]');
+  if (collectAllBtn instanceof Element) {
+    const rawTargets = String(collectAllBtn.getAttribute('data-recon-collect-all-targets') || '').trim();
+    if (!rawTargets) return;
+    try {
+      const targets = dedupeCollectionTargets(JSON.parse(rawTargets));
+      if (!targets.length) return;
+      loadTargetsIntoCollection(targets, { message: `Loaded ${targets.length} target${targets.length === 1 ? '' : 's'} into collection.` });
+    } catch (error) {
+      console.error(error);
+      showNotification('Unable to load collection targets from Profiles.', 'error');
+    }
+    return;
+  }
+  const collectBtn = target.closest('[data-recon-collect-platform][data-recon-collect-username]');
+  if (collectBtn instanceof Element) {
+    const platform = String(collectBtn.getAttribute('data-recon-collect-platform') || '').trim().toLowerCase();
+    const username = String(collectBtn.getAttribute('data-recon-collect-username') || '').trim();
+    if (!platform || !username) return;
+    loadTargetsIntoCollection([{ platform, username }], { message: 'Loaded target into collection.' });
+    return;
+  }
+}
+
+reconResults?.addEventListener('click', handleReconCollectionAction);
+footprintReconResults?.addEventListener('click', (event) => {
+  handleReconCollectionAction(event);
+  const target = event.target;
+  if (!(target instanceof Element)) return;
   const reconRemoveBtn = target.closest('[data-recon-remove]');
   if (reconRemoveBtn instanceof Element) {
     const key = String(reconRemoveBtn.getAttribute('data-recon-remove') || '').trim().toLowerCase();
@@ -12113,12 +13398,40 @@ footprintReconResults?.addEventListener('click', (event) => {
     pivotKnownSelector(type, value);
     return;
   }
+  if (target.closest('a[href]')) return;
+  const sourceNode = target.closest('[data-source-selector-key]');
+  if (!(sourceNode instanceof Element)) return;
+  const key = String(sourceNode.getAttribute('data-source-selector-key') || '').trim().toLowerCase();
+  if (!key) return;
+  const advance = activeFootprintSourceSelectorKey === key && activeFootprintSelectorMatchKey === key;
+  activeFootprintSourceSelectorKey = key;
+  renderReconResults(latestReconPayload || emptyReconPayload(), footprintReconResults);
+  focusFootprintSelectorMatch(key, { advance });
+});
+footprintFilterPanel?.addEventListener('click', (event) => {
+  const target = event.target;
+  if (!(target instanceof Element)) return;
+  const clearSelectorBtn = target.closest('[data-footprint-source-clear]');
+  if (clearSelectorBtn instanceof Element) {
+    const key = String(clearSelectorBtn.getAttribute('data-footprint-source-clear') || '').trim().toLowerCase();
+    if (!key) return;
+    hideResultsForSelector(key);
+    if (activeFootprintSourceSelectorKey === key) activeFootprintSourceSelectorKey = 'all';
+    applyReconPayload(latestReconPayload || emptyReconPayload(), { statusPrefix: 'Selector records cleared', footprintOnly: true });
+    return;
+  }
   const filterBtn = target.closest('[data-footprint-source-selector]');
   if (!(filterBtn instanceof Element)) return;
   const key = String(filterBtn.getAttribute('data-footprint-source-selector') || '').trim().toLowerCase();
   if (!key) return;
+  const advance = key !== 'all' && activeFootprintSourceSelectorKey === key && activeFootprintSelectorMatchKey === key;
   activeFootprintSourceSelectorKey = key;
   renderReconResults(latestReconPayload || emptyReconPayload(), footprintReconResults);
+  if (key === 'all') {
+    if (footprintReconStatus) footprintReconStatus.textContent = 'Showing all selector sources.';
+    return;
+  }
+  focusFootprintSelectorMatch(key, { advance });
 });
 for (const el of [filterTwitter, filterReddit, filterTiktok, filterBluesky, filterInstagram, filterYoutube, filterPost, filterRepost, filterReply, filterQuote, filterComment, filterSelectors, filterIdeologicalIndicators, filterThreatSignals, filterLLMPrimary, filterLLMSecondary]) {
   if (!el) continue;
@@ -12321,7 +13634,7 @@ footprintTimelineEvents?.addEventListener('input', (event) => {
     renderFootprintTimeline();
     const replacement = footprintTimelineEvents.querySelector('[data-timeline-query]');
     if (replacement instanceof HTMLInputElement) {
-      replacement.focus();
+      focusWithoutScroll(replacement);
       if (Number.isFinite(nextSelectionStart) && Number.isFinite(nextSelectionEnd)) {
         replacement.setSelectionRange(nextSelectionStart, nextSelectionEnd);
       }
@@ -12436,17 +13749,30 @@ filterToggleBtn.addEventListener('click', () => {
   const isHidden = filterPanel.classList.toggle('hidden');
   filterToggleBtn.setAttribute('aria-expanded', String(!isHidden));
 });
+footprintFilterToggleBtn?.addEventListener('click', () => {
+  if (!footprintFilterPanel) return;
+  const isHidden = footprintFilterPanel.classList.toggle('hidden');
+  footprintFilterToggleBtn.setAttribute('aria-expanded', String(!isHidden));
+});
 document.addEventListener('click', (event) => {
   if (!(event.target instanceof Node)) return;
-  if (filterPanel.classList.contains('hidden')) return;
-  if (filterPanel.contains(event.target) || filterToggleBtn.contains(event.target)) return;
-  filterPanel.classList.add('hidden');
-  filterToggleBtn.setAttribute('aria-expanded', 'false');
+  if (!filterPanel.classList.contains('hidden')) {
+    if (!filterPanel.contains(event.target) && !filterToggleBtn.contains(event.target)) {
+      filterPanel.classList.add('hidden');
+      filterToggleBtn.setAttribute('aria-expanded', 'false');
+    }
+  }
+  if (footprintFilterPanel && footprintFilterToggleBtn && !footprintFilterPanel.classList.contains('hidden')) {
+    if (!footprintFilterPanel.contains(event.target) && !footprintFilterToggleBtn.contains(event.target)) {
+      footprintFilterPanel.classList.add('hidden');
+      footprintFilterToggleBtn.setAttribute('aria-expanded', 'false');
+    }
+  }
 });
 document.addEventListener('keydown', (event) => {
   if (event.key === '/' && event.target instanceof Element && !event.target.closest('input, textarea, [contenteditable="true"]')) {
     event.preventDefault();
-    searchInput.focus();
+    focusWithoutScroll(searchInput);
     return;
   }
   if (event.key !== 'Escape') return;
@@ -12470,9 +13796,19 @@ document.addEventListener('keydown', (event) => {
     closePostModal();
     return;
   }
-  if (filterPanel.classList.contains('hidden')) return;
-  filterPanel.classList.add('hidden');
-  filterToggleBtn.setAttribute('aria-expanded', 'false');
+  if (setupModal && !setupModal.classList.contains('hidden')) {
+    closeSetupModal();
+    return;
+  }
+  if (!filterPanel.classList.contains('hidden')) {
+    filterPanel.classList.add('hidden');
+    filterToggleBtn.setAttribute('aria-expanded', 'false');
+    return;
+  }
+  if (footprintFilterPanel && footprintFilterToggleBtn && !footprintFilterPanel.classList.contains('hidden')) {
+    footprintFilterPanel.classList.add('hidden');
+    footprintFilterToggleBtn.setAttribute('aria-expanded', 'false');
+  }
 });
 caseEditModal?.addEventListener('click', (event) => {
   if (!(event.target instanceof HTMLElement)) return;
@@ -12499,20 +13835,6 @@ postModal?.addEventListener('click', (event) => {
   if (event.target !== postModal) return;
   closePostModal();
 });
-document.addEventListener('click', (event) => {
-  const target = event.target;
-  if (!(target instanceof Element)) return;
-  const badge = target.closest('.selector-confidence-badge[data-confidence-key]');
-  if (!(badge instanceof HTMLElement)) return;
-  const key = String(badge.getAttribute('data-confidence-key') || '').trim().toLowerCase();
-  const type = String(badge.getAttribute('data-confidence-type') || '').trim().toLowerCase();
-  if (!key || !type) return;
-  const current = selectorConfidenceLevelFromOverrideKey(key, type);
-  const next = cycleSelectorConfidenceLevel(current);
-  selectorConfidenceOverrides.set(key, next);
-  saveSelectorConfidenceOverrides();
-  rerenderConfidenceOverriddenViews();
-});
 window.addEventListener('resize', () => {
   if (activeInsightsTab === 'geo') refreshMapLayout();
   if (activeResultsView === 'entitygraph') {
@@ -12520,43 +13842,12 @@ window.addEventListener('resize', () => {
     renderFootprintEntityGraph();
   }
 });
-insightsTabOps?.addEventListener('click', () => setInsightsTab('ops'));
 insightsTabGeo?.addEventListener('click', () => setInsightsTab('geo'));
 insightsTabSignals?.addEventListener('click', () => setInsightsTab('signals'));
 openCaseNotesTopBtn?.addEventListener('click', () => {
   openCaseNotesModal();
 });
-refreshStreamsBtn?.addEventListener('click', () => {
-  if (!activeCollectionJobId) return;
-  showNotification('Refreshing collection status…', 'info');
-  scheduleCollectionPoll(25, collectionPollNonce);
-});
-rerunFailedBtn?.addEventListener('click', async () => {
-  if (activeCollectionJobId) return;
-  const failedTargets = getFailedTargetsFromStreamState();
-  if (!failedTargets.length) {
-    showNotification('No failed targets to rerun.', 'warn');
-    return;
-  }
-  const startDate = activeStartDate || startDateInput.value;
-  const endDate = activeEndDate || endDateInput.value;
-  if (!startDate || !endDate) {
-    showNotification('Set a date range before rerunning failed targets.', 'warn');
-    return;
-  }
-  rerunFailedBtn.disabled = true;
-  if (refreshStreamsBtn) refreshStreamsBtn.disabled = true;
-  await startBackgroundCollection(failedTargets, startDate, endDate, {
-    lockModal: false,
-    setupMessage: 'Rerunning failed collection targets in background.',
-    statusPrefix: 'Failed-target rerun',
-    showStartNotification: true,
-    appendResults: true,
-    resetStreamState: false,
-  });
-  updateStreamActionButtons();
-});
-newCollectionBtn.addEventListener('click', () => {
+newCollectionBtn?.addEventListener('click', () => {
   if (!activeCaseId) {
     showNotification('Open a case first.', 'warn');
     showCaseWorkspace();
@@ -12583,8 +13874,8 @@ backToCasesBtn?.addEventListener('click', async () => {
   if (discarded) {
     showNotification('Unsaved case discarded.', 'info');
   }
-  clearCollectionPolling();
-  loadCases();
+  resetDashboardSession();
+  await loadCases();
   showCaseWorkspace();
 });
 saveQuitCaseBtn?.addEventListener('click', openCaseSaveModal);
@@ -12676,6 +13967,7 @@ caseNotesAddProfileBtn?.addEventListener('click', () => {
     url: '',
     image_url: '',
     screenshot_url: '',
+    collection_ready: false,
   });
   renderCaseNotesProfiles();
 });
@@ -12758,13 +14050,7 @@ caseNotesForm?.addEventListener('click', (event) => {
   if (!(toggle instanceof HTMLElement)) return;
   const key = String(toggle.getAttribute('data-case-notes-section-toggle') || '').trim().toLowerCase();
   if (!key) return;
-  const excluded = key === 'digital_footprint'
-    ? (
-      caseNotesExcludedSections.has('digital_footprint_high')
-      && caseNotesExcludedSections.has('digital_footprint_medium')
-      && caseNotesExcludedSections.has('digital_footprint_low')
-    )
-    : caseNotesExcludedSections.has(key);
+  const excluded = caseNotesExcludedSections.has(key);
   setCaseNotesSectionExcluded(key, !excluded);
   renderCaseNotesSectionVisibility();
 });
@@ -12775,8 +14061,7 @@ caseNotesFootprintResults?.addEventListener('click', (event) => {
   if (!(toggleBtn instanceof HTMLElement)) return;
   const key = String(toggleBtn.getAttribute('data-case-notes-footprint-key') || '').trim().toLowerCase();
   if (!key) return;
-  if (caseNotesExcludedFootprintResultKeys.has(key)) caseNotesExcludedFootprintResultKeys.delete(key);
-  else caseNotesExcludedFootprintResultKeys.add(key);
+  caseNotesExcludedFootprintResultKeys.add(key);
   renderCaseNotesFootprintResults();
 });
 caseSaveImageOptions?.addEventListener('change', (event) => {
@@ -12787,34 +14072,48 @@ caseSaveImageOptions?.addEventListener('change', (event) => {
 });
 addTargetBtn.addEventListener('click', () => addTargetRow('twitter', ''));
 autofillTargetsBtn.addEventListener('click', autofillTargetUsernames);
-closeSetupBtn.addEventListener('click', () => setModalOpen(false));
+closeSetupBtn.addEventListener('click', () => {
+  closeSetupModal();
+});
 modeReconBtn.addEventListener('click', () => {
   reconStatus.textContent = '';
   setModalMode('recon');
   ensureAtLeastOneReconSelectorRow();
   const firstInput = reconSelectorsList?.querySelector('.recon-selector-value');
-  if (firstInput instanceof HTMLInputElement) firstInput.focus();
+  focusWithoutScroll(firstInput);
 });
 modeCollectionBtn.addEventListener('click', () => {
   setupStatus.textContent = '';
   setModalMode('collection');
+  updateCollectionReadyProfilesButtonState();
   if (!targetsList.querySelector('.target-row')) addTargetRow('twitter', '');
+});
+loadCollectionReadyProfilesBtn?.addEventListener('click', () => {
+  const notes = normalizeCaseNotesObject(activeCase?.case_notes || {});
+  const readyTargets = collectionReadyTargetsFromKnownProfiles(notes.known_profiles);
+  if (!readyTargets.length) {
+    setupStatus.textContent = 'No collection-ready profiles saved in Profiles.';
+    updateCollectionReadyProfilesButtonState();
+    return;
+  }
+  loadTargetsIntoCollection(readyTargets, { message: 'Loaded collection-ready profiles into collection targets.' });
+  updateCollectionReadyProfilesButtonState();
 });
 useReconTargetsBtn.addEventListener('click', () => {
   if (!reconTargets.length) return;
-  fillTargetsFromRecon(reconTargets);
-  setupStatus.textContent = 'Loaded active recon profiles into collection targets.';
-  setModalMode('collection');
+  loadTargetsIntoCollection(reconTargets, { message: 'Loaded active recon profiles into collection targets.' });
 });
 goReconAssessmentBtn?.addEventListener('click', openAssessmentFromRecon);
 addReconSelectorBtn?.addEventListener('click', () => addReconSelectorRow(reconSelectorsList, 'username', ''));
 addFootprintSelectorBtn?.addEventListener('click', () => addReconSelectorRow(footprintSelectorsList, 'username', ''));
 footprintUseTargetsBtn?.addEventListener('click', () => {
   if (!reconTargets.length) return;
-  fillTargetsFromRecon(reconTargets);
-  setModalMode('collection');
-  setModalOpen(true);
-  if (footprintReconStatus) footprintReconStatus.textContent = 'Loaded active recon profiles into collection targets.';
+  loadTargetsIntoCollection(reconTargets, { message: 'Loaded active recon profiles into collection targets.' });
+});
+setupModal?.addEventListener('click', (event) => {
+  if (!(event.target instanceof HTMLElement)) return;
+  if (event.target !== setupModal) return;
+  closeSetupModal();
 });
 reconSelectorsList?.addEventListener('change', (event) => {
   const target = event.target;
@@ -12875,22 +14174,24 @@ footprintKnownSelectorsGroups?.addEventListener('click', async (event) => {
     return;
   }
   const pivotBtn = target.closest('[data-known-pivot-type][data-known-pivot-value]');
-  if (!(pivotBtn instanceof Element)) return;
-  const type = String(pivotBtn.getAttribute('data-known-pivot-type') || '').trim().toLowerCase();
-  const value = String(pivotBtn.getAttribute('data-known-pivot-value') || '').trim();
-  if (!type || !value) return;
-  await pivotKnownSelector(type, value);
-});
-footprintKnownSelectorsGroups?.addEventListener('click', (event) => {
-  const target = event.target;
-  if (!(target instanceof Element)) return;
-  if (target.closest('[data-known-remove], [data-known-pivot-type], [data-known-pivot-value]')) return;
+  if (pivotBtn instanceof Element) {
+    const type = String(pivotBtn.getAttribute('data-known-pivot-type') || '').trim().toLowerCase();
+    const value = String(pivotBtn.getAttribute('data-known-pivot-value') || '').trim();
+    if (!type || !value) return;
+    await pivotKnownSelector(type, value);
+    return;
+  }
+  if (target.closest('a[href]')) return;
   const pill = target.closest('[data-known-focus-key]');
   if (!(pill instanceof Element)) return;
   const key = String(pill.getAttribute('data-known-focus-key') || '').trim().toLowerCase();
   if (!key) return;
   setResultsView('footprint');
-  focusKnownSelectorInstances(key);
+  const advance = activeKnownSelectorFocusKey === key && activeFootprintSelectorMatchKey === key;
+  activeKnownSelectorFocusKey = key;
+  activeFootprintSourceSelectorKey = key;
+  renderReconResults(latestReconPayload || emptyReconPayload(), footprintReconResults);
+  focusFootprintSelectorMatch(key, { advance });
 });
 targetsList.addEventListener('click', (event) => {
   const target = event.target;
@@ -12935,23 +14236,19 @@ async function quitPanoptoSession(options = {}) {
   closeQuitOptionsModal();
   if (quitBtn) {
     quitBtn.disabled = true;
-    quitBtn.textContent = 'Quitting...';
+    quitBtn.textContent = 'Exiting...';
   }
   if (quitSessionCaseBtn) {
     quitSessionCaseBtn.disabled = true;
-    quitSessionCaseBtn.textContent = 'Quitting...';
-  }
-  if (quitOptionsQuitBtn) {
-    quitOptionsQuitBtn.disabled = true;
-    quitOptionsQuitBtn.textContent = 'Quitting...';
+    quitSessionCaseBtn.textContent = 'Exiting...';
   }
   if (quitOptionsWipeBtn) {
     quitOptionsWipeBtn.disabled = true;
-    quitOptionsWipeBtn.textContent = 'Quitting...';
+    quitOptionsWipeBtn.textContent = 'Exiting...';
   }
   if (quitOptionsSaveBtn) {
     quitOptionsSaveBtn.disabled = true;
-    quitOptionsSaveBtn.textContent = 'Quitting...';
+    quitOptionsSaveBtn.textContent = 'Exiting...';
   }
   try {
     await discardUnsavedActiveCase();
@@ -13001,37 +14298,35 @@ async function quitPanoptoSession(options = {}) {
   } finally {
     if (quitBtn) {
       quitBtn.disabled = false;
-      quitBtn.textContent = 'Quit';
+      quitBtn.textContent = 'Exit Session';
     }
     if (quitSessionCaseBtn) {
       quitSessionCaseBtn.disabled = false;
-      quitSessionCaseBtn.textContent = 'Quit';
-    }
-    if (quitOptionsQuitBtn) {
-      quitOptionsQuitBtn.disabled = false;
-      quitOptionsQuitBtn.textContent = 'Quit';
+      quitSessionCaseBtn.textContent = 'Exit Session';
     }
     if (quitOptionsWipeBtn) {
       quitOptionsWipeBtn.disabled = false;
-      quitOptionsWipeBtn.textContent = 'Quit and Wipe';
+      quitOptionsWipeBtn.textContent = 'Exit and Wipe';
     }
     if (quitOptionsSaveBtn) {
       quitOptionsSaveBtn.disabled = false;
-      quitOptionsSaveBtn.textContent = 'Quit and Save';
+      quitOptionsSaveBtn.textContent = 'Exit and Save';
     }
   }
 }
-loadSelectorConfidenceOverrides();
 initializeDateInputs();
 addTargetRow('twitter', '');
-addReconSelectorRow(reconSelectorsList, 'username', '');
-addReconSelectorRow(footprintSelectorsList, 'username', '');
+if (reconSelectorsList instanceof HTMLElement) addReconSelectorRow(reconSelectorsList, 'username', '');
+if (footprintSelectorsList instanceof HTMLElement) addReconSelectorRow(footprintSelectorsList, 'username', '');
 renderLeadsList();
 renderFootprintTimeline();
 renderFootprintEntityGraph();
-renderFootprintLikelyName(emptyReconPayload());
 renderKnownSelectorsPanel(emptyReconPayload());
+setDashboardCaseTitle('PANOPTO');
 renderCollectionStreams();
+renderWorkflowPanel();
+renderLlmSandboxExamples();
+renderLlmSandboxResult(null);
 applyResultsViewButtonState();
 setInsightsTab(activeInsightsTab);
 updateStreamActionButtons();
@@ -13046,6 +14341,4 @@ if (caseSaveRetentionSelect instanceof HTMLSelectElement) caseSaveRetentionSelec
 if (configDefaultRetentionSelect instanceof HTMLSelectElement) configDefaultRetentionSelect.value = DEFAULT_DATA_RETENTION_PERIOD;
 setWatchlistCadenceVisibility(caseEditStatusSelect, caseEditCadenceField, caseEditCadenceSelect);
 setWatchlistCadenceVisibility(caseSaveStatusSelect, caseSaveCadenceField, caseSaveCadenceSelect);
-showCaseWorkspace();
-loadConfig();
-loadCases();
+initializeApp();

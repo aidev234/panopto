@@ -126,9 +126,23 @@ def test_collect_tiktok_posts_maps_direct_video_urls_from_apify():
         }
     ]
     with patch("panopto.collectors.tiktok.run_actor_sync_get_items", return_value=dataset):
-        rows = tiktok_collection.collect_tiktok_posts("aoc", "30 days", max_pages=1, request_delay_seconds=0, browser_fallback=True)
+        rows = tiktok_collection.collect_tiktok_posts(
+            "aoc",
+            "30 days",
+            max_pages=1,
+            request_delay_seconds=0,
+            browser_fallback=True,
+            now_utc=datetime(2026, 3, 12, tzinfo=timezone.utc),
+        )
     assert len(rows) == 1
     assert rows[0]["post_id"] == "123456"
+
+
+def test_inclusive_cutoff_keeps_boundary_day():
+    now = datetime(2026, 3, 12, 18, 30, tzinfo=timezone.utc)
+    cutoff = tiktok_collection._inclusive_cutoff(now, "30 days")
+
+    assert cutoff.isoformat() == "2026-02-10T00:00:00+00:00"
 
 
 def test_collect_tiktok_posts_raises_unavailable_when_apify_not_configured():

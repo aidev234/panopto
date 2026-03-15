@@ -1,9 +1,11 @@
 import importlib
 import importlib.util
+import inspect
+import functools
 from itertools import permutations
 from types import ModuleType
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 import random
 import threading
 import httpx
@@ -17,6 +19,7 @@ def get_site_name(module) -> str:
     return name
 
 
+@functools.lru_cache(maxsize=None)
 def load_modules(category_path: Path) -> List[ModuleType]:
     modules = []
     for file in category_path.glob("*.py"):
@@ -32,7 +35,8 @@ def load_modules(category_path: Path) -> List[ModuleType]:
     return modules
 
 
-def load_categories(is_email: bool = False) -> Dict[str, Path]:
+@functools.lru_cache(maxsize=None)
+def load_categories(is_email: bool = False, no_nsfw: bool = False) -> Dict[str, Path]:
     folder_name = "email_scan" if is_email else "user_scan"
     root = Path(__file__).resolve().parent.parent / folder_name
     categories = {}
@@ -41,17 +45,30 @@ def load_categories(is_email: bool = False) -> Dict[str, Path]:
         if subfolder.is_dir() and \
                 subfolder.name.lower() not in ["cli", "utils", "core"] and \
                 "__" not in subfolder.name:  # Removes __pycache__
+            if no_nsfw and subfolder.name == "adult":
+                continue
             categories[subfolder.name] = subfolder.resolve()
 
     return categories
 
 
-def find_module(name: str, is_email: bool = False) -> List[ModuleType]:
+def get_scan_func(module) -> Optional[Callable[[str], Any]]:
+    for attr_name in dir(module):
+        if not attr_name.startswith("validate_"):
+            continue
+
+        func = getattr(module, attr_name)
+        if inspect.isfunction(func) or inspect.iscoroutinefunction(func):
+            return func
+    return None
+
+
+def find_module(name: str, is_email: bool = False, no_nsfw: bool = False) -> List[ModuleType]:
     name = name.lower()
 
     return [
         module
-        for category_path in load_categories(is_email).values()
+        for category_path in load_categories(is_email, no_nsfw).values()
         for module in load_modules(category_path)
         if module.__name__.split(".")[-1].lower() == name
     ]
@@ -139,8 +156,8 @@ class ProxyManager:
                 for line in f:
                     line = line.strip()
                     if line and not line.startswith('#'):
-                        # Add protocol if not present
-                        if not line.startswith(('http://', 'https://', 'socks5://')):
+                        # Keep explicit schemes. Only prepend http:// when missing.
+                        if "://" not in line:
                             line = 'http://' + line
                         self.proxies.append(line)
             
@@ -216,4 +233,3 @@ def get_random_user_agent():
     """return random"""
     random_agent = random.choice(agents)
     return random_agent
-

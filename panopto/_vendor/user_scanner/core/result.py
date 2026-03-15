@@ -32,6 +32,10 @@ def humanize_exception(e: Exception) -> str:
         return "Connection closed by remote server"
     if "11001" in msg:
         return "Could not resolve hostname"
+    if "errno 7" in msg or "no address associated with hostname" in msg:
+        return "No internet connection or DNS failure"
+    if "errno 101" in msg or "network is unreachable" in msg:
+        return "Network unreachable (Is your internet on?)"
     return str(e)
 
 

@@ -12,7 +12,10 @@ from frontend.server import (
     PostExplorerHandler,
     _build_case_notes_pdf_fallback,
     _build_case_notes_pdf_stylized,
+    _extract_mermaid_block,
     _image_source_to_data_uri,
+    _load_architecture_markdown,
+    _render_architecture_page_html,
     query_posts,
 )
 from panopto.errors import UsernameNotFoundError
@@ -217,6 +220,70 @@ def test_content_cleaning_strips_view_profile_fragment(tmp_path):
     payload = query_posts(query="starlink", db_path=db_path)
     assert payload["count"] == 1
     assert payload["posts"][0]["content"] == "Starlink now at 10 million users"
+
+
+def test_query_posts_prioritizes_direct_search_matches_before_weaker_metadata_matches(tmp_path):
+    db_path = tmp_path / "osint_data.db"
+    with sqlite3.connect(db_path) as conn:
+        conn.execute(
+            """
+            CREATE TABLE twitter_posts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                source_post_id TEXT,
+                username TEXT NOT NULL,
+                content TEXT NOT NULL,
+                timestamp TEXT,
+                post_type TEXT NOT NULL DEFAULT 'post',
+                raw_metadata TEXT,
+                collected_at TEXT NOT NULL
+            )
+            """
+        )
+        conn.executemany(
+            "INSERT INTO twitter_posts (source_post_id, username, content, timestamp, raw_metadata, collected_at) VALUES (?, ?, ?, ?, ?, ?)",
+            [
+                (
+                    "newer-entity",
+                    "alice",
+                    "Heading home after work",
+                    "2026-02-12T18:15:54+00:00",
+                    json.dumps({"llm_assessment": {"underlying_theme": "Boston travel planning", "tagged_primary": ["planning"]}}),
+                    "2026-02-12T18:16:00+00:00",
+                ),
+                (
+                    "older-content",
+                    "bob",
+                    "Boston deployment moved up again",
+                    "2026-02-01T08:00:00+00:00",
+                    json.dumps({}),
+                    "2026-02-01T08:01:00+00:00",
+                ),
+            ],
+        )
+        conn.commit()
+
+    payload = query_posts(query="boston", sort_order="newest", db_path=db_path)
+
+    assert payload["count"] == 2
+    assert [post["post_id"] for post in payload["posts"]] == ["older-content", "newer-entity"]
+
+
+def test_architecture_markdown_includes_mermaid_diagram():
+    markdown_text = _load_architecture_markdown()
+    mermaid = _extract_mermaid_block(markdown_text)
+
+    assert "# PANOPTO Architecture Diagram" in markdown_text
+    assert "flowchart TB" in mermaid
+    assert "frontend/server.py" in mermaid
+
+
+def test_architecture_page_embeds_svg_and_mermaid_source():
+    html = _render_architecture_page_html().decode("utf-8")
+
+    assert "<title>PANOPTO Architecture</title>" in html
+    assert 'src="/architecture-diagram.svg"' in html
+    assert "/docs/architecture-diagram.md" in html
+    assert "flowchart TB" in html
 
 
 def test_include_exclude_tag_filters(tmp_path):
@@ -907,7 +974,6 @@ def test_session_end_rejects_invalid_optional_json_body():
 
     with (
         patch("frontend.server.clear_posts") as clear_posts,
-        patch("frontend.server.clear_known_entities") as clear_known_entities,
         patch("frontend.server.save_config") as save_config,
     ):
         handler.do_POST()
@@ -915,34 +981,7 @@ def test_session_end_rejects_invalid_optional_json_body():
     assert errors
     assert errors[0] == (400, "invalid content-length header")
     clear_posts.assert_not_called()
-    clear_known_entities.assert_not_called()
     save_config.assert_not_called()
-
-
-def test_known_entities_match_rejects_invalid_optional_json_body():
-    handler = PostExplorerHandler.__new__(PostExplorerHandler)
-    body = b"\xff\xfe\x00\x00"
-    handler.path = "/api/known-entities/match"
-    handler.headers = {"Content-Length": str(len(body))}
-    handler.rfile = BytesIO(body)
-    handler.wfile = BytesIO()
-
-    errors = []
-
-    def _send_error(code, message=None):
-        errors.append((code, message))
-
-    handler.send_error = _send_error
-    handler.send_response = lambda code: None
-    handler.send_header = lambda *args, **kwargs: None
-    handler.end_headers = lambda *args, **kwargs: None
-
-    with patch("frontend.server.match_known_entities") as match_known_entities:
-        handler.do_POST()
-
-    assert errors
-    assert errors[0] == (400, "invalid json body")
-    match_known_entities.assert_not_called()
 
 
 def test_case_notes_pdf_fallback_ignores_invalid_profile_rows():
@@ -1022,9 +1061,10 @@ def test_case_notes_pdf_fallback_appends_digital_footprint_section():
     assert pdf_bytes.startswith(b"%PDF-1.4")
     assert b"Digital Footprint Evidence" in pdf_bytes
     assert b"APPENDIX A" in pdf_bytes
-    assert b"High Confidence" in pdf_bytes
-    assert b"Medium Confidence" in pdf_bytes
-    assert b"Low Confidence" in pdf_bytes
+    assert b"Results" in pdf_bytes
+    assert b"High Confidence" not in pdf_bytes
+    assert b"Medium Confidence" not in pdf_bytes
+    assert b"Low Confidence" not in pdf_bytes
     assert b"alpha@example.com" in pdf_bytes
     assert b"username: alpha" in pdf_bytes
     assert b"profile: https://www.linkedin.com/in/alpha/" in pdf_bytes
@@ -1036,7 +1076,7 @@ def test_case_notes_pdf_fallback_respects_report_only_exclusions():
         "case_notes": {
             "threat_risk_assessment": "This section should be hidden in report output.",
             "report_preferences": {
-                "excluded_sections": ["threat_risk_assessment", "digital_footprint_low"],
+                "excluded_sections": ["threat_risk_assessment"],
                 "excluded_footprint_result_keys": [
                     "recon (scanner)|email|alpha@example.com|status: present | site: twitter | url: https://x.com/alpha"
                 ],
@@ -1070,9 +1110,10 @@ def test_case_notes_pdf_fallback_respects_report_only_exclusions():
 
     assert b"Threat / Risk Assessment" not in pdf_bytes
     assert b"Low Confidence" not in pdf_bytes
+    assert b"High Confidence" not in pdf_bytes
     assert b"alpha@example.com" not in pdf_bytes
-    assert b"High Confidence" in pdf_bytes
     assert b"Digital Footprint Evidence" in pdf_bytes
+    assert b"Results" in pdf_bytes
 
 
 def test_case_notes_pdf_fallback_includes_selectors_section():
@@ -1305,7 +1346,6 @@ def test_session_end_wipe_clears_data_and_config():
 
     with (
         patch("frontend.server.clear_posts") as clear_mock,
-        patch("frontend.server.clear_known_entities") as clear_known_entities_mock,
         patch("frontend.server.save_config") as save_config_mock,
     ):
         handler.do_POST()
@@ -1316,7 +1356,6 @@ def test_session_end_wipe_clears_data_and_config():
     assert clear_args
     assert str(clear_args[0]).endswith("osint_data.db")
     assert clear_kwargs == {"clear_cases": True}
-    clear_known_entities_mock.assert_called_once()
     save_config_mock.assert_called_once()
     kwargs = save_config_mock.call_args.kwargs
     assert kwargs["custom_keyword_list"] == []
@@ -1584,97 +1623,6 @@ def test_cases_api_create_list_delete(tmp_path):
         assert delete_codes and delete_codes[0] == 200
 
 
-def test_known_entities_archive_match_and_restore_case(tmp_path):
-    db_path = tmp_path / "osint_data.db"
-
-    with patch("frontend.server.DEFAULT_DB_PATH", db_path):
-        create_handler = PostExplorerHandler.__new__(PostExplorerHandler)
-        create_body = json.dumps(
-            {
-                "case_name": "POI Archive Alpha",
-                "status": "Open",
-                "threat_level": "Moderate Threat",
-                "known_location": "Boston",
-                "case_notes": {
-                    "known_profiles": [
-                        {"site": "Twitter/X / @archive_alpha", "url": "https://x.com/archive_alpha"},
-                    ],
-                    "akas": "@archive_alpha, alias one",
-                },
-            }
-        ).encode("utf-8")
-        create_handler.path = "/api/cases"
-        create_handler.headers = {"Content-Length": str(len(create_body))}
-        create_handler.rfile = BytesIO(create_body)
-        create_handler.wfile = BytesIO()
-        create_codes = []
-        create_handler.send_response = lambda code: create_codes.append(code)
-        create_handler.send_header = lambda *args, **kwargs: None
-        create_handler.end_headers = lambda *args, **kwargs: None
-        create_handler.do_POST()
-        assert create_codes and create_codes[0] == 201
-        created = json.loads(create_handler.wfile.getvalue().decode("utf-8"))
-        case_id = str(created["case_id"])
-
-        archive_handler = PostExplorerHandler.__new__(PostExplorerHandler)
-        archive_body = json.dumps({"case_id": case_id}).encode("utf-8")
-        archive_handler.path = "/api/known-entities/archive-case"
-        archive_handler.headers = {"Content-Length": str(len(archive_body))}
-        archive_handler.rfile = BytesIO(archive_body)
-        archive_handler.wfile = BytesIO()
-        archive_codes = []
-        archive_handler.send_response = lambda code: archive_codes.append(code)
-        archive_handler.send_header = lambda *args, **kwargs: None
-        archive_handler.end_headers = lambda *args, **kwargs: None
-        archive_handler.do_POST()
-        assert archive_codes and archive_codes[0] == 201
-        archived = json.loads(archive_handler.wfile.getvalue().decode("utf-8"))
-        archive_id = str(archived["archive_id"])
-        assert archive_id
-        assert int(archived["selector_count"]) >= 1
-
-        delete_handler = PostExplorerHandler.__new__(PostExplorerHandler)
-        delete_handler.path = f"/api/cases/{case_id}"
-        delete_handler.headers = {}
-        delete_handler.wfile = BytesIO()
-        delete_codes = []
-        delete_handler.send_response = lambda code: delete_codes.append(code)
-        delete_handler.send_header = lambda *args, **kwargs: None
-        delete_handler.end_headers = lambda *args, **kwargs: None
-        delete_handler.do_DELETE()
-        assert delete_codes and delete_codes[0] == 200
-
-        match_handler = PostExplorerHandler.__new__(PostExplorerHandler)
-        match_body = json.dumps({"selectors": [{"type": "username", "value": "archive_alpha"}]}).encode("utf-8")
-        match_handler.path = "/api/known-entities/match"
-        match_handler.headers = {"Content-Length": str(len(match_body))}
-        match_handler.rfile = BytesIO(match_body)
-        match_handler.wfile = BytesIO()
-        match_codes = []
-        match_handler.send_response = lambda code: match_codes.append(code)
-        match_handler.send_header = lambda *args, **kwargs: None
-        match_handler.end_headers = lambda *args, **kwargs: None
-        match_handler.do_POST()
-        assert match_codes and match_codes[0] == 200
-        matched = json.loads(match_handler.wfile.getvalue().decode("utf-8"))
-        assert matched["matches"]
-        assert matched["matches"][0]["archive_id"] == archive_id
-
-        restore_handler = PostExplorerHandler.__new__(PostExplorerHandler)
-        restore_body = json.dumps({"archive_id": archive_id}).encode("utf-8")
-        restore_handler.path = "/api/known-entities/restore"
-        restore_handler.headers = {"Content-Length": str(len(restore_body))}
-        restore_handler.rfile = BytesIO(restore_body)
-        restore_handler.wfile = BytesIO()
-        restore_codes = []
-        restore_handler.send_response = lambda code: restore_codes.append(code)
-        restore_handler.send_header = lambda *args, **kwargs: None
-        restore_handler.end_headers = lambda *args, **kwargs: None
-        restore_handler.do_POST()
-        assert restore_codes and restore_codes[0] == 201
-        restored = json.loads(restore_handler.wfile.getvalue().decode("utf-8"))
-        assert restored["case"]["case_name"] == "POI Archive Alpha"
-
 def test_cases_demo_endpoint_creates_case_and_posts(tmp_path):
     db_path = tmp_path / "osint_data.db"
 
@@ -1775,6 +1723,67 @@ def test_case_notes_pdf_export_endpoint_downloads_pdf(tmp_path):
         assert "attachment" in str(response_headers.get("Content-Disposition", "")).lower()
         payload = get_handler.wfile.getvalue()
         assert payload.startswith(b"%PDF-1.4")
+
+
+def test_case_notes_pdf_export_post_uses_live_draft_payload(tmp_path):
+    db_path = tmp_path / "osint_data.db"
+
+    with patch("frontend.server.DEFAULT_DB_PATH", db_path):
+        create_handler = PostExplorerHandler.__new__(PostExplorerHandler)
+        create_body = json.dumps(
+            {
+                "case_name": "POI Delta",
+                "status": "Open",
+                "threat_level": "Low Threat",
+                "known_location": "Boston",
+                "case_notes": {
+                    "name": "Stored Subject",
+                    "context": "Stored context",
+                },
+            }
+        ).encode("utf-8")
+        create_handler.path = "/api/cases"
+        create_handler.headers = {"Content-Length": str(len(create_body))}
+        create_handler.rfile = BytesIO(create_body)
+        create_handler.wfile = BytesIO()
+        create_handler.send_response = lambda code: None
+        create_handler.send_header = lambda *args, **kwargs: None
+        create_handler.end_headers = lambda *args, **kwargs: None
+        create_handler.do_POST()
+        created = json.loads(create_handler.wfile.getvalue().decode("utf-8"))
+        case_id = created["case_id"]
+
+        export_handler = PostExplorerHandler.__new__(PostExplorerHandler)
+        export_body = json.dumps(
+            {
+                "case_name": "Draft Export Name",
+                "known_location": "Seattle",
+                "case_notes": {
+                    "name": "Draft Subject",
+                    "location": "Seattle",
+                    "context": "Draft context for export only",
+                },
+            }
+        ).encode("utf-8")
+        export_handler.path = f"/api/cases/{case_id}/notes.pdf"
+        export_handler.headers = {"Content-Length": str(len(export_body))}
+        export_handler.rfile = BytesIO(export_body)
+        export_handler.wfile = BytesIO()
+        response_codes = []
+        response_headers = {}
+        export_handler.send_response = lambda code: response_codes.append(code)
+        export_handler.send_header = lambda key, value: response_headers.__setitem__(key, value)
+        export_handler.end_headers = lambda *args, **kwargs: None
+        export_handler.do_POST()
+
+        assert response_codes and response_codes[0] == 200
+        assert response_headers.get("Content-Type") == "application/pdf"
+        assert "draft-export-name-report.pdf" in str(response_headers.get("Content-Disposition", "")).lower()
+        payload = export_handler.wfile.getvalue()
+        assert payload.startswith(b"%PDF-1.4")
+        assert b"Draft Subject" in payload
+        assert b"Draft context for export only" in payload
+        assert b"Stored context" not in payload
 
 
 def test_collect_start_endpoint_returns_job_id():
@@ -2050,6 +2059,97 @@ def test_llm_estimate_endpoint_returns_estimate_payload():
     assert responses and responses[0] == 200
     payload = json.loads(handler.wfile.getvalue().decode("utf-8"))
     assert payload["estimate"]["candidate_posts"] == 1
+
+
+def test_llm_sandbox_endpoint_returns_assessed_post():
+    handler = PostExplorerHandler.__new__(PostExplorerHandler)
+    body = json.dumps(
+        {
+            "text": "I know exactly when they leave the building.",
+            "username": "tester",
+            "platform": "Sandbox",
+            "source_url": "https://example.test/post/1",
+        }
+    ).encode("utf-8")
+    handler.path = "/api/llm/sandbox"
+    handler.headers = {"Content-Length": str(len(body))}
+    handler.rfile = BytesIO(body)
+    handler.wfile = BytesIO()
+
+    responses = []
+    handler.send_response = lambda code: responses.append(code)
+    handler.send_header = lambda *args, **kwargs: None
+    handler.end_headers = lambda *args, **kwargs: None
+
+    with patch(
+        "frontend.server.analyze_post_sandbox",
+        return_value={
+            "row_id": 0,
+            "post_id": "sandbox-123",
+            "platform": "Sandbox",
+            "username": "tester",
+            "content": "I know exactly when they leave the building.",
+            "timestamp": "2026-03-11T00:00:00+00:00",
+            "source_url": "https://example.test/post/1",
+            "post_type": "post",
+            "metadata": {
+                "sandbox": True,
+                "llm_assessment": {
+                    "tagged_primary": ["Pathway"],
+                    "tagged_secondary": ["Capability (access)"],
+                    "underlying_theme": "Target-focused planning",
+                },
+                "identity_intel_assessment": {
+                    "tags": [
+                        {"label": "location: Washington DC", "intel": "inferred"},
+                        {"label": "handle: tester", "intel": "stated"},
+                    ],
+                    "theme": "User possibly based in Washington DC",
+                },
+                "sandbox_debug": {
+                    "request_text": "I know exactly when they leave the building.",
+                    "combined_messages": [{"role": "system", "content": "combined"}, {"role": "user", "content": "text"}],
+                    "threat_messages": [{"role": "system", "content": "threat"}, {"role": "user", "content": "text"}],
+                    "identity_messages": [{"role": "system", "content": "identity"}, {"role": "user", "content": "text"}],
+                    "threat_error": "",
+                    "identity_error": "",
+                    "threat_raw": {"tagged_primary": ["Pathway"]},
+                    "threat_normalized": {
+                        "tagged_primary": ["Pathway"],
+                        "tagged_secondary": ["Capability (access)"],
+                        "underlying_theme": "Target-focused planning",
+                        "rationale": "",
+                    },
+                    "identity_raw": {
+                        "tags": [{"label": "location: Washington DC", "intel": "inferred"}],
+                        "theme": "User possibly based in Washington DC",
+                    },
+                    "identity_normalized": {
+                        "tags": [
+                            {"label": "location: Washington DC", "intel": "inferred"},
+                            {"label": "handle: tester", "intel": "stated"},
+                        ],
+                        "theme": "User possibly based in Washington DC",
+                    },
+                },
+                "sandbox_analysis": {
+                    "threat_checked": True,
+                    "identity_checked": True,
+                    "threat_present": True,
+                    "identity_present": True,
+                },
+            },
+        },
+    ):
+        handler.do_POST()
+
+    assert responses and responses[0] == 200
+    payload = json.loads(handler.wfile.getvalue().decode("utf-8"))
+    assert payload["status"] == "ok"
+    assert payload["post"]["metadata"]["llm_assessment"]["underlying_theme"] == "Target-focused planning"
+    assert payload["post"]["metadata"]["identity_intel_assessment"]["theme"] == "User possibly based in Washington DC"
+    assert payload["analysis_status"]["threat_checked"] is True
+    assert payload["analysis_status"]["identity_checked"] is True
 
 
 def test_llm_run_endpoint_persists_assessment_updates():

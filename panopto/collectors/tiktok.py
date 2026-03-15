@@ -78,6 +78,11 @@ def _parse_collection_window(collection_window: str) -> timedelta:
     )
 
 
+def _inclusive_cutoff(now_utc: datetime, collection_window: str) -> datetime:
+    cutoff = now_utc - _parse_collection_window(collection_window)
+    return cutoff.replace(hour=0, minute=0, second=0, microsecond=0)
+
+
 def _get_actor_id() -> str:
     return str(os.environ.get(APIFY_TIKTOK_ACTOR_ENV) or DEFAULT_APIFY_TIKTOK_ACTOR_ID).strip()
 
@@ -856,14 +861,20 @@ def collect_tiktok_posts(
     timeout: int = 20,
     proxies: dict[str, str] | None = None,
     browser_fallback: bool = True,
+    now_utc: datetime | None = None,
 ) -> list[dict[str, Any]]:
     """Collect TikTok profile posts, preferring Apify actor output."""
     if not username or not username.strip():
         raise ValueError("username must be a non-empty string")
 
     normalized_username = username.strip().lstrip("@").lower()
-    cutoff = datetime.now(timezone.utc) - _parse_collection_window(collection_window)
-    now_utc = datetime.now(timezone.utc)
+    if now_utc is None:
+        current_time = datetime.now(timezone.utc)
+    elif now_utc.tzinfo is None:
+        current_time = now_utc.replace(tzinfo=timezone.utc)
+    else:
+        current_time = now_utc.astimezone(timezone.utc)
+    cutoff = _inclusive_cutoff(current_time, collection_window)
     _ = request_delay_seconds
     _ = proxies
     _ = browser_fallback
@@ -874,7 +885,7 @@ def collect_tiktok_posts(
             cutoff=cutoff,
             max_pages=max_pages,
             timeout=timeout,
-            now_utc=now_utc,
+            now_utc=current_time,
         )
     except ApifyConfigurationError as exc:
         raise SourceUnavailableError(

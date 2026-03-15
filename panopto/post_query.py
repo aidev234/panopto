@@ -153,6 +153,56 @@ def _matches_query(post: dict[str, str], query: str) -> bool:
         return query.lower() in haystack
 
 
+def _query_terms(query: str) -> list[str]:
+    tokens = _tokenize_boolean_query(query.strip())
+    return [
+        term
+        for token in tokens
+        if token not in {"AND", "OR", "NOT", "(", ")"}
+        if (term := _normalize_term(token))
+    ]
+
+
+def _query_rank(post: dict[str, Any], query: str) -> tuple[int, int, int, int, int]:
+    normalized_query = query.strip().lower()
+    if not normalized_query:
+        return (0, 0, 0, 0, 0)
+
+    username = str(post.get("username", "") or "").lower()
+    display_name = str(post.get("display_name", "") or "").lower()
+    content = str(post.get("content", "") or "").lower()
+    platform = str(post.get("platform", "") or "").lower()
+    post_type = str(post.get("post_type", "") or "").lower()
+    tags = " ".join(str(tag) for tag in post.get("tags", [])).lower()
+    entities = " ".join(str(item.get("text", "")) for item in post.get("entities", []) if isinstance(item, dict)).lower()
+    threat_matches = " ".join(str(item) for item in post.get("threat_matches", []) if str(item).strip()).lower()
+    selector_matches = " ".join(str(item) for item in post.get("selector_matches", []) if str(item).strip()).lower()
+    llm_primary = " ".join(str(item) for item in post.get("llm_primary_warning_behaviours", []) if str(item).strip()).lower()
+    llm_secondary = " ".join(str(item) for item in post.get("llm_secondary_risk_factors", []) if str(item).strip()).lower()
+    llm_theme = str(post.get("llm_underlying_theme", "") or "").lower()
+    metadata_text = " ".join(
+        segment
+        for segment in [tags, entities, threat_matches, selector_matches, llm_primary, llm_secondary, llm_theme, platform, post_type]
+        if segment
+    )
+    primary_text = " ".join(segment for segment in [username, display_name, content] if segment)
+    terms = _query_terms(query)
+
+    direct_phrase = int(bool(normalized_query and normalized_query in primary_text))
+    identity_exact = int(normalized_query == username or normalized_query == display_name or normalized_query == f"@{username}")
+    identity_prefix = int(
+        bool(normalized_query)
+        and (
+            username.startswith(normalized_query)
+            or display_name.startswith(normalized_query)
+            or (normalized_query.startswith("@") and username.startswith(normalized_query[1:]))
+        )
+    )
+    term_primary_hits = sum(1 for term in terms if term in primary_text)
+    term_metadata_hits = sum(1 for term in terms if term in metadata_text)
+    return (direct_phrase, identity_exact, identity_prefix, term_primary_hits, term_metadata_hits)
+
+
 def _parse_timestamp(raw: str) -> datetime | None:
     if not raw:
         return None
@@ -410,5 +460,7 @@ def query_posts(
             deduped[key] = post
 
     final_posts = list(deduped.values())
-    final_posts.sort(key=lambda post: post["timestamp"] or "", reverse=sort_order != "oldest")
+    final_posts.sort(key=lambda post: post.get("timestamp") or "", reverse=sort_order != "oldest")
+    if query.strip():
+        final_posts.sort(key=lambda post: _query_rank(post, query), reverse=True)
     return {"count": len(final_posts), "posts": final_posts}
