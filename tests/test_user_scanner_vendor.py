@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import sys
+import asyncio
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
 
 
 VENDOR_ROOT = Path(__file__).resolve().parents[1] / "panopto" / "_vendor"
@@ -12,6 +15,7 @@ from user_scanner.core.helpers import ProxyManager, load_categories  # noqa: E40
 from user_scanner.core import engine  # noqa: E402
 from user_scanner.user_scan.email import protonmail  # noqa: E402
 from user_scanner.user_scan.dev import boot_dev  # noqa: E402
+from user_scanner.core.result import Result  # noqa: E402
 
 
 def test_proxy_manager_preserves_explicit_proxy_scheme(tmp_path):
@@ -40,3 +44,20 @@ def test_new_modules_expose_expected_validate_functions():
 def test_engine_can_resolve_new_module_category():
     category = engine.find_category(protonmail)
     assert category == "Email"
+
+
+def test_engine_stream_yields_each_completed_site_result():
+    async def fake_check(module, target):
+        _ = target
+        await asyncio.sleep(module.delay)
+        return Result.taken().update(site_name=module.name)
+
+    modules = [SimpleNamespace(name="slow", delay=0.02), SimpleNamespace(name="fast", delay=0)]
+    with patch.object(engine, "load_categories", return_value={"test": "test-path"}):
+        with patch.object(engine, "load_modules", return_value=modules):
+            with patch.object(engine, "check", side_effect=fake_check):
+                async def collect():
+                    return [item async for item in engine.check_all_stream("example", is_email=False)]
+                results = asyncio.run(collect())
+
+    assert [item.site_name for item in results] == ["fast", "slow"]

@@ -3,9 +3,9 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>PANOPTO</title>
+    <title>Orion</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=20260218b" />
-    <link rel="stylesheet" href="/styles.css?v=20260315a" />
+    <link rel="stylesheet" href="/styles.css?v=20260721a" />
   </head>
   <body>
     <div id="notifications" class="toast-stack" aria-live="polite" aria-atomic="false"></div>
@@ -43,113 +43,192 @@
         <div class="case-shell">
           <div class="case-shell-head">
             <div>
-              <p class="eyebrow">CASE MANAGEMENT</p>
-              <h2>Persons of Interest</h2>
+              <p class="eyebrow">Investigations</p>
+              <h2>Case Management</h2>
             </div>
-            <div class="case-head-actions">
-              <div class="action-cluster">
-                <button id="openNewCaseBtn" class="primary-btn new-case-btn" type="button">New Case</button>
-                <button id="generateDemoCaseBtn" class="secondary-btn" type="button">Generate Demo Case</button>
-                <button id="openLlmSandboxBtn" class="secondary-btn" type="button">LLM Sandbox</button>
-                <button id="openConfigBtn" class="secondary-btn" type="button">Settings</button>
-              </div>
-              <div class="action-cluster action-cluster-danger">
-                <button id="quitSessionCaseBtn" class="secondary-btn danger-btn" type="button">Exit Session</button>
+            <div class="case-head-side">
+              <div class="case-head-actions">
+                <div class="case-metrics" aria-label="Case summary">
+                  <div class="case-metric">
+                    <span class="case-metric-icon" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" focusable="false"><path d="M4 7h16"></path><path d="M7 7V5h10v2"></path><path d="M5 7v12h14V7"></path><path d="M9 12h6"></path></svg>
+                    </span>
+                    <span>
+                      <span class="case-metric-label">Open Cases</span>
+                      <strong id="caseMetricOpen">0</strong>
+                    </span>
+                  </div>
+                  <div class="case-metric">
+                    <span class="case-metric-icon" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" focusable="false"><path d="M12 3l7 4v5c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V7z"></path><path d="M9 12l2 2 4-5"></path></svg>
+                    </span>
+                    <span>
+                      <span class="case-metric-label">Watchlist</span>
+                      <strong id="caseMetricWatchlist">0</strong>
+                    </span>
+                  </div>
+                </div>
+                <div class="action-cluster">
+                  <button id="openNewCaseBtn" class="primary-btn new-case-btn" type="button">New Case</button>
+                  <button id="generateDemoCaseBtn" class="secondary-btn hidden" type="button">Generate Demo Case</button>
+                  <button id="generateVipThreatDemoCaseBtn" class="secondary-btn hidden" type="button">VIP Threat Demo</button>
+                  <button id="openConfigBtn" class="secondary-btn" type="button">Settings</button>
+                </div>
+                <button id="openLlmSandboxBtn" class="secondary-btn hidden" type="button">LLM Sandbox</button>
+                <button id="quitSessionCaseBtn" class="secondary-btn danger-btn hidden" type="button">Exit Session</button>
               </div>
             </div>
           </div>
-          <div class="case-controls">
-            <input id="caseSearchInput" type="text" placeholder="Search case name or location..." autocomplete="off" />
-            <select id="caseStatusFilter">
-              <option value="">All status</option>
-              <option value="Open">Open</option>
-              <option value="Under Investigation">Under Investigation</option>
-              <option value="Closed">Closed</option>
-              <option value="Watchlist">Watchlist</option>
-            </select>
-            <select id="caseThreatFilter">
-              <option value="">All threat levels</option>
-              <option value="Low Threat">Low Threat</option>
-              <option value="Moderate Threat">Moderate Threat</option>
-              <option value="Substantial Threat">Substantial Threat</option>
-              <option value="High Threat">High Threat</option>
-              <option value="Very High Threat">Very High Threat</option>
-            </select>
-            <select id="caseSortSelect">
-              <option value="last_edited_desc">Last edited (newest)</option>
-              <option value="opened_desc">Opened (newest)</option>
-              <option value="threat_desc">Threat (highest)</option>
-              <option value="name_asc">Case name (A-Z)</option>
-            </select>
+          <div class="case-management-grid">
+            <section class="case-list-panel" aria-label="Investigation cases">
+              <div class="case-controls">
+                <input id="caseSearchInput" type="text" placeholder="Search case name or location..." autocomplete="off" />
+                <select id="caseStatusFilter">
+                  <option value="">All status</option>
+                  <option value="Open">Open</option>
+                  <option value="Under Investigation">Under Investigation</option>
+                  <option value="Closed">Closed</option>
+                  <option value="Watchlist">Watchlist</option>
+                </select>
+                <select id="caseThreatFilter">
+                  <option value="">All threat levels</option>
+                  <option value="Low Threat">Low Threat</option>
+                  <option value="Moderate Threat">Moderate Threat</option>
+                  <option value="Substantial Threat">Substantial Threat</option>
+                  <option value="High Threat">High Threat</option>
+                  <option value="Very High Threat">Very High Threat</option>
+                </select>
+                <select id="caseSortSelect">
+                  <option value="last_edited_desc">Last edited (newest)</option>
+                  <option value="opened_desc">Opened (newest)</option>
+                  <option value="threat_desc">Threat (highest)</option>
+                  <option value="name_asc">Case name (A-Z)</option>
+                </select>
+              </div>
+              <div id="caseTiles" class="case-tiles"></div>
+              <div id="caseTilesEmpty" class="empty hidden">No matching cases yet.</div>
+            </section>
           </div>
-          <div id="caseTiles" class="case-tiles"></div>
-          <div id="caseTilesEmpty" class="empty hidden">No matching cases yet.</div>
         </div>
       </section>
       <section id="caseEditModal" class="setup-modal hidden" aria-live="polite">
         <div class="setup-card case-edit-card">
           <div class="setup-head">
-            <h2>Edit Case Details</h2>
+            <div>
+              <p class="eyebrow">Investigations</p>
+              <h2>Case Settings</h2>
+            </div>
             <button id="caseEditCancelBtn" class="secondary-btn" type="button">Close</button>
           </div>
           <form id="caseEditForm" class="setup-form">
-            <label class="field">
-              <span>Case Title</span>
-              <input id="caseEditTitleInput" type="text" placeholder="Enter case title" required />
-            </label>
-            <label class="field">
-              <span>Status</span>
-              <select id="caseEditStatusSelect" required>
-                <option value="Open">Open</option>
-                <option value="Under Investigation">Under Investigation</option>
-                <option value="Closed">Closed</option>
-                <option value="Watchlist">Watchlist</option>
-              </select>
-            </label>
-            <label id="caseEditCadenceField" class="field watchlist-cadence-field hidden">
-              <span>Monitoring Refresh Cadence</span>
-              <select id="caseEditCadenceSelect">
-                <option value="">Select cadence...</option>
-                <option value="Every 15 Minutes">Every 15 Minutes</option>
-                <option value="Every 30 Minutes">Every 30 Minutes</option>
-                <option value="Every 45 Minutes">Every 45 Minutes</option>
-                <option value="Hourly">Hourly</option>
-                <option value="Every 2 Hours">Every 2 Hours</option>
-                <option value="Every 4 Hours">Every 4 Hours</option>
-                <option value="Every 6 Hours">Every 6 Hours</option>
-                <option value="Every 12 Hours">Every 12 Hours</option>
-                <option value="Daily">Daily</option>
-                <option value="Every 48 Hours">Every 48 Hours</option>
-                <option value="Weekly">Weekly</option>
-              </select>
-            </label>
-            <label class="field">
-              <span>Threat Level</span>
-              <select id="caseEditThreatSelect" required>
-                <option value="Low Threat">Low Threat</option>
-                <option value="Moderate Threat">Moderate Threat</option>
-                <option value="Substantial Threat">Substantial Threat</option>
-                <option value="High Threat">High Threat</option>
-                <option value="Very High Threat">Very High Threat</option>
-              </select>
-            </label>
-            <label class="field">
-              <span>Data Retention Period</span>
-              <select id="caseEditRetentionSelect" required>
-                <option value="24h">24h</option>
-                <option value="1 week">1 week</option>
-                <option value="3 week">3 week</option>
-                <option value="6 weeks">6 weeks</option>
-                <option value="3 months">3 months</option>
-                <option value="1 year">1 year</option>
-              </select>
-            </label>
-            <label class="field">
-              <span>Known Location</span>
-              <input id="caseEditLocationSelect" type="text" placeholder="Enter known location" required />
-            </label>
+            <section class="case-edit-section case-edit-section-primary">
+              <span class="case-edit-section-label">Identity</span>
+              <label class="field">
+                <span>Case Title</span>
+                <input id="caseEditTitleInput" type="text" placeholder="Enter case title" required />
+              </label>
+              <label class="field">
+                <span>Known Location</span>
+                <input id="caseEditLocationSelect" type="text" placeholder="Enter known location" required />
+              </label>
+            </section>
+            <section class="case-edit-section">
+              <span class="case-edit-section-label">Status &amp; Risk</span>
+              <div class="case-edit-grid">
+                <label class="field">
+                  <span>Status</span>
+                  <select id="caseEditStatusSelect" required>
+                    <option value="Open">Open</option>
+                    <option value="Under Investigation">Under Investigation</option>
+                    <option value="Closed">Closed</option>
+                    <option value="Watchlist">Watchlist</option>
+                  </select>
+                </label>
+                <label class="field">
+                  <span>Threat Level</span>
+                  <select id="caseEditThreatSelect" required>
+                    <option value="Low Threat">Low Threat</option>
+                    <option value="Moderate Threat">Moderate Threat</option>
+                    <option value="Substantial Threat">Substantial Threat</option>
+                    <option value="High Threat">High Threat</option>
+                    <option value="Very High Threat">Very High Threat</option>
+                  </select>
+                </label>
+                <label id="caseEditCadenceField" class="field watchlist-cadence-field hidden">
+                  <span>Monitoring Refresh Cadence</span>
+                  <select id="caseEditCadenceSelect">
+                    <option value="">Select cadence...</option>
+                    <option value="Every 15 Minutes">Every 15 Minutes</option>
+                    <option value="Every 30 Minutes">Every 30 Minutes</option>
+                    <option value="Every 45 Minutes">Every 45 Minutes</option>
+                    <option value="Hourly">Hourly</option>
+                    <option value="Every 2 Hours">Every 2 Hours</option>
+                    <option value="Every 4 Hours">Every 4 Hours</option>
+                    <option value="Every 6 Hours">Every 6 Hours</option>
+                    <option value="Every 12 Hours">Every 12 Hours</option>
+                    <option value="Daily">Daily</option>
+                    <option value="Every 48 Hours">Every 48 Hours</option>
+                    <option value="Weekly">Weekly</option>
+                  </select>
+                </label>
+                <label class="field">
+                  <span>Data Retention Period</span>
+                  <select id="caseEditRetentionSelect" required>
+                    <option value="24h">24h</option>
+                    <option value="1 week">1 week</option>
+                    <option value="3 week">3 week</option>
+                    <option value="6 weeks">6 weeks</option>
+                    <option value="3 months">3 months</option>
+                    <option value="1 year">1 year</option>
+                  </select>
+                </label>
+              </div>
+            </section>
+            <section class="case-edit-section">
+              <span class="case-edit-section-label">Privacy</span>
+              <label class="case-secret-toggle">
+                <input id="caseEditSecretToggle" type="checkbox" />
+                <span class="case-secret-control" aria-hidden="true"></span>
+                <span>
+                  <strong>Secret Case</strong>
+                  <small>Restrict case visibility and handling.</small>
+                </span>
+              </label>
+            </section>
+            <section class="case-edit-section case-audit-section">
+              <div class="case-audit-head">
+                <span class="case-edit-section-label">Investigation Audit Log</span>
+                <span class="case-audit-count">Example Activity</span>
+              </div>
+              <div class="case-audit-table" role="table" aria-label="Investigation audit log">
+                <div class="case-audit-row case-audit-header" role="row">
+                  <span role="columnheader">Query Type</span>
+                  <span role="columnheader">Selector</span>
+                  <span role="columnheader">User</span>
+                  <span role="columnheader">Date / Time</span>
+                </div>
+                <div class="case-audit-row" role="row">
+                  <span role="cell">Username Recon</span>
+                  <span role="cell">@mason_hale</span>
+                  <span role="cell">john@isb.com</span>
+                  <span role="cell">29 May 2026, 01:42 UTC</span>
+                </div>
+                <div class="case-audit-row" role="row">
+                  <span role="cell">Email Enrichment</span>
+                  <span role="cell">m.hale@example.com</span>
+                  <span role="cell">john@isb.com</span>
+                  <span role="cell">29 May 2026, 01:37 UTC</span>
+                </div>
+                <div class="case-audit-row" role="row">
+                  <span role="cell">Phone Lookup</span>
+                  <span role="cell">+1 202 555 0147</span>
+                  <span role="cell">john@isb.com</span>
+                  <span role="cell">29 May 2026, 01:31 UTC</span>
+                </div>
+              </div>
+            </section>
             <div class="setup-actions-row">
-              <button id="caseEditSaveBtn" type="submit">Save</button>
+              <button id="caseEditSaveBtn" type="submit">Save Changes</button>
               <button id="caseEditCloseBtn" class="secondary-btn" type="button">Cancel</button>
             </div>
           </form>
@@ -289,8 +368,11 @@
       <section id="caseNotesModal" class="setup-modal hidden" aria-live="polite">
         <div class="setup-card case-notes-card">
           <div class="setup-head">
-            <h2>Reporting</h2>
-            <button id="caseNotesCloseBtn" class="secondary-btn" type="button">Close</button>
+            <h2>Case File</h2>
+            <div class="case-notes-top-actions">
+              <button id="caseNotesOperationsBtn" class="secondary-btn" type="button">New Search / Collection</button>
+              <button id="caseNotesCloseBtn" class="secondary-btn" type="button">Close</button>
+            </div>
           </div>
           <form id="caseNotesForm" class="setup-form case-notes-form">
             <div class="case-notes-top">
@@ -403,23 +485,8 @@
       </section>
       <section id="setupModal" class="setup-modal hidden" aria-live="polite">
         <div class="setup-card">
-          <div class="setup-windowbar">
-            <div class="setup-brand-block">
-              <span class="brand-mark" aria-hidden="true">
-                <svg viewBox="0 0 24 24" role="img" focusable="false" aria-hidden="true">
-                  <circle cx="12" cy="12" r="8"></circle>
-                  <circle cx="12" cy="12" r="3.2"></circle>
-                  <path d="M19.2 19.2L22 22"></path>
-                </svg>
-              </span>
-              <div class="setup-brand-copy">
-                <p class="brand-name">PANOPTO</p>
-              </div>
-            </div>
-            <span class="setup-surface-pill">Local Session</span>
-          </div>
           <div class="setup-head">
-            <h2 id="setupTitle">Start Session</h2>
+            <h2 id="setupTitle">Choose an operation</h2>
             <button id="closeSetupBtn" class="secondary-btn" type="button">Close</button>
           </div>
           <p id="setupSubtitle" class="subtle"></p>
@@ -510,13 +577,14 @@
         <div class="app-header">
           <div class="header-top">
             <div>
-              <p class="eyebrow">INTEL DASHBOARD</p>
-              <h1 id="dashboardCaseTitle">PANOPTO</h1>
+              <p class="eyebrow">Intelligence Workspace</p>
+              <h1 id="dashboardCaseTitle">Orion</h1>
             </div>
             <div class="header-actions">
               <div class="action-cluster">
                 <button id="backToCasesBtn" class="secondary-btn" type="button">Cases</button>
                 <button id="saveQuitCaseBtn" class="secondary-btn" type="button">Save &amp; Quit Case</button>
+                <button id="newCollectionBtn" class="primary-btn" type="button">New Search / Collection</button>
               </div>
               <div class="action-cluster action-cluster-danger">
                 <button id="quitBtn" class="secondary-btn danger-btn" type="button">Exit Session</button>
@@ -534,8 +602,8 @@
             <div class="view-toggle" aria-label="Workspace views">
               <div class="view-toggle-group">
                 <span class="view-toggle-group-label">Overview</span>
-                <div class="view-toggle-group-buttons" role="group" aria-label="Overview views">
-                  <button id="viewWorkflowBtn" class="secondary-btn view-toggle-btn" type="button" aria-pressed="false">
+                <div class="view-toggle-group-buttons workspace-view-tabs" role="tablist" aria-label="Overview views">
+                  <button id="viewWorkflowBtn" class="secondary-btn view-toggle-btn" type="button" role="tab" aria-selected="false" aria-controls="workflowView" tabindex="-1">
                     <span class="view-toggle-icon" aria-hidden="true">
                       <svg viewBox="0 0 24 24" role="img" focusable="false"><path d="M4 7h8"></path><path d="M4 12h16"></path><path d="M4 17h10"></path><circle cx="15.5" cy="7" r="2"></circle><circle cx="18.5" cy="17" r="2"></circle></svg>
                     </span>
@@ -545,14 +613,14 @@
               </div>
               <div class="view-toggle-group">
                 <span class="view-toggle-group-label">Collection</span>
-                <div class="view-toggle-group-buttons" role="group" aria-label="Collection views">
-                  <button id="viewPostsBtn" class="secondary-btn view-toggle-btn is-active" type="button" aria-pressed="true">
+                <div class="view-toggle-group-buttons workspace-view-tabs" role="tablist" aria-label="Collection views">
+                  <button id="viewPostsBtn" class="secondary-btn view-toggle-btn is-active" type="button" role="tab" aria-selected="true" aria-controls="resultsColumn" tabindex="0">
                     <span class="view-toggle-icon" aria-hidden="true">
                       <svg viewBox="0 0 24 24" role="img" focusable="false"><path d="M4 6.5h16"></path><path d="M4 12h16"></path><path d="M4 17.5h9"></path></svg>
                     </span>
                     <span>Posts</span>
                   </button>
-                  <button id="viewMediaBtn" class="secondary-btn view-toggle-btn" type="button" aria-pressed="false">
+                  <button id="viewMediaBtn" class="secondary-btn view-toggle-btn" type="button" role="tab" aria-selected="false" aria-controls="resultsColumn" tabindex="-1">
                     <span class="view-toggle-icon" aria-hidden="true">
                       <svg viewBox="0 0 24 24" role="img" focusable="false"><rect x="4" y="5" width="16" height="14" rx="2"></rect><path d="M4 14l4.5-4.5 3.5 3 3-2.6 5 4.1"></path><circle cx="9" cy="9" r="1.2"></circle></svg>
                     </span>
@@ -562,26 +630,26 @@
               </div>
               <div class="view-toggle-group">
                 <span class="view-toggle-group-label">Digital Footprint</span>
-                <div class="view-toggle-group-buttons" role="group" aria-label="Digital footprint views">
-                  <button id="viewFootprintBtn" class="secondary-btn view-toggle-btn" type="button" aria-pressed="false">
+                <div class="view-toggle-group-buttons footprint-view-tabs" role="tablist" aria-label="Digital footprint views">
+                  <button id="viewFootprintBtn" class="secondary-btn view-toggle-btn" type="button" role="tab" aria-selected="false" aria-controls="footprintView" tabindex="-1">
                     <span class="view-toggle-icon" aria-hidden="true">
                       <svg viewBox="0 0 24 24" role="img" focusable="false"><circle cx="12" cy="8" r="3.2"></circle><path d="M5.5 19.5c1.7-3.6 4-5.4 6.5-5.4s4.8 1.8 6.5 5.4"></path></svg>
                     </span>
                     <span>Profiles</span>
                   </button>
-                  <button id="viewPatternLifeBtn" class="secondary-btn view-toggle-btn" type="button" aria-pressed="false">
+                  <button id="viewPatternLifeBtn" class="secondary-btn view-toggle-btn" type="button" role="tab" aria-selected="false" aria-controls="patternLifeView" tabindex="-1">
                     <span class="view-toggle-icon" aria-hidden="true">
                       <svg viewBox="0 0 24 24" role="img" focusable="false"><path d="M3.5 12h4"></path><path d="M8.5 12h4"></path><path d="M13.5 12h7"></path><circle cx="8.5" cy="12" r="1.8"></circle><circle cx="13.5" cy="12" r="1.8"></circle></svg>
                     </span>
                     <span>Pattern of Life</span>
                   </button>
-                  <button id="viewTimelineBtn" class="secondary-btn view-toggle-btn" type="button" aria-pressed="false">
+                  <button id="viewTimelineBtn" class="secondary-btn view-toggle-btn" type="button" role="tab" aria-selected="false" aria-controls="timelineView" tabindex="-1">
                     <span class="view-toggle-icon" aria-hidden="true">
                       <svg viewBox="0 0 24 24" role="img" focusable="false"><path d="M4 7h4"></path><path d="M10 7h10"></path><path d="M4 12h7"></path><path d="M13 12h7"></path><path d="M4 17h3"></path><path d="M9 17h11"></path><circle cx="8" cy="7" r="1.4"></circle><circle cx="12" cy="12" r="1.4"></circle><circle cx="8" cy="17" r="1.4"></circle></svg>
                     </span>
                     <span>Timeline</span>
                   </button>
-                  <button id="viewEntityGraphBtn" class="secondary-btn view-toggle-btn" type="button" aria-pressed="false">
+                  <button id="viewEntityGraphBtn" class="secondary-btn view-toggle-btn" type="button" role="tab" aria-selected="false" aria-controls="entityGraphView" tabindex="-1">
                     <span class="view-toggle-icon" aria-hidden="true">
                       <svg viewBox="0 0 24 24" role="img" focusable="false"><circle cx="12" cy="12" r="2.1"></circle><circle cx="5" cy="6" r="1.6"></circle><circle cx="18.6" cy="6.6" r="1.6"></circle><circle cx="7" cy="18.3" r="1.6"></circle><circle cx="19" cy="17.7" r="1.6"></circle><path d="M10.4 10.8L6.4 7.4"></path><path d="M13.8 10.8l3.2-3"></path><path d="M10.8 13.5l-2.5 3"></path><path d="M13.3 13.6l4 3"></path></svg>
                     </span>
@@ -591,7 +659,7 @@
               </div>
               <div class="view-toggle-group view-toggle-group-notes">
                 <span class="view-toggle-group-label">Reporting</span>
-                <div class="view-toggle-group-buttons" role="group" aria-label="Case notes actions">
+                <div class="view-toggle-group-buttons reporting-view-action" role="group" aria-label="Reporting actions">
                   <button id="openCaseNotesTopBtn" class="secondary-btn view-toggle-btn" type="button">
                     <span class="view-toggle-icon" aria-hidden="true">
                       <svg viewBox="0 0 24 24" role="img" focusable="false"><path d="M6 4h12v16H6z"></path><path d="M9 8h6"></path><path d="M9 12h6"></path><path d="M9 16h4"></path></svg>
@@ -607,7 +675,7 @@
       </section>
 
       <section class="content-grid hidden" id="dashboardContent">
-        <div id="resultsColumn" class="results-column">
+        <div id="resultsColumn" class="results-column" role="tabpanel" aria-labelledby="viewPostsBtn">
           <div id="feedControls" class="results-toolbar hidden">
             <div class="controls">
               <div class="search-wrap">
@@ -827,10 +895,14 @@
             </article>
           </section>
         </aside>
-        <section id="footprintView" class="footprint-view hidden">
+        <section id="footprintView" class="footprint-view hidden" role="tabpanel" aria-labelledby="viewFootprintBtn">
           <article class="viz-card footprint-card">
             <div class="viz-head">
-              <h3>Profiles</h3>
+              <div class="footprint-page-title">
+                <span>Digital footprint</span>
+                <h3>Profiles</h3>
+                <p>Review accounts, identity signals, and exposure in priority order.</p>
+              </div>
               <div class="footprint-card-head-actions">
                 <div id="footprintFilterMenu" class="filter-menu hidden">
                   <button id="footprintFilterToggleBtn" class="secondary-btn" type="button" aria-expanded="false" aria-controls="footprintFilterPanel">
@@ -846,9 +918,16 @@
               <div id="footprintReconResults" class="recon-results hidden"></div>
               <aside id="footprintKnownSelectors" class="known-selectors-panel">
                 <div class="known-selectors-head">
-                  <h4>Selectors</h4>
+                  <div class="known-selectors-title">
+                    <span class="known-selectors-kicker">Investigation inputs</span>
+                    <h4><span class="known-selectors-title-full">Discovered Selectors</span><span class="known-selectors-title-compact" aria-hidden="true">Selectors</span></h4>
+                  </div>
                   <div class="known-selectors-head-meta">
                     <span id="footprintKnownSelectorsTotal" class="viz-total">0</span>
+                    <button id="footprintKnownSelectorsToggle" class="known-selectors-toggle" type="button" aria-expanded="true" aria-controls="footprintKnownSelectorsGroups">
+                      <span class="known-selectors-toggle-label">Collapse</span>
+                      <span aria-hidden="true">‹</span>
+                    </button>
                     <div id="footprintPivotProgress" class="recon-progress recon-progress-inline hidden" role="status" aria-live="polite" aria-atomic="true">
                       <div class="recon-progress-track"><div id="footprintPivotProgressBar" class="recon-progress-bar"></div></div>
                       <p id="footprintPivotProgressLabel" class="recon-progress-label">Pivot recon running...</p>
@@ -862,7 +941,7 @@
             </div>
           </article>
         </section>
-        <section id="patternLifeView" class="footprint-view hidden">
+        <section id="patternLifeView" class="footprint-view hidden" role="tabpanel" aria-labelledby="viewPatternLifeBtn">
           <article class="viz-card footprint-card">
             <div class="viz-head">
               <div class="pattern-life-head-title">
@@ -954,7 +1033,7 @@
             </div>
           </article>
         </section>
-        <section id="workflowView" class="footprint-view hidden">
+        <section id="workflowView" class="footprint-view hidden" role="tabpanel" aria-labelledby="viewWorkflowBtn">
           <article class="viz-card footprint-card">
             <div class="viz-head">
               <h3>Case Overview</h3>
@@ -965,6 +1044,15 @@
                 <div class="viz-head">
                   <h3>Collection Overview</h3>
                   <span id="workflowSummary" class="viz-total">Idle</span>
+                  <span id="collectionStreamsSummary" class="viz-total">Idle</span>
+                  <span class="workflow-icon-actions">
+                    <button id="refreshStreamsBtn" class="icon-btn workflow-icon-btn" type="button" aria-label="Refresh streams" title="Refresh streams">
+                      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v6h-6"/></svg>
+                    </button>
+                    <button id="rerunFailedBtn" class="icon-btn workflow-icon-btn" type="button" aria-label="Rerun failed" title="Rerun failed">
+                      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.71"/><path d="M3 3v6h6"/><path d="M12 8v4l3 2"/></svg>
+                    </button>
+                  </span>
                 </div>
                 <div id="collectionStreams" class="workflow-queues"></div>
                 <p id="collectionStreamsEmpty" class="viz-empty hidden"></p>
@@ -975,7 +1063,7 @@
             </div>
           </article>
         </section>
-        <section id="timelineView" class="footprint-view hidden">
+        <section id="timelineView" class="footprint-view hidden" role="tabpanel" aria-labelledby="viewTimelineBtn">
           <article class="viz-card footprint-card">
             <div class="viz-head">
               <h3>Activity Timeline</h3>
@@ -989,7 +1077,7 @@
             <p id="footprintTimelineEmpty" class="viz-empty">No OSINT timeline events yet. Run a recon query first.</p>
           </article>
         </section>
-        <section id="entityGraphView" class="footprint-view hidden">
+        <section id="entityGraphView" class="footprint-view hidden" role="tabpanel" aria-labelledby="viewEntityGraphBtn">
           <article class="viz-card footprint-card">
             <div class="viz-head">
               <h3>Entity Graph</h3>

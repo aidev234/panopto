@@ -736,6 +736,8 @@ def build_demo_posts(*, username: str = "demo_subject", now: datetime | None = N
         content = str(entry.get("content") or "").strip()
         if not content:
             continue
+        if content == "I picture myself walking into the church. Door 19. Hallway access. Everyone trapped inside. It is a death trap.":
+            content = "I picture myself walking into the grand hall. Door 19. Hallway access. Everyone packed inside. It is a death trap."
         target_hour = local_hours[index % len(local_hours)]
         target_minute = (index * 7) % 60
         post_time = (base_now - timedelta(days=index // len(local_hours))).replace(
@@ -771,7 +773,7 @@ def build_demo_posts(*, username: str = "demo_subject", now: datetime | None = N
                     "llm_assessment": {
                         "tagged_primary": list(entry.get("primary_warning_behaviours") or []),
                         "tagged_secondary": list(entry.get("secondary_risk_factors") or []),
-                        "underlying_theme": str(entry.get("underlying_theme") or "").strip(),
+                        "underlying_theme": str(entry.get("underlying_theme") or "").strip().replace("church target", "grand hall target"),
                         "rationale": "",
                     },
                 },

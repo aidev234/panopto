@@ -89,6 +89,34 @@ def test_hibp_breach_summary_only_uses_breach_fields():
     assert "const nameValue = objectValue(node, ['breach', 'breach_name', 'breachname']);" in app_js
     assert "profile?.title || profile?.name || profile?.breach" not in app_js
     assert "if (/^(true|false|null|none|yes|no)$/i.test(normalized)) return '';" in app_js
+    assert "Array.isArray(payload?.breach_records) ? payload.breach_records : []" in app_js
+    assert "breach_records: Array.isArray(payloadRaw.breach_records) ? payloadRaw.breach_records : []" in app_js
+    assert "breach_records: dedupeBy([...(base.breach_records || []), ...(incoming.breach_records || [])]" in app_js
+    assert "await consumeReconStream(selectors" in app_js
+    assert "streamEvent?.partial === true" in app_js
+    assert "let aggregate = emptyReconPayload();" in app_js
+    assert "activeReconStreamController?.abort();" in app_js
+    assert "const dedupeByLatest" in app_js
+    assert "Fictional demo" not in app_js
+    assert "Fictionalized demonstration data" not in app_js
+    assert "fictional.demo.hash" not in app_js
+
+
+def test_recon_profile_cards_render_registered_and_collection_ready_profiles():
+    app_js = Path("frontend/static/app.js").read_text(encoding="utf-8")
+    css = Path("frontend/static/styles.css").read_text(encoding="utf-8")
+
+    assert "url.startsWith('/')" in app_js
+    assert "Registered Profiles (${mergedItems.length})" in app_js
+    assert "function collectionReadyProfilesMarkup(" in app_js
+    assert "'facebook'" in app_js
+    assert "Private/Locked" in app_js
+    assert "collection-profile-note" in app_js
+    assert "collection-profile-card" in app_js
+    assert "data-recon-collect-all=\"supported\"" in app_js
+    assert ".osint-profile-card {" in css
+    assert ".collection-profile-card {" in css
+    assert ".collection-profile-grid {" in css
 
 
 def test_dashboard_header_actions_stay_above_case_view_content():

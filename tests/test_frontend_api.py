@@ -20,6 +20,7 @@ from frontend.server import (
 )
 from panopto.errors import UsernameNotFoundError
 from panopto.post_query import parse_day
+from panopto.storage.posts import create_case
 
 
 def _seed_db(db_path):
@@ -272,7 +273,7 @@ def test_architecture_markdown_includes_mermaid_diagram():
     markdown_text = _load_architecture_markdown()
     mermaid = _extract_mermaid_block(markdown_text)
 
-    assert "# PANOPTO Architecture Diagram" in markdown_text
+    assert "# Orion Architecture Diagram" in markdown_text
     assert "flowchart TB" in mermaid
     assert "frontend/server.py" in mermaid
 
@@ -280,7 +281,7 @@ def test_architecture_markdown_includes_mermaid_diagram():
 def test_architecture_page_embeds_svg_and_mermaid_source():
     html = _render_architecture_page_html().decode("utf-8")
 
-    assert "<title>PANOPTO Architecture</title>" in html
+    assert "<title>Orion Architecture</title>" in html
     assert 'src="/architecture-diagram.svg"' in html
     assert "/docs/architecture-diagram.md" in html
     assert "flowchart TB" in html
@@ -1651,9 +1652,42 @@ def test_cases_demo_endpoint_creates_case_and_posts(tmp_path):
         assert any("github" in site for site in sites)
         assert any("threads" in site for site in sites)
         assert all(str(item.get("screenshot_url", "")).strip() for item in payload["case"]["case_notes"]["known_profiles"])
+        assert payload["case"]["metadata_tags"] == [
+            "conference-demo",
+            "synthetic",
+            "full-walkthrough",
+            "digital-footprint",
+        ]
+        notes = payload["case"]["case_notes"]
+        assert "demo.subject@proton.me" in notes["selector_emails"]
+        assert "+1 202 555 0199" in notes["selector_phone_numbers"]
+        playbook = notes["demo_playbook"]
+        assert playbook["title"] == "Synthetic webinar pivot: selector to closure"
+        assert playbook["analyst_closeout"]["recommended_status"] == "Watchlist"
+        assert len(playbook["ai_pivot_steps"]) >= 5
+        assert any(step["query"] == "graymarketmaps OR demo-subject-labs" for step in playbook["ai_pivot_steps"])
+        recon_payload = notes["recon_snapshot"]["payload"]
+        assert len(recon_payload["selectors"]) >= 6
+        assert recon_payload["checked"] >= 10
+        assert recon_payload["present_count"] >= 10
+        assert len(recon_payload["collection_targets"]) >= 6
+        assert len(recon_payload["person_data_profiles"]) == 1
+        assert recon_payload["person_data_profiles"][0]["full_name"] == "John Robert Smith"
+        assert recon_payload["numverify_profiles"][0]["carrier"] == "Demo Wireless"
+        assert any(row.get("module") == "github" for row in recon_payload["osint_profiles"])
+        assert any(row.get("source") == "Breach intelligence" for row in recon_payload["breach_records"])
         assert payload["inserted_posts"] >= 1
         posts_payload = query_posts(db_path=db_path, case_id=payload["case"]["case_id"])
         assert posts_payload["count"] >= 1
+        assert any(post.get("platform") == "Instagram" for post in posts_payload["posts"])
+        assert query_posts("graymarketmaps OR demo-subject-labs", db_path=db_path, case_id=payload["case"]["case_id"])["count"] >= 1
+        assert query_posts("route OR loading dock OR service alley", db_path=db_path, case_id=payload["case"]["case_id"])["count"] >= 1
+        assert query_posts("ops.demo@pm.me OR burner", db_path=db_path, case_id=payload["case"]["case_id"])["count"] >= 1
+        assert query_posts('"Pathway Warning Behavior" OR "Capability interest"', db_path=db_path, case_id=payload["case"]["case_id"])["count"] >= 1
+        assert any(
+            isinstance(post.get("metadata"), dict) and post["metadata"].get("identity_intel_assessment")
+            for post in posts_payload["posts"]
+        )
         assert any(
             (post.get("llm_primary_warning_behaviours") or post.get("llm_secondary_risk_factors"))
             for post in posts_payload["posts"]
@@ -1671,6 +1705,143 @@ def test_cases_demo_endpoint_creates_case_and_posts(tmp_path):
             )
             for post in posts_payload["posts"]
         )
+
+
+def test_cases_vip_threat_demo_endpoint_creates_case_and_posts(tmp_path):
+    db_path = tmp_path / "osint_data.db"
+
+    with patch("frontend.server.DEFAULT_DB_PATH", db_path):
+        handler = PostExplorerHandler.__new__(PostExplorerHandler)
+        body = b"{}"
+        handler.path = "/api/cases/demo/vip-threat"
+        handler.headers = {"Content-Length": str(len(body))}
+        handler.rfile = BytesIO(body)
+        handler.wfile = BytesIO()
+        responses = []
+        handler.send_response = lambda code: responses.append(code)
+        handler.send_header = lambda *args, **kwargs: None
+        handler.end_headers = lambda *args, **kwargs: None
+
+        handler.do_POST()
+
+        assert responses and responses[0] == 201
+        payload = json.loads(handler.wfile.getvalue().decode("utf-8"))
+        assert payload["case"]["case_id"]
+        assert payload["case"]["case_name"] == "DEMO CASE - VIP THREAT - BROOKS, Stephen"
+        assert payload["case"]["case_notes"]["name"] == "BROOKS, Stephen"
+        assert payload["case"]["case_notes"]["dob"] == "1998-06-03"
+        assert payload["case"]["metadata_tags"] == [
+            "vip-threat-demo",
+            "synthetic",
+            "full-walkthrough",
+            "digital-footprint",
+            "pattern-of-life",
+        ]
+        notes = payload["case"]["case_notes"]
+        assert "silverhandsteve@protonmail.com" in notes["selector_emails"]
+        assert "stephenbrooks@gmail.com" in notes["selector_emails"]
+        assert "silverhandchris@protonmail.com" not in notes["selector_emails"]
+        assert "@voidpill3d" in notes["selector_usernames"]
+        assert "Jamaica Plain / Roxbury Crossing" in notes["personal_details"]
+        assert len(notes["known_profiles"]) >= 10
+        assert any("PlayStation" in row["site"] for row in notes["known_profiles"])
+        assert any(row.get("collection_ready") is True for row in notes["known_profiles"])
+        assert not any(str(row.get("screenshot_url", "")).strip() for row in notes["known_profiles"])
+        twitter_profile = next(row for row in notes["known_profiles"] if "Twitter/X" in row["site"])
+        reddit_profile = next(row for row in notes["known_profiles"] if "Reddit" in row["site"])
+        assert twitter_profile["image_url"] == "/demo_avatars/vaporwave-punisher-x.svg"
+        assert reddit_profile["image_url"] == "/demo_avatars/vaporwave-punisher-reddit.svg"
+        assert any(row.get("username") == "stevebrooks98" for row in notes["known_profiles"])
+        assert any(row.get("username") == "stephenbrooks.tech" for row in notes["known_profiles"])
+        assert any(row.get("username") == "StephenBrooksMA" for row in notes["known_profiles"])
+        assert any(row.get("username") == "stevebrooks.bsky.social" for row in notes["known_profiles"])
+
+        playbook = notes["demo_playbook"]
+        assert playbook["title"] == "ISB conference threat demo: username to report"
+        assert playbook["analyst_closeout"]["recommended_status"] == "Watchlist"
+        assert any(step["query"] == "@voidpill3d" for step in playbook["ai_pivot_steps"])
+        assert any("silverhandsteve@protonmail.com" in step["query"] for step in playbook["ai_pivot_steps"])
+        assert "John Browning" in notes["context"]
+        assert "ISB Regional Finance Conference" in notes["personal_details"]
+
+        recon_payload = notes["recon_snapshot"]["payload"]
+        assert len(recon_payload["selectors"]) >= 6
+        assert recon_payload["checked"] >= 10
+        assert recon_payload["present_count"] >= 10
+        assert len(recon_payload["collection_targets"]) >= 6
+        assert recon_payload["person_data_profiles"][0]["full_name"] == "Stephen Brooks"
+        assert recon_payload["person_data_profiles"][0]["birth_date"] == "1998-06-03"
+        assert any(row.get("module") == "strava" for row in recon_payload["osint_profiles"])
+        strava = next(row for row in recon_payload["osint_profiles"] if row.get("module") == "strava")
+        assert any(signal.get("kind") == "polyline" for signal in strava.get("geo_signals", []))
+        assert any(row.get("breachName") == "Twitter/X Breach" for row in recon_payload["breach_records"])
+        assert any(row.get("breachName") == "Etsy Order Export" for row in recon_payload["breach_records"])
+        assert any(row.get("breachName") == "PlayStation Network Breach" for row in recon_payload["breach_records"])
+        assert any(["Residential Address", "142 Arborway Apt 3B, Boston, MA 02130"] in row.get("fields", []) for row in recon_payload["breach_records"])
+        assert any(["Online ID", "CALLofVOID"] in row.get("fields", []) for row in recon_payload["breach_records"])
+        assert not any("Fictionalized" in json.dumps(row) or "fictional" in json.dumps(row).lower() for row in recon_payload["breach_records"])
+
+        assert payload["inserted_posts"] >= 30
+        posts_payload = query_posts(db_path=db_path, case_id=payload["case"]["case_id"])
+        assert posts_payload["count"] >= 30
+        assert any(post.get("platform") == "TikTok" for post in posts_payload["posts"])
+        assert any(post.get("platform") == "Bluesky" for post in posts_payload["posts"])
+        assert any(
+            post.get("platform") == "Facebook"
+            and post.get("post_type") == "group_post"
+            and (post.get("metadata") or {}).get("collection_context") == "public_facebook_group"
+            and (post.get("metadata") or {}).get("display_tag") == "Group > Boston North Shore Gun Club"
+            for post in posts_payload["posts"]
+        )
+        assert any(
+            post.get("platform") == "Facebook"
+            and "Sarriot Grand Hall conference centre" in post.get("content", "")
+            for post in posts_payload["posts"]
+        )
+        assert query_posts("@voidpill3d OR voidpill3d", db_path=db_path, case_id=payload["case"]["case_id"])["count"] >= 1
+        assert query_posts("silverhandsteve@protonmail.com OR route notes", db_path=db_path, case_id=payload["case"]["case_id"])["count"] >= 1
+        assert query_posts("\"ISB\" OR \"John Browning\" OR oligarch OR nihilistic", db_path=db_path, case_id=payload["case"]["case_id"])["count"] >= 1
+        assert query_posts("\"Boston North Shore Gun Club\" OR \"Potential capability\"", db_path=db_path, case_id=payload["case"]["case_id"])["count"] >= 1
+        assert query_posts("\"Sarriot Grand Hall\" OR \"grand hall\"", db_path=db_path, case_id=payload["case"]["case_id"])["count"] >= 1
+        assert query_posts("\"Jamaica Pond\" OR \"Roxbury Crossing\" OR \"Centre Street\"", db_path=db_path, case_id=payload["case"]["case_id"])["count"] >= 1
+        assert query_posts("\"Pathway Warning Behavior\" OR \"Identification Warning Behavior\" OR \"Potential capability\"", db_path=db_path, case_id=payload["case"]["case_id"])["count"] >= 1
+        assert any(
+            (post.get("llm_primary_warning_behaviours") or post.get("llm_secondary_risk_factors"))
+            for post in posts_payload["posts"]
+        )
+
+
+def test_cases_vip_threat_demo_collect_endpoint_seeds_existing_case(tmp_path):
+    db_path = tmp_path / "osint_data.db"
+
+    with patch("frontend.server.DEFAULT_DB_PATH", db_path):
+        case = create_case(
+            case_name="VIP demo scratch case",
+            status="Open",
+            threat_level="Medium Threat",
+            data_retention_period="1 week",
+            db_path=str(db_path),
+        )
+        handler = PostExplorerHandler.__new__(PostExplorerHandler)
+        body = b"{}"
+        handler.path = f"/api/cases/{case['case_id']}/demo/vip-threat/collect"
+        handler.headers = {"Content-Length": str(len(body))}
+        handler.rfile = BytesIO(body)
+        handler.wfile = BytesIO()
+        responses = []
+        handler.send_response = lambda code: responses.append(code)
+        handler.send_header = lambda *args, **kwargs: None
+        handler.end_headers = lambda *args, **kwargs: None
+
+        handler.do_POST()
+
+        assert responses and responses[0] == 201
+        payload = json.loads(handler.wfile.getvalue().decode("utf-8"))
+        assert payload["case_id"] == case["case_id"]
+        assert payload["inserted_posts"] >= 30
+        posts_payload = query_posts(db_path=db_path, case_id=case["case_id"])
+        assert posts_payload["count"] >= 30
+        assert query_posts("silverhandsteve@protonmail.com OR garage", db_path=db_path, case_id=case["case_id"])["count"] >= 1
 
 
 def test_case_notes_pdf_export_endpoint_downloads_pdf(tmp_path):
@@ -1957,6 +2128,114 @@ def test_recon_endpoint_returns_targets_and_leads():
     payload = json.loads(handler.wfile.getvalue().decode("utf-8"))
     assert payload["collection_targets"] == [{"platform": "twitter", "username": "sama"}]
     assert payload["leads"] == [{"site": "github", "profile_url": "https://github.com/sama"}]
+
+
+def test_recon_stream_emits_confirmed_scanner_matches_before_final_payload():
+    handler = PostExplorerHandler.__new__(PostExplorerHandler)
+    body = json.dumps({"selectors": [{"type": "username", "value": "@lnmangionie"}]}).encode("utf-8")
+    handler.path = "/api/recon/stream"
+    handler.headers = {"Content-Length": str(len(body))}
+    handler.rfile = BytesIO(body)
+    handler.wfile = BytesIO()
+    handler.send_response = lambda code: None
+    handler.send_header = lambda *args, **kwargs: None
+    handler.end_headers = lambda *args, **kwargs: None
+
+    def emit_rows(*, selector_type, selector_value, on_result):
+        assert (selector_type, selector_value) == ("username", "lnmangionie")
+        row = {"site_name": "Github", "status": "Found", "username": selector_value, "profile_url": "https://github.com/lnmangionie", "full_name": "L. Mangionie"}
+        on_result(row)
+        return [row]
+
+    final_payload = {"selectors": [{"type": "username", "value": "lnmangionie"}], "results": [], "scanner_results": [], "checked": 1, "present_count": 1, "collection_targets": [], "leads": []}
+    with patch("frontend.server.stream_user_scanner_selector", side_effect=emit_rows):
+        with patch("frontend.server.run_recon", return_value=final_payload) as run_recon_mock:
+            handler.do_POST()
+
+    events = [json.loads(line) for line in handler.wfile.getvalue().decode("utf-8").splitlines()]
+    partial = next(event for event in events if event.get("partial") is True)
+    final = next(event for event in events if event.get("final") is True)
+    assert partial["payload"]["scanner_results"][0]["full_name"] == "L. Mangionie"
+    assert final["payload"] == final_payload
+    assert run_recon_mock.call_args.kwargs["scanner_rows_by_selector"][("username", "lnmangionie")][0]["site_name"] == "Github"
+
+
+def test_recon_endpoint_returns_vip_threat_demo_for_voidpill3d():
+    handler = PostExplorerHandler.__new__(PostExplorerHandler)
+    body = json.dumps({"selectors": [{"type": "username", "value": "@voidpill3d"}]}).encode("utf-8")
+    handler.path = "/api/recon"
+    handler.headers = {"Content-Length": str(len(body))}
+    handler.rfile = BytesIO(body)
+    handler.wfile = BytesIO()
+
+    responses = []
+    handler.send_response = lambda code: responses.append(code)
+    handler.send_header = lambda *args, **kwargs: None
+    handler.end_headers = lambda *args, **kwargs: None
+
+    with patch("frontend.server.run_recon") as run_recon_mock:
+        handler.do_POST()
+
+    assert responses and responses[0] == 200
+    run_recon_mock.assert_not_called()
+    payload = json.loads(handler.wfile.getvalue().decode("utf-8"))
+    assert payload["demo"] is True
+    assert payload["selectors"] == [{"type": "username", "value": "voidpill3d"}]
+    assert {"platform": "twitter", "username": "voidpill3d"} in payload["collection_targets"]
+    assert {"platform": "bluesky", "username": "stevebrooks.bsky.social"} not in payload["collection_targets"]
+    assert payload["person_data_profiles"] == []
+    assert payload["person_data_profile"] == {}
+    assert payload["osint_profiles"] == []
+    assert any(row.get("breachName") == "Twitter/X Breach" for row in payload["breach_records"])
+    assert any(["Email", "silverhandsteve@protonmail.com"] in row.get("fields", []) for row in payload["breach_records"])
+    assert not any("Stephen Brooks" in json.dumps(row) for row in payload["breach_records"])
+    assert len(payload["results"]) == 2
+    assert all(str(row.get("screenshot_url", "")) == "" for row in payload["results"])
+    assert next(row for row in payload["results"] if row["site"] == "Twitter/X")["picture_url"] == "/demo_avatars/vaporwave-punisher-x.svg"
+    assert next(row for row in payload["results"] if row["site"] == "Reddit")["picture_url"] == "/demo_avatars/vaporwave-punisher-reddit.svg"
+
+
+def test_recon_endpoint_identifies_vip_threat_subject_from_email_pivot():
+    handler = PostExplorerHandler.__new__(PostExplorerHandler)
+    body = json.dumps({"selectors": [{"type": "email", "value": "silverhandsteve@protonmail.com"}]}).encode("utf-8")
+    handler.path = "/api/recon"
+    handler.headers = {"Content-Length": str(len(body))}
+    handler.rfile = BytesIO(body)
+    handler.wfile = BytesIO()
+
+    responses = []
+    handler.send_response = lambda code: responses.append(code)
+    handler.send_header = lambda *args, **kwargs: None
+    handler.end_headers = lambda *args, **kwargs: None
+
+    with patch("frontend.server.run_recon") as run_recon_mock:
+        handler.do_POST()
+
+    assert responses and responses[0] == 200
+    run_recon_mock.assert_not_called()
+    payload = json.loads(handler.wfile.getvalue().decode("utf-8"))
+    assert payload["demo"] is True
+    assert payload["selectors"] == [{"type": "email", "value": "silverhandsteve@protonmail.com"}]
+    assert {"platform": "bluesky", "username": "stevebrooks.bsky.social"} in payload["collection_targets"]
+    assert {"platform": "instagram", "username": "stevebrooks98"} in payload["collection_targets"]
+    assert {"platform": "tiktok", "username": "stephenbrooks.tech"} in payload["collection_targets"]
+    assert {"platform": "youtube", "username": "StephenBrooksMA"} in payload["collection_targets"]
+    assert payload["person_data_profiles"][0]["full_name"] == "Stephen Brooks"
+    assert payload["person_data_profiles"][0]["birth_date"] == "1998-06-03"
+    assert any(row.get("breachName") == "Etsy Order Export" for row in payload["breach_records"])
+    assert any(row.get("breachName") == "PlayStation Network Breach" for row in payload["breach_records"])
+    assert any(["Residential Address", "142 Arborway Apt 3B, Boston, MA 02130"] in row.get("fields", []) for row in payload["breach_records"])
+    assert any(["Online ID", "CALLofVOID"] in row.get("fields", []) for row in payload["breach_records"])
+    assert any(row.get("module") == "strava" for row in payload["osint_profiles"])
+    assert any(row.get("site") == "Instagram" and row.get("selector_type") == "email" for row in payload["results"])
+    assert next(row for row in payload["results"] if row.get("site") == "Instagram")["profile_url"] == "https://www.instagram.com/stevebrooks98/"
+    assert next(row for row in payload["results"] if row.get("site") == "TikTok")["profile_url"] == "https://www.tiktok.com/@stephenbrooks.tech"
+    assert next(row for row in payload["results"] if row.get("site") == "YouTube")["profile_url"] == "https://www.youtube.com/@StephenBrooksMA"
+    assert next(row for row in payload["results"] if row.get("site") == "Bluesky")["profile_url"] == "https://bsky.app/profile/stevebrooks.bsky.social"
+    facebook = next(row for row in payload["results"] if row.get("site") == "Facebook")
+    assert facebook["supported_for_collection"] is True
+    assert facebook["collection_status"] == "Private/Locked"
+    assert all(str(row.get("screenshot_url", "")) == "" for row in payload["results"])
 
 
 def test_config_endpoint_get_returns_config():

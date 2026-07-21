@@ -6,10 +6,13 @@ const caseSearchInput = document.getElementById('caseSearchInput');
 const caseStatusFilter = document.getElementById('caseStatusFilter');
 const caseThreatFilter = document.getElementById('caseThreatFilter');
 const caseSortSelect = document.getElementById('caseSortSelect');
+const caseMetricOpen = document.getElementById('caseMetricOpen');
+const caseMetricWatchlist = document.getElementById('caseMetricWatchlist');
 const openNewCaseBtn = document.getElementById('openNewCaseBtn');
 const openConfigBtn = document.getElementById('openConfigBtn');
 const openLlmSandboxBtn = document.getElementById('openLlmSandboxBtn');
 const generateDemoCaseBtn = document.getElementById('generateDemoCaseBtn');
+const generateVipThreatDemoCaseBtn = document.getElementById('generateVipThreatDemoCaseBtn');
 const quitSessionCaseBtn = document.getElementById('quitSessionCaseBtn');
 const caseOpenLoadingOverlay = document.getElementById('caseOpenLoadingOverlay');
 const caseOpenLoadingTitle = document.getElementById('caseOpenLoadingTitle');
@@ -87,6 +90,7 @@ const caseNotesExportPdfBtn = document.getElementById('caseNotesExportPdfBtn');
 const caseNotesSaveBtn = document.getElementById('caseNotesSaveBtn');
 const caseNotesCloseBtn = document.getElementById('caseNotesCloseBtn');
 const caseNotesCancelBtn = document.getElementById('caseNotesCancelBtn');
+const caseNotesOperationsBtn = document.getElementById('caseNotesOperationsBtn');
 const dashboardPanel = document.getElementById('dashboardPanel');
 const dashboardContent = document.getElementById('dashboardContent');
 const resultsColumn = document.getElementById('resultsColumn');
@@ -125,6 +129,7 @@ const footprintFilterPanel = document.getElementById('footprintFilterPanel');
 const footprintKnownSelectors = document.getElementById('footprintKnownSelectors');
 const footprintKnownSelectorsTotal = document.getElementById('footprintKnownSelectorsTotal');
 const footprintKnownSelectorsGroups = document.getElementById('footprintKnownSelectorsGroups');
+const footprintKnownSelectorsToggle = document.getElementById('footprintKnownSelectorsToggle');
 
 function focusWithoutScroll(element) {
   if (!(element instanceof HTMLElement)) return;
@@ -329,6 +334,8 @@ let reconTargets = [];
 let reconLeads = [];
 let reconProfiles = [];
 let latestReconPayload = null;
+let activeReconStreamController = null;
+let activeReconRunId = 0;
 const hiddenReconRowKeys = new Set();
 const hiddenOsintTileKeys = new Set();
 const hiddenPdlProfileKeys = new Set();
@@ -382,7 +389,7 @@ let lastAutofilledCaseNotesName = '';
 let lastAutofilledCaseNotesLocation = '';
 const caseNotesAutoProfileKeys = new Set();
 const CASE_NOTES_MAJOR_PROFILE_SITE_KEYS = new Set(['facebook', 'instagram', 'tiktok', 'twitter', 'reddit', 'bluesky', 'youtube']);
-const CASE_NOTES_COLLECTION_READY_SITE_KEYS = new Set(['twitter', 'reddit', 'tiktok', 'bluesky', 'instagram', 'youtube']);
+const CASE_NOTES_COLLECTION_READY_SITE_KEYS = new Set(['twitter', 'reddit', 'tiktok', 'bluesky', 'instagram', 'youtube', 'facebook']);
 const TARGET_PLATFORM_OPTIONS = [
   { value: 'twitter', label: 'Twitter/X' },
   { value: 'reddit', label: 'Reddit' },
@@ -433,6 +440,7 @@ let activeFootprintSelectorMatchKey = '';
 let activeFootprintSelectorMatchIndex = -1;
 let activeKnownSelectorFocusKey = '';
 let activeKnownSelectorFocusIndex = -1;
+let footprintSelectorsCollapsed = false;
 let configCustomKeywordList = [];
 const DEFAULT_DATA_RETENTION_PERIOD = '3 months';
 const DATA_RETENTION_PERIOD_OPTIONS = ['24h', '1 week', '3 week', '6 weeks', '3 months', '1 year'];
@@ -611,6 +619,10 @@ function normalizeTargetUsername(platform, rawUsername) {
     const match = username.match(/^https?:\/\/(?:www\.)?instagram\.com\/([^/?#]+)/i);
     if (match) username = decodeURIComponent(match[1] || '').trim();
   }
+  if (platform === 'facebook') {
+    const match = username.match(/^https?:\/\/(?:www\.)?facebook\.com\/([^/?#]+)/i);
+    if (match) username = decodeURIComponent(match[1] || '').trim();
+  }
   username = username.split('/')[0];
   username = username.replace(/^@+/, '').replace(/^u\//i, '');
   return username.trim();
@@ -773,10 +785,78 @@ function openCollectionSetupWithTargets(targets, options = {}) {
   focusWithoutScroll(firstInput);
 }
 
+function openCaseOperationChooser() {
+  if (!activeCaseId) {
+    showNotification('Open a case first.', 'warn');
+    return;
+  }
+  setupStatus.textContent = '';
+  reconStatus.textContent = '';
+  reconResults.classList.add('hidden');
+  setModalMode('chooser');
+  setModalOpen(true);
+}
+
 function loadTargetsIntoCollection(targets, options = {}) {
   const rows = dedupeCollectionTargets(Array.isArray(targets) ? targets : []);
   if (!rows.length) return false;
   openCollectionSetupWithTargets(rows, options);
+  return true;
+}
+
+function isVipThreatDemoCase() {
+  const tags = Array.isArray(activeCase?.metadata_tags)
+    ? activeCase.metadata_tags.map((item) => String(item || '').trim().toLowerCase())
+    : [];
+  if (tags.includes('vip-threat-demo')) return true;
+  const payload = latestReconPayload && typeof latestReconPayload === 'object' ? latestReconPayload : null;
+  if (payload?.demo === true && String(payload?.demo_label || '').toLowerCase().includes('vip threat')) return true;
+  const selectors = Array.isArray(payload?.selectors) ? payload.selectors : [];
+  return selectors.some((item) => {
+    const type = String(item?.type || '').trim().toLowerCase();
+    const value = String(item?.value || '').trim().toLowerCase().replace(/^@+/, '');
+    return (type === 'username' && value === 'voidpill3d')
+      || (type === 'email' && ['silverhandsteve@protonmail.com', 'stephenbrooks@gmail.com'].includes(value));
+  });
+}
+
+async function loadVipThreatDemoCollection(targets) {
+  const rows = dedupeCollectionTargets(Array.isArray(targets) ? targets : []);
+  if (!rows.length || !isVipThreatDemoCase()) return false;
+  if (!activeCaseId) {
+    showNotification('Open a case first.', 'warn');
+    return false;
+  }
+  let insertedPosts = 0;
+  try {
+    const response = await fetch(`/api/cases/${encodeURIComponent(activeCaseId)}/demo/vip-threat/collect`, { method: 'POST' });
+    if (!response.ok) {
+      const message = await parseErrorResponse(response);
+      throw new Error(message);
+    }
+    const payload = await response.json();
+    insertedPosts = Number(payload?.inserted_posts) || 0;
+  } catch (error) {
+    console.error(error);
+    showNotification(`VIP threat demo collection failed: ${error.message || 'unknown error'}`, 'error');
+    return false;
+  }
+  activeTargets = rows;
+  activeUsername = rows.length === 1 ? rows[0].username : '';
+  activeStartDate = '';
+  activeEndDate = '';
+  collectionAppendMode = false;
+  pendingResultsLandingPreference = 'collection';
+  seedCollectionSourceState(rows);
+  renderCollectionContext();
+  if (searchInput instanceof HTMLInputElement) searchInput.value = '';
+  setupStatus.textContent = `Loaded ${rows.length} demo target${rows.length === 1 ? '' : 's'} and seeded ${insertedPosts} collection post${insertedPosts === 1 ? '' : 's'}.`;
+  collectionProgressStatus = 'demo collection loaded';
+  updateStatusLine();
+  setModalOpen(false);
+  setResultsView('posts');
+  await refreshPosts({ landingPreference: 'collection' });
+  showNotification('VIP threat demo collection loaded', 'success');
   return true;
 }
 
@@ -1332,7 +1412,7 @@ const USER_PLACEHOLDER_AVATAR_URL = `data:image/svg+xml,${encodeURIComponent(
 
 function normalizeProfileImageUrl(value) {
   const url = String(value || '').trim();
-  if (isHttpUrl(url) || url.startsWith('data:image/')) return url;
+  if (isHttpUrl(url) || url.startsWith('data:image/') || url.startsWith('/')) return url;
   return '';
 }
 
@@ -1401,28 +1481,28 @@ function resetDashboardSession() {
   if (searchInput instanceof HTMLInputElement) searchInput.value = '';
   collectionContext?.classList.add('hidden');
   updateStatusLine();
-  setDashboardCaseTitle('PANOPTO');
+  setDashboardCaseTitle('Orion');
 }
 
 function setDashboardCaseTitle(title) {
-  const value = String(title || '').trim() || 'PANOPTO';
+  const value = String(title || '').trim() || 'Orion';
   if (dashboardCaseTitle instanceof HTMLElement) {
     dashboardCaseTitle.textContent = value;
   }
-  document.title = value === 'PANOPTO' ? 'PANOPTO' : `${value} | PANOPTO`;
+  document.title = value === 'Orion' ? 'Orion' : `${value} | Orion`;
 }
 
 function isPlaceholderCaseTitle(title) {
   const value = String(title || '').trim();
   if (!value) return true;
   if (/^untitled case$/i.test(value)) return true;
-  if (/^panopto$/i.test(value)) return true;
+  if (/^orion$/i.test(value)) return true;
   if (/^case [A-Za-z]{3} \d{1,2}, \d{4},/i.test(value)) return true;
   return false;
 }
 
 function syncDashboardCaseTitleFromActiveCase() {
-  setDashboardCaseTitle(String(activeCase?.case_name || '').trim() || 'PANOPTO');
+  setDashboardCaseTitle(String(activeCase?.case_name || '').trim() || 'Orion');
 }
 
 function syncCaseNameInputs(nextName) {
@@ -1522,7 +1602,7 @@ function openLlmSandboxFromCaseWorkspace() {
   dashboardBaseStatus = 'Sandbox mode. No case or live collection loaded.';
   collectionProgressStatus = '';
   updateStatusLine();
-  setDashboardCaseTitle('PANOPTO');
+  setDashboardCaseTitle('Orion');
   renderLlmSandboxResult(latestSandboxPost);
   showDashboard();
   setResultsView('sandbox');
@@ -1551,20 +1631,22 @@ function caseRowMarkup(row) {
           <img class="case-poi-avatar" src="${escapeAttr(poiImageUrl)}" alt="${escapeAttr(poiImageAlt)}" loading="lazy" />
         </div>
         <div class="case-title-group">
-          <h3>${escapeHtml(caseName)}</h3>
+          <div class="case-title-row">
+            <h3>${escapeHtml(caseName)}</h3>
+          </div>
           <div class="case-tags">
             <span class="case-chip case-badge case-status ${escapeAttr(statusCls)}">${escapeHtml(status)}</span>
             <span class="case-chip case-badge threat ${escapeAttr(threatCls)}">${escapeHtml(threatLevel)}</span>
             <span class="case-chip case-tag case-tag-location">${escapeHtml(knownLocation)}</span>
           </div>
           <div class="case-submeta">
-            <span>Opened ${escapeHtml(openedAt)}</span>
-            <span>Edited ${escapeHtml(editedAt)}</span>
+            <span>Last Edited ${escapeHtml(editedAt)}</span>
           </div>
         </div>
         <div class="case-icon-actions">
-          <button class="icon-btn case-icon-btn case-open-icon" type="button" title="Open case" aria-label="Open case" data-case-open="${escapeAttr(caseId)}">
+          <button class="case-open-btn" type="button" data-case-open="${escapeAttr(caseId)}">
             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 4h8l4 4v12H6z"></path><path d="M14 4v4h4"></path></svg>
+            <span>Open</span>
           </button>
           <button class="icon-btn case-icon-btn case-edit-icon" type="button" title="Edit case details" aria-label="Edit case details" data-case-edit="${escapeAttr(caseId)}">
             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 20l4.5-1 9.5-9.5-3.5-3.5L5 15.5z"></path><path d="M13.5 6l3.5 3.5"></path></svg>
@@ -1616,6 +1698,10 @@ function filteredSortedCases() {
 function renderCases() {
   if (!caseTiles || !caseTilesEmpty) return;
   const rows = filteredSortedCases();
+  const openCount = caseList.filter((row) => String(row?.status || '') !== 'Closed').length;
+  const watchlistCount = caseList.filter((row) => String(row?.status || '') === 'Watchlist').length;
+  if (caseMetricOpen) caseMetricOpen.textContent = String(openCount);
+  if (caseMetricWatchlist) caseMetricWatchlist.textContent = String(watchlistCount);
   if (!rows.length) {
     caseTiles.innerHTML = '';
     caseTilesEmpty.classList.remove('hidden');
@@ -2140,14 +2226,21 @@ function inferSelectorValuesFromCaseNotes(notes) {
     if (!row || typeof row !== 'object') continue;
     ingest(row.query_type, row.query_value);
     pushUsername(row.username);
+    pushUsername(row.name);
     pushEmail(row.email);
     pushPhone(row.phone);
+    ingest('location', row.location);
+    ingest('location', row.biolocation);
     pushEmailHint(row.email_hint);
     pushPhoneHint(row.phone_hint);
   }
   for (const row of (Array.isArray(payload?.person_data_profiles) ? payload.person_data_profiles : [])) {
     if (!row || typeof row !== 'object') continue;
     ingest(row.query_type, row.query_value);
+    pushUsername(row.full_name);
+    for (const item of (Array.isArray(row.aliases) ? row.aliases : [])) pushUsername(item);
+    ingest('location', row.location_name);
+    for (const item of (Array.isArray(row.biolocations) ? row.biolocations : [])) ingest('location', item);
     pushEmail(row.professional_email || row.work_email || row.email);
     for (const item of (Array.isArray(row.personal_emails) ? row.personal_emails : [])) pushEmail(item);
     pushPhone(row.mobile_phone || row.phone);
@@ -2171,6 +2264,26 @@ function inferSelectorValuesFromCaseNotes(notes) {
     } else if (attr.includes('name')) {
       pushUsername(value);
     }
+  }
+  for (const row of (Array.isArray(payload?.breach_records) ? payload.breach_records : [])) {
+    if (!row || typeof row !== 'object') continue;
+    ingest(row.selectorType, row.selectorValue);
+    for (const pair of (Array.isArray(row.fields) ? row.fields : [])) {
+      const label = String(Array.isArray(pair) ? pair[0] : '').trim().toLowerCase();
+      const value = String(Array.isArray(pair) ? pair[1] : '').trim();
+      if (!value) continue;
+      if (label.includes('email')) pushEmail(value);
+      else if (label.includes('phone')) pushPhone(value);
+      else if (label.includes('username') || label.includes('online id') || label.includes('alias')) pushUsername(value);
+      else if (label.includes('name')) pushUsername(value);
+      else if (label.includes('location') || label.includes('city') || label.includes('area') || label.includes('address')) ingest('location', value);
+    }
+  }
+  for (const profile of (Array.isArray(notes?.known_profiles) ? notes.known_profiles : [])) {
+    if (!profile || typeof profile !== 'object') continue;
+    pushUsername(profile.username);
+    pushUsername(profile.name);
+    ingest('location', profile.location);
   }
 
   return {
@@ -2454,7 +2567,7 @@ function normalizeKnownProfiles(rawProfiles) {
   return output;
 }
 
-const COLLECTION_READY_SITE_KEYS = new Set(['twitter', 'reddit', 'tiktok', 'bluesky', 'instagram', 'youtube']);
+const COLLECTION_READY_SITE_KEYS = new Set(['twitter', 'reddit', 'tiktok', 'bluesky', 'instagram', 'youtube', 'facebook']);
 
 function _siteKeyFromKnownProfile(profile) {
   const rawSite = String(profile?.site || '').trim();
@@ -2642,6 +2755,7 @@ function normalizeReconSnapshot(raw) {
     payload: {
       selectors: Array.isArray(payloadRaw.selectors) ? payloadRaw.selectors : [],
       results: Array.isArray(payloadRaw.results) ? payloadRaw.results : [],
+      scanner_results: Array.isArray(payloadRaw.scanner_results) ? payloadRaw.scanner_results : [],
       checked: Number(payloadRaw.checked) || 0,
       present_count: Number(payloadRaw.present_count) || 0,
       collection_targets: Array.isArray(payloadRaw.collection_targets) ? payloadRaw.collection_targets : [],
@@ -2654,6 +2768,7 @@ function normalizeReconSnapshot(raw) {
       osint_profiles: Array.isArray(payloadRaw.osint_profiles) ? payloadRaw.osint_profiles : [],
       osint_spec_results: Array.isArray(payloadRaw.osint_spec_results) ? payloadRaw.osint_spec_results : [],
       numverify_profiles: Array.isArray(payloadRaw.numverify_profiles) ? payloadRaw.numverify_profiles : [],
+      breach_records: Array.isArray(payloadRaw.breach_records) ? payloadRaw.breach_records : [],
       api_modules_queried: Array.isArray(payloadRaw.api_modules_queried) ? payloadRaw.api_modules_queried : [],
     },
   };
@@ -3334,6 +3449,21 @@ async function generateDemoCase() {
   } catch (error) {
     console.error(error);
     showNotification(`Demo case failed: ${error.message || 'unknown error'}`, 'error');
+  }
+}
+
+async function generateVipThreatDemoCase() {
+  try {
+    const response = await fetch('/api/cases/demo/vip-threat', { method: 'POST' });
+    if (!response.ok) {
+      const message = await parseErrorResponse(response);
+      throw new Error(message);
+    }
+    await loadCases();
+    showNotification('VIP threat demo case generated', 'success');
+  } catch (error) {
+    console.error(error);
+    showNotification(`VIP threat demo failed: ${error.message || 'unknown error'}`, 'error');
   }
 }
 
@@ -7259,6 +7389,13 @@ function applyResultsViewButtonState() {
   viewPatternLifeBtn?.setAttribute('aria-pressed', String(patternLifeMode));
   viewTimelineBtn?.setAttribute('aria-pressed', String(timelineMode));
   viewEntityGraphBtn?.setAttribute('aria-pressed', String(entityGraphMode));
+  [[viewWorkflowBtn, workflowMode], [viewPostsBtn, postView], [viewMediaBtn, mediaView], [viewFootprintBtn, footprintMode], [viewPatternLifeBtn, patternLifeMode], [viewTimelineBtn, timelineMode], [viewEntityGraphBtn, entityGraphMode]].forEach(([button, active]) => {
+    button?.setAttribute('aria-selected', String(active));
+    button?.setAttribute('tabindex', active ? '0' : '-1');
+  });
+  if (resultsColumn instanceof HTMLElement) {
+    resultsColumn.setAttribute('aria-labelledby', mediaView ? 'viewMediaBtn' : 'viewPostsBtn');
+  }
   const hideStandardLayout = workflowMode || footprintMode || patternLifeMode || timelineMode || entityGraphMode || sandboxMode;
   resultsEl?.classList.toggle('hidden', hideStandardLayout);
   resultsColumn?.classList.toggle('hidden', hideStandardLayout);
@@ -7659,7 +7796,7 @@ function setModalMode(mode) {
   reconForm.classList.toggle('hidden', !recon);
   setupForm.classList.toggle('hidden', !collection);
   if (chooser) {
-    setupTitle.textContent = 'Start Session';
+    setupTitle.textContent = 'Choose an operation';
     setupSubtitle.textContent = '';
   } else if (recon) {
     setupTitle.textContent = 'Reconnaissance';
@@ -7975,6 +8112,7 @@ function dedupeRowsByProfileUrl(rows) {
 function filteredReconPayload(payload) {
   const base = payload && typeof payload === 'object' ? payload : emptyReconPayload();
   const resultsRaw = Array.isArray(base?.results) ? base.results : [];
+  const scannerResultsRaw = Array.isArray(base?.scanner_results) ? base.scanner_results : [];
   const osintProfilesRaw = Array.isArray(base?.osint_profiles) ? base.osint_profiles : [];
   const personDataProfilesRaw = Array.isArray(base?.person_data_profiles) ? base.person_data_profiles : [];
   const pdlProfileQueryKeys = new Set(
@@ -8024,9 +8162,23 @@ function filteredReconPayload(payload) {
     return true;
   });
 
+  const scannerResults = scannerResultsRaw.filter((item) => {
+    if (!/^(found|registered)$/i.test(String(item?.status || '').trim())) return false;
+    const selectorType = String(item?.selector_type || '').trim().toLowerCase();
+    const selector = String(item?.selector || '').trim().toLowerCase();
+    const site = String(item?.site_name || item?.site || '').trim().toLowerCase();
+    const normalized = resultsRaw.find((row) => (
+      String(row?.selector_type || '').trim().toLowerCase() === selectorType
+      && String(row?.selector || '').trim().toLowerCase() === selector
+      && String(row?.site || '').trim().toLowerCase() === site
+      && row?.scanner_result
+    ));
+    return !normalized || !hiddenReconRowKeys.has(reconRowVisibilityKey(normalized));
+  });
   const output = {
     ...base,
     results,
+    scanner_results: scannerResults,
     osint_profiles: osintProfiles,
     person_data_profiles: personDataProfiles,
     person_data_profile: personDataProfile,
@@ -8066,7 +8218,7 @@ function toReconBadge(row, clsName = 'lead', options = {}) {
   const label = normalizeReconSiteLabel(row?.site, row?.profile_url, row?.site_url);
   const url = isLikelyAccountProfileUrl(row?.profile_url) ? normalizeExternalUrl(row?.profile_url) : '';
   const screenshotUrl = String(row.screenshot_url || '').trim();
-  const avatarUrl = normalizeExternalUrl(row.picture_url || row.avatar_url || '');
+  const avatarUrl = normalizeProfileImageUrl(row.picture_url || row.avatar_url || '');
   const source = String(row.source || '').trim().toLowerCase();
   const icon = faviconMarkup(label, url);
   const avatarMarkup = avatarUrl
@@ -8242,6 +8394,7 @@ function collectKnownSelectors(payload) {
   const numverifyProfiles = Array.isArray(payload?.numverify_profiles) ? payload.numverify_profiles : [];
   const personDataProfiles = Array.isArray(payload?.person_data_profiles) ? payload.person_data_profiles : [];
   const leads = Array.isArray(payload?.leads) ? payload.leads : [];
+  const breachRecords = Array.isArray(payload?.breach_records) ? payload.breach_records : [];
 
   for (const selector of selectors) addKnownSelector(selectorMap, selector?.type, selector?.value);
   for (const row of rows) addKnownSelector(selectorMap, row?.selector_type, row?.selector);
@@ -8254,13 +8407,16 @@ function collectKnownSelectors(payload) {
     addKnownSelector(selectorMap, 'username', profile?.username);
     addKnownSelector(selectorMap, 'name', profile?.name);
     addKnownSelector(selectorMap, 'location', profile?.location);
+    addKnownSelector(selectorMap, 'location', profile?.biolocation);
     addKnownSelector(selectorMap, 'phone', profile?.phone_hint);
     addKnownSelector(selectorMap, 'email', profile?.email_hint);
   }
 
   for (const profile of personDataProfiles) {
     addKnownSelector(selectorMap, 'name', profile?.full_name);
+    for (const row of (Array.isArray(profile?.aliases) ? profile.aliases : [])) addKnownSelector(selectorMap, 'name', row);
     addKnownSelector(selectorMap, 'location', profile?.location_name);
+    for (const row of (Array.isArray(profile?.biolocations) ? profile.biolocations : [])) addKnownSelector(selectorMap, 'location', row);
     addKnownSelector(selectorMap, 'email', profile?.professional_email || profile?.work_email);
     for (const row of (Array.isArray(profile?.personal_emails) ? profile.personal_emails : [])) addKnownSelector(selectorMap, 'email', row);
     addKnownSelector(selectorMap, 'phone', profile?.mobile_phone);
@@ -8285,6 +8441,20 @@ function collectKnownSelectors(payload) {
     else if (attr.includes('name')) addKnownSelector(selectorMap, 'name', value);
     else if (attr.includes('location')) addKnownSelector(selectorMap, 'location', value);
     else addKnownSelector(selectorMap, inferKnownSelectorType(value), value);
+  }
+
+  for (const breach of breachRecords) {
+    addKnownSelector(selectorMap, breach?.selectorType, breach?.selectorValue);
+    for (const pair of (Array.isArray(breach?.fields) ? breach.fields : [])) {
+      const label = String(Array.isArray(pair) ? pair[0] : '').trim().toLowerCase();
+      const value = String(Array.isArray(pair) ? pair[1] : '').trim();
+      if (!value) continue;
+      if (label.includes('email')) addKnownSelector(selectorMap, 'email', value);
+      else if (label.includes('phone')) addKnownSelector(selectorMap, 'phone', value);
+      else if (label.includes('username') || label.includes('online id') || label.includes('alias')) addKnownSelector(selectorMap, 'username', value);
+      else if (label.includes('name')) addKnownSelector(selectorMap, 'name', value);
+      else if (label.includes('location') || label.includes('city') || label.includes('area') || label.includes('address')) addKnownSelector(selectorMap, 'location', value);
+    }
   }
 
   return Object.fromEntries(
@@ -8378,11 +8548,16 @@ function isLikelyUsername(value) {
   return true;
 }
 
+function isIsoDateSelectorValue(value) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(String(value || '').trim());
+}
+
 function addKnownSelector(map, type, value) {
   const normalizedType = String(type || '').trim().toLowerCase();
   if (!KNOWN_SELECTOR_GROUPS.includes(normalizedType)) return '';
   const normalizedValue = normalizeKnownSelectorValue(normalizedType, value);
   if (!normalizedValue) return '';
+  if (isIsoDateSelectorValue(normalizedValue)) return '';
   if (normalizedType === 'name' && !isLikelyPersonName(normalizedValue)) return '';
   if (normalizedType === 'username' && !isLikelyUsername(normalizedValue)) return '';
   if (!map.has(normalizedType)) map.set(normalizedType, new Set());
@@ -8393,6 +8568,7 @@ function addKnownSelector(map, type, value) {
 function inferKnownSelectorType(raw) {
   const clean = String(raw || '').trim();
   if (!clean) return '';
+  if (isIsoDateSelectorValue(clean)) return '';
   if (isValidReconEmail(clean)) return 'email';
   const compact = clean.replace(/[^\d+]/g, '');
   if (isValidReconPhone(compact)) return 'phone';
@@ -10626,21 +10802,37 @@ function osintProfilesMarkup(profiles, rows = [], options = {}) {
   const mergedItems = (() => {
     const output = [];
     const seen = new Set();
-    for (const profile of items) {
+    const addProfile = (profile, fallbackRow = null) => {
       const title = String(profile?.title || profile?.name || profile?.username || '').trim();
-      const profileUrl = normalizeExternalUrl(profile?.profile_url);
-      const website = normalizeExternalUrl(profile?.website);
+      const profileUrl = normalizeExternalUrl(profile?.profile_url || fallbackRow?.profile_url);
+      const website = normalizeExternalUrl(profile?.website || fallbackRow?.site_url);
       const dedupe = [
-        String(profile?.module || '').trim().toLowerCase(),
+        String(profile?.module || fallbackRow?.site || '').trim().toLowerCase(),
         profileUrl.toLowerCase(),
-        String(profile?.username || '').trim().toLowerCase(),
+        String(profile?.username || fallbackRow?.selector || '').trim().toLowerCase(),
         String(profile?.email || '').trim().toLowerCase(),
         String(profile?.phone || '').trim().toLowerCase(),
         title.toLowerCase(),
       ].join('|');
-      if (seen.has(dedupe)) continue;
+      if (seen.has(dedupe)) return;
       seen.add(dedupe);
-      output.push({ profile, profileUrl, website, title });
+      output.push({ profile, profileUrl, website, title, fallbackRow });
+    };
+    for (const profile of items) addProfile(profile);
+    for (const row of resultRows) {
+      if (String(row?.source || '').trim().toLowerCase() !== 'osint_industries') continue;
+      const profileUrl = normalizeExternalUrl(row?.profile_url);
+      if (!profileUrl) continue;
+      addProfile({
+        module: row?.site || row?.site_key || 'registered_profile',
+        query_type: row?.selector_type,
+        query_value: row?.selector,
+        username: row?.selector,
+        profile_url: profileUrl,
+        picture_url: row?.picture_url,
+        avatar_url: row?.avatar_url,
+        status: row?.status,
+      }, row);
     }
     return output;
   })();
@@ -10653,7 +10845,7 @@ function osintProfilesMarkup(profiles, rows = [], options = {}) {
     const profileUrl = entry.profileUrl;
     const website = entry.website;
     const siteLabel = normalizedSiteLabel(profile?.module || rowsByUrl.get(profileUrl.toLowerCase())?.site || 'osint');
-    const row = rowsByUrl.get(profileUrl.toLowerCase());
+    const row = entry.fallbackRow || rowsByUrl.get(profileUrl.toLowerCase());
     const collectTarget = collectionTargetFromProfileUrl(row?.site || siteLabel, profileUrl);
     const selectorAttr = sourceSelectorAttr(
       profile?.query_type || row?.selector_type,
@@ -10672,7 +10864,7 @@ function osintProfilesMarkup(profiles, rows = [], options = {}) {
       `
       : '';
     const removeAction = removable
-      ? `<button type="button" class="known-selector-action recon-tile-remove" data-osint-remove="${escapeAttr(profileKey)}" title="Remove OSINT tile">×</button>`
+      ? `<button type="button" class="known-selector-action recon-tile-remove" data-osint-remove="${escapeAttr(profileKey)}" title="Remove profile" aria-label="Remove profile"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 7h16"></path><path d="M9 7V5h6v2"></path><path d="M7 7l1 13h8l1-13"></path><path d="M10 11v5"></path><path d="M14 11v5"></path></svg></button>`
       : '';
     const collectAction = collectTarget
       ? `<button type="button" class="known-selector-action osint-profile-collect" data-recon-collect-platform="${escapeAttr(collectTarget.platform)}" data-recon-collect-username="${escapeAttr(collectTarget.username)}" title="Add to collection">Collect</button>`
@@ -10680,7 +10872,7 @@ function osintProfilesMarkup(profiles, rows = [], options = {}) {
     const topActions = profileAction || collectAction || removeAction
       ? `<div class="osint-profile-actions">${profileAction}${collectAction}${removeAction}</div>`
       : '';
-    const imageUrl = normalizeExternalUrl(profile?.picture_url || profile?.avatar_url || '') || normalizeExternalUrl(row?.picture_url || '');
+    const imageUrl = normalizeProfileImageUrl(profile?.picture_url || profile?.avatar_url || '') || normalizeProfileImageUrl(row?.picture_url || row?.avatar_url || '');
     const siteIcon = faviconMarkup(siteLabel, profileUrl || website);
     const avatarMarkup = imageUrl
       ? `<img class="osint-profile-avatar" src="${escapeHtml(imageUrl)}" alt="${escapeAttr(title)}" loading="lazy" referrerpolicy="no-referrer" />`
@@ -10715,6 +10907,10 @@ function osintProfilesMarkup(profiles, rows = [], options = {}) {
     const valuesMarkup = valueRows
       .map(([label, value]) => valueItem(label, value, { wide: stackValues }))
       .join('');
+    const primaryIdentity = displayName !== 'Unnamed' ? displayName : (username || title);
+    const scannerIdentity = username
+      ? `@${username.replace(/^@+/, '')}`
+      : title;
     return `
       <article class="osint-profile-card"${selectorAttr}>
         ${topActions}
@@ -10722,15 +10918,14 @@ function osintProfilesMarkup(profiles, rows = [], options = {}) {
           ${avatarMarkup}
           <div>
             <p class="osint-profile-site">${siteIcon}<span>${escapeHtml(siteLabel)}</span></p>
-            <h4${sourceSelectorAttr('username', username) || sourceSelectorAttr('name', displayName || title)}>${escapeHtml(title)}</h4>
-            ${displayName && displayName.toLowerCase() !== title.toLowerCase() ? `<p${sourceSelectorAttr('name', displayName)}>${escapeHtml(displayName)}</p>` : ''}
-            ${username && username.toLowerCase() !== title.toLowerCase() && username.toLowerCase() !== displayName.toLowerCase()
-    ? `<p${sourceSelectorAttr('username', username)}>@${escapeHtml(username)}</p>`
-    : ''}
+            <h4${sourceSelectorAttr('username', username) || sourceSelectorAttr('name', displayName || title)}>${escapeHtml(primaryIdentity)}</h4>
+            <p class="osint-profile-scanner"${sourceSelectorAttr('username', username)}>${escapeHtml(scannerIdentity)}</p>
           </div>
         </div>
-        <div class="osint-profile-grid${stackValues ? ' osint-profile-grid-stacked' : ''}">
-          ${valuesMarkup}
+        <div class="osint-profile-details${valuesMarkup ? '' : ' hidden'}">
+          <div class="osint-profile-grid${stackValues ? ' osint-profile-grid-stacked' : ''}">
+            ${valuesMarkup}
+          </div>
         </div>
         <div class="osint-profile-links">
           ${websiteLink}
@@ -10741,8 +10936,173 @@ function osintProfilesMarkup(profiles, rows = [], options = {}) {
   if (!cards) return '';
   return `
     <div class="recon-group">
-      <p>OSINT Industries Tiles (${mergedItems.length})</p>
+      <p>Registered Profiles (${mergedItems.length})</p>
       <div class="osint-profiles-list">${cards}</div>
+    </div>
+  `;
+}
+
+function userScannerProfilesMarkup(scannerResults, normalizedRows = [], options = {}) {
+  const items = (Array.isArray(scannerResults) ? scannerResults : []).filter((item) => /^(found|registered)$/i.test(String(item?.status || '').trim()));
+  if (!items.length) return '';
+  const removable = options?.removable === true;
+  const textValue = (value) => {
+    if (value === null || value === undefined || value === '') return '';
+    if (typeof value === 'string') return value.trim();
+    if (typeof value === 'object') {
+      try { return JSON.stringify(value); } catch (error) { return String(value); }
+    }
+    return String(value).trim();
+  };
+  const cards = items.map((item, index) => {
+    const profileRecord = item?.profile_record && typeof item.profile_record === 'object' ? item.profile_record : {};
+    const profileFields = profileRecord?.fields && typeof profileRecord.fields === 'object' ? profileRecord.fields : {};
+    const site = textValue(item?.site_name || item?.site) || 'Unknown service';
+    const selectorType = textValue(item?.selector_type) || (item?.is_email ? 'email' : 'username');
+    const selector = textValue(item?.selector || item?.username);
+    const category = textValue(item?.category) || 'Uncategorized';
+    const status = textValue(item?.status) || 'Unknown';
+    const reason = textValue(item?.reason);
+    const profileName = textValue(item?.full_name || item?.display_name || item?.name || profileFields?.full_name || profileFields?.display_name || item?.title);
+    const bio = textValue(item?.bio || item?.description || item?.summary || item?.about || profileFields?.bio || profileFields?.description);
+    const profileUrl = normalizeExternalUrl(item?.profile_url || item?.url);
+    const siteUrl = profileUrl;
+    const imageUrl = normalizeProfileImageUrl(item?.picture_url || item?.avatar_url || item?.profile_image_url || '');
+    const normalizedRow = normalizedRows.find((row) => (
+      String(row?.selector_type || '').trim().toLowerCase() === selectorType.toLowerCase()
+      && String(row?.selector || '').trim().toLowerCase() === selector.toLowerCase()
+      && String(row?.site || '').trim().toLowerCase() === site.toLowerCase()
+      && row?.scanner_result
+    ));
+    const rowKey = normalizedRow
+      ? reconRowVisibilityKey(normalizedRow)
+      : `${selectorType}|${selector.toLowerCase()}|${String(site).toLowerCase()}|||scanner`;
+    const knownKeys = new Set(['selector_type', 'selector', 'site_name', 'site', 'category', 'status', 'reason', 'url', 'profile_url', 'username', 'is_email', 'picture_url', 'avatar_url', 'profile_image_url', 'full_name', 'display_name', 'name', 'title', 'bio', 'description', 'summary', 'about', 'profile_record']);
+    const extraFields = Object.entries(item || {})
+      .filter(([key, value]) => !knownKeys.has(key) && textValue(value))
+      .map(([key, value]) => [key.replace(/_/g, ' '), textValue(value)]);
+    const statusToken = /found|registered/i.test(status) ? 'found' : /not found|not registered/i.test(status) ? 'absent' : 'unknown';
+    const avatar = imageUrl
+      ? `<img class="osint-profile-avatar" src="${escapeAttr(imageUrl)}" alt="${escapeAttr(site)} profile image" loading="lazy" referrerpolicy="no-referrer" />`
+      : `<div class="osint-profile-avatar empty" aria-label="No profile image">${escapeHtml(site.slice(0, 2).toUpperCase())}</div>`;
+    const openAction = siteUrl
+      ? `<a class="known-selector-action osint-profile-open" href="${escapeAttr(siteUrl)}" target="_blank" rel="noopener noreferrer" title="Open returned URL" aria-label="Open returned URL"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M14 4h6v6"></path><path d="M10 14L20 4"></path><path d="M20 13v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h6"></path></svg></a>`
+      : '';
+    const removeAction = removable
+      ? `<button type="button" class="known-selector-action recon-tile-remove" data-recon-remove="${escapeAttr(rowKey)}" title="Remove profile" aria-label="Remove profile"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 7h16"></path><path d="M9 7V5h6v2"></path><path d="M7 7l1 13h8l1-13"></path><path d="M10 11v5"></path><path d="M14 11v5"></path></svg></button>`
+      : '';
+    const value = (label, raw) => {
+      const clean = textValue(raw);
+      return clean ? `<div class="osint-value"><span class="osint-key">${escapeHtml(label)}</span><strong>${escapeHtml(clean)}</strong></div>` : '';
+    };
+    return `
+      <article class="osint-profile-card scanner-profile-card scanner-status-${statusToken}"${sourceSelectorAttr(selectorType, selector)}>
+        <div class="osint-profile-actions">${openAction}${removeAction}</div>
+        <div class="osint-profile-head">
+          ${avatar}
+          <div>
+            <p class="osint-profile-site">${faviconMarkup(site, siteUrl)}<span>${escapeHtml(category)}</span></p>
+            <h4${sourceSelectorAttr('name', profileName) || sourceSelectorAttr(selectorType, selector)}>${escapeHtml(profileName || site)}</h4>
+            <p class="osint-profile-scanner"${sourceSelectorAttr(selectorType, selector)}>${escapeHtml(selector ? formatSelectorLabel(selectorType, selector) : `Result ${index + 1}`)}</p>
+          </div>
+        </div>
+        <div class="osint-profile-details">
+          <div class="osint-profile-grid">
+            ${value('status', status)}
+            ${value('confidence', profileRecord?.confidence ? `${Math.round(Number(profileRecord.confidence) * 100)}%` : '')}
+            ${value('enrichment', profileRecord?.enrichment_status)}
+            ${value('reason', reason)}
+            ${value('bio', bio)}
+            ${extraFields.map(([key, fieldValue]) => value(key, fieldValue)).join('')}
+          </div>
+        </div>
+        ${siteUrl ? `<a class="collection-profile-url" href="${escapeAttr(siteUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(siteUrl)}</a>` : ''}
+      </article>
+    `;
+  }).join('');
+  return `
+    <div class="recon-group">
+      <p>User Scanner Results (${items.length})</p>
+      <div class="osint-profiles-list">${cards}</div>
+    </div>
+  `;
+}
+
+function collectionReadyProfilesMarkup(rows, targets, options = {}) {
+  const items = Array.isArray(rows) ? rows : [];
+  const collectAllTargets = Array.isArray(targets) ? targets : [];
+  const removable = options?.removable === true;
+  const cards = items.map((row) => {
+    const rowKey = reconRowVisibilityKey(row);
+    const siteLabel = normalizeReconSiteLabel(row?.site, row?.profile_url, row?.site_url);
+    const profileUrl = normalizeExternalUrl(row?.profile_url);
+    const selectorType = String(row?.selector_type || '').trim().toLowerCase();
+    const selectorValue = String(row?.selector || '').trim();
+    const source = String(row?.source || '').trim().toLowerCase();
+    const sourceLabel = source === 'osint_industries' ? 'OSINT Industries' : source === 'scanner' ? 'Profile Scanner' : source === 'pdl' ? 'People Data' : source || 'Recon';
+    const collectTarget = collectionTargetFromProfileUrl(row?.site || siteLabel, profileUrl);
+    const username = collectTarget?.username || selectorValue;
+    const profileName = String(
+      row?.profile_name
+      || row?.display_name
+      || row?.name
+      || row?.osint_profile?.name
+      || row?.osint_profile?.display_name
+      || '',
+    ).trim();
+    const collectionStatus = String(row?.collection_status || '').trim() || (normalizePlatformName(siteLabel) === 'facebook' ? 'Private/Locked' : 'Collection ready');
+    const collectionNote = String(row?.collection_note || '').trim();
+    const avatarUrl = normalizeProfileImageUrl(row?.picture_url || row?.avatar_url || row?.osint_profile?.picture_url || row?.osint_profile?.avatar_url || '');
+    const screenshotUrl = String(row?.screenshot_url || '').trim();
+    const previewAttr = screenshotUrl ? ` data-preview-image="${escapeAttr(screenshotUrl)}"` : '';
+    const previewLabelAttr = screenshotUrl ? ` data-preview-label="${escapeAttr(siteLabel)}"` : '';
+    const selectorAttr = sourceSelectorAttr(selectorType, selectorValue);
+    const avatarMarkup = avatarUrl
+      ? `<img class="collection-profile-avatar" src="${escapeAttr(avatarUrl)}" alt="${escapeAttr(siteLabel)} profile image" loading="lazy" referrerpolicy="no-referrer" />`
+      : `<div class="collection-profile-avatar empty">${escapeHtml(siteLabel.slice(0, 2).toUpperCase() || 'ID')}</div>`;
+    const collectMarkup = collectTarget
+      ? `<button type="button" class="known-selector-action osint-profile-collect collection-profile-collect" data-recon-collect-platform="${escapeAttr(collectTarget.platform)}" data-recon-collect-username="${escapeAttr(collectTarget.username)}" title="Add to collection">Collect</button>`
+      : '';
+    const removeMarkup = removable
+      ? `<button type="button" class="known-selector-action recon-tile-remove" data-recon-remove="${escapeAttr(rowKey)}" title="Remove profile" aria-label="Remove profile"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 7h16"></path><path d="M9 7V5h6v2"></path><path d="M7 7l1 13h8l1-13"></path><path d="M10 11v5"></path><path d="M14 11v5"></path></svg></button>`
+      : '';
+    const openMarkup = profileUrl
+      ? `<a class="known-selector-action osint-profile-open" href="${escapeHtml(profileUrl)}" target="_blank" rel="noopener noreferrer" title="Open profile URL" aria-label="Open profile URL"${previewAttr}${previewLabelAttr}>
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M14 4h6v6"></path>
+            <path d="M10 14L20 4"></path>
+            <path d="M20 13v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h6"></path>
+          </svg>
+        </a>`
+      : '';
+    return `
+      <article class="collection-profile-card"${selectorAttr}>
+        <div class="collection-profile-actions">${openMarkup}${collectMarkup}${removeMarkup}</div>
+        <div class="collection-profile-head">
+          ${avatarMarkup}
+          <div class="collection-profile-title">
+            <p>${faviconMarkup(siteLabel, profileUrl)}<span>${escapeHtml(siteLabel)}</span></p>
+            <h4>${escapeHtml(profileName || (username ? (username.startsWith('@') ? username : `@${username}`) : siteLabel))}</h4>
+            <span class="collection-profile-username">${escapeHtml(username ? (username.startsWith('@') ? username : `@${username}`) : 'No username returned')}</span>
+          </div>
+        </div>
+        <div class="collection-profile-meta">
+          <div><span>Selector</span><strong>${escapeHtml(formatSelectorLabel(selectorType, selectorValue))}</strong></div>
+          <div><span>Status</span><strong>${escapeHtml(collectionStatus)}</strong></div>
+          <div><span>Source</span><strong>${escapeHtml(sourceLabel)}</strong></div>
+        </div>
+        ${collectionNote ? `<p class="collection-profile-note">${escapeHtml(collectionNote)}</p>` : ''}
+        ${profileUrl ? `<a class="collection-profile-url" href="${escapeHtml(profileUrl)}" target="_blank" rel="noopener noreferrer"${previewAttr}${previewLabelAttr}>${escapeHtml(profileUrl)}</a>` : ''}
+      </article>
+    `;
+  }).join('');
+  return `
+    <div class="recon-group collection-ready-card-group">
+      <div class="recon-group-head">
+        <p>Collection-ready Profiles (${items.length})</p>
+        ${collectAllTargets.length ? `<button type="button" class="secondary-btn recon-group-collect-all" data-recon-collect-all="supported" data-recon-collect-all-targets="${escapeAttr(JSON.stringify(collectAllTargets))}">Collect All</button>` : ''}
+      </div>
+      ${cards ? `<div class="collection-profile-grid">${cards}</div>` : '<span class="recon-pill">No supported profiles with direct URLs</span>'}
     </div>
   `;
 }
@@ -10967,6 +11327,649 @@ function numverifyProfilesMarkup(profiles) {
   `;
 }
 
+function footprintTextFromValues(values) {
+  return (Array.isArray(values) ? values : [])
+    .map((value) => {
+      if (value === null || value === undefined) return '';
+      if (typeof value === 'object') {
+        try {
+          return JSON.stringify(value);
+        } catch (_error) {
+          return '';
+        }
+      }
+      return String(value || '');
+    })
+    .filter(Boolean)
+    .join(' ')
+    .trim();
+}
+
+function shouldSeedMattCampbellDemoBreach(payload, scopedResults = [], scopedProfiles = []) {
+  const selectors = Array.isArray(payload?.selectors) ? payload.selectors : [];
+  const pdlProfiles = Array.isArray(payload?.person_data_profiles) ? payload.person_data_profiles : [];
+  const haystack = footprintTextFromValues([
+    ...selectors.map((item) => item?.value),
+    ...scopedResults.map((item) => `${item?.selector || ''} ${item?.profile_url || ''} ${item?.site || ''}`),
+    ...scopedProfiles.map((item) => `${item?.query_value || ''} ${item?.username || ''} ${item?.name || ''} ${item?.profile_url || ''}`),
+    ...pdlProfiles.map((item) => `${item?.query_value || ''} ${item?.full_name || ''} ${item?.linkedin_url || ''}`),
+  ]).toLowerCase();
+  return haystack.includes('mattcampbellca')
+    || haystack.includes('matt campbell')
+    || haystack.includes('matt.campbell');
+}
+
+function demoBreachExposureRecords(payload, scopedResults = [], scopedProfiles = []) {
+  if (!shouldSeedMattCampbellDemoBreach(payload, scopedResults, scopedProfiles)) return [];
+  const selector = ['email', 'matt.campbell.demo@example.com'];
+  return [
+    {
+      key: 'demo-linkedin-2021',
+      source: 'LinkedIn-style breach',
+      selectorType: selector[0],
+      selectorValue: selector[1],
+      breachName: 'LinkedIn Contacts Export',
+      breachDate: '2021-06',
+      observedAt: 'Imported record',
+      severity: 'High',
+      fields: [
+        ['Name', 'Matt Campbell'],
+        ['Email', 'matt.campbell.demo@example.com'],
+        ['Username', 'mattcampbellca'],
+        ['Password', 'DummyPassword!23'],
+        ['Password Hash', '$2b$10$9qhzv3l7v9kTqN0uS1aQ7e'],
+        ['Company', 'Campbell Advisory Group'],
+      ],
+    },
+    {
+      key: 'demo-marketing-2019',
+      source: 'Marketing database exposure',
+      selectorType: selector[0],
+      selectorValue: selector[1],
+      breachName: 'Regional Events CRM',
+      breachDate: '2019-11',
+      observedAt: 'Imported record',
+      severity: 'Medium',
+      fields: [
+        ['Name', 'Matt Campbell'],
+        ['Email', 'matt.campbell.demo@example.com'],
+        ['Phone', '+1 604 555 0198'],
+        ['Location', 'Vancouver, British Columbia'],
+        ['IP Address', '203.0.113.42'],
+      ],
+    },
+  ];
+}
+
+function collectBreachExposureRecords(profiles, specRows = [], payload = {}, scopedResults = []) {
+  const records = [];
+  const seen = new Set();
+  const addRecord = (record) => {
+    const key = String(record?.key || '').trim().toLowerCase()
+      || [
+        record?.selectorType,
+        record?.selectorValue,
+        record?.breachName,
+        record?.breachDate,
+        record?.source,
+      ].map((value) => String(value || '').trim().toLowerCase()).join('|');
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    records.push({ ...record, key });
+  };
+  const sanitize = (value) => String(value || '').trim();
+  const dateLabel = (value) => {
+    const raw = sanitize(value);
+    if (!raw) return '';
+    const parsed = new Date(raw);
+    if (Number.isNaN(parsed.getTime())) return raw;
+    return new Intl.DateTimeFormat('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' }).format(parsed);
+  };
+  const fieldPairsFromObject = (node) => {
+    if (!node || typeof node !== 'object') return [];
+    const fieldAliases = [
+      ['Email', ['email', 'email_address']],
+      ['Name', ['name', 'full_name']],
+      ['Username', ['username', 'handle', 'login']],
+      ['Password', ['password', 'cleartext_password']],
+      ['Password Hash', ['password_hash', 'hash', 'hashed_password']],
+      ['Phone', ['phone', 'phone_number', 'mobile']],
+      ['IP Address', ['ip', 'ip_address']],
+      ['Location', ['location', 'city', 'country']],
+      ['Data Classes', ['data_classes', 'dataclasses', 'compromised_data']],
+    ];
+    const output = [];
+    const entries = Object.entries(node);
+    for (const [label, aliases] of fieldAliases) {
+      const match = entries.find(([key]) => aliases.includes(String(key || '').trim().toLowerCase()));
+      if (!match) continue;
+      const value = Array.isArray(match[1]) ? match[1].join(', ') : sanitize(match[1]);
+      if (value) output.push([label, value]);
+    }
+    return output;
+  };
+  const recordFromNode = (node, selectorType, selectorValue, fallbackName = '') => {
+    if (!node || typeof node !== 'object') return null;
+    const name = sanitize(node.breach || node.breach_name || node.breachName || node.name || fallbackName);
+    if (!name || /^(true|false|null|none)$/i.test(name)) return null;
+    const breachDate = dateLabel(node.breach_date || node.breachDate || node.date || node.added_date || node.modified_date);
+    const fields = fieldPairsFromObject(node);
+    return {
+      key: `${selectorType}|${selectorValue}|${name}|${breachDate}`,
+      source: 'HIBP / breach intelligence',
+      selectorType,
+      selectorValue,
+      breachName: name,
+      breachDate,
+      observedAt: dateLabel(node.added_date || node.modified_date || node.observed_at),
+      severity: fields.some(([label]) => /password/i.test(label)) ? 'High' : 'Medium',
+      fields,
+      note: '',
+      demo: false,
+    };
+  };
+  const walk = (node, selectorType, selectorValue, fallbackName = '') => {
+    if (node === null || node === undefined) return;
+    if (Array.isArray(node)) {
+      for (const item of node) walk(item, selectorType, selectorValue, fallbackName);
+      return;
+    }
+    if (typeof node === 'string') {
+      const raw = node.trim();
+      if (!raw) return;
+      if ((raw.startsWith('{') && raw.endsWith('}')) || (raw.startsWith('[') && raw.endsWith(']'))) {
+        try {
+          walk(JSON.parse(raw), selectorType, selectorValue, fallbackName);
+          return;
+        } catch (_error) {
+          // Fall through to simple breach-name handling.
+        }
+      }
+      for (const part of raw.split(/[,;\n]+/g)) {
+        const name = sanitize(part);
+        if (!name || !/[A-Za-z]/.test(name) || name.length > 96) continue;
+        addRecord({
+          key: `${selectorType}|${selectorValue}|${name}`,
+          source: 'HIBP / breach intelligence',
+          selectorType,
+          selectorValue,
+          breachName: name,
+          breachDate: '',
+          observedAt: '',
+          severity: 'Medium',
+          fields: [],
+          note: '',
+          demo: false,
+        });
+      }
+      return;
+    }
+    if (typeof node !== 'object') return;
+    const direct = recordFromNode(node, selectorType, selectorValue, fallbackName);
+    if (direct) addRecord(direct);
+    for (const [key, value] of Object.entries(node)) {
+      const lowered = String(key || '').toLowerCase();
+      if (!lowered.includes('breach') && !lowered.includes('pwn') && !lowered.includes('leak')) continue;
+      walk(value, selectorType, selectorValue, key);
+    }
+  };
+
+  for (const profile of Array.isArray(profiles) ? profiles : []) {
+    if (!isHibpModuleName(profile?.module)) continue;
+    const selectorType = String(profile?.query_type || 'selector').trim().toLowerCase();
+    const selectorValue = String(profile?.query_value || '').trim() || 'unknown';
+    walk(profile?.breach, selectorType, selectorValue);
+    walk(profile?.parsed_values, selectorType, selectorValue);
+    walk(profile?.spec_format, selectorType, selectorValue);
+  }
+  for (const row of Array.isArray(specRows) ? specRows : []) {
+    if (!isHibpModuleName(row?.module)) continue;
+    const selectorType = String(row?.query_type || 'selector').trim().toLowerCase();
+    const selectorValue = String(row?.query_value || '').trim() || 'unknown';
+    walk(row?.parsed_values, selectorType, selectorValue);
+    walk(row?.spec_format, selectorType, selectorValue);
+  }
+  for (const record of Array.isArray(payload?.breach_records) ? payload.breach_records : []) {
+    if (!record || typeof record !== 'object') continue;
+    addRecord({
+      ...record,
+      key: String(record?.key || '').trim()
+        || [
+          record?.selectorType,
+          record?.selectorValue,
+          record?.breachName,
+          record?.breachDate,
+          record?.source,
+        ].map((value) => String(value || '').trim().toLowerCase()).join('|'),
+    });
+  }
+  for (const demo of demoBreachExposureRecords(payload, scopedResults, profiles)) addRecord(demo);
+  return records.sort((a, b) => {
+    const severityRank = { high: 0, medium: 1, low: 2 };
+    const ar = severityRank[String(a.severity || '').toLowerCase()] ?? 3;
+    const br = severityRank[String(b.severity || '').toLowerCase()] ?? 3;
+    return ar - br || String(a.breachName || '').localeCompare(String(b.breachName || ''));
+  });
+}
+
+function breachExposureMarkup(records) {
+  const items = Array.isArray(records) ? records : [];
+  if (!items.length) return '';
+  const cards = items.map((record) => {
+    const fields = Array.isArray(record?.fields) ? record.fields : [];
+    const fieldsMarkup = fields.length
+      ? fields.map(([label, value]) => `
+        <div class="breach-field">
+          <span>${escapeHtml(label)}</span>
+          <strong>${escapeHtml(value)}</strong>
+        </div>
+      `).join('')
+      : '<div class="breach-field breach-field-empty"><span>Fields</span><strong>Data classes not returned</strong></div>';
+    const selectorAttr = sourceSelectorAttr(record?.selectorType, record?.selectorValue);
+    return `
+      <article class="breach-card breach-card-${escapeAttr(String(record?.severity || 'medium').toLowerCase())}"${selectorAttr}>
+        <div class="breach-card-head">
+          <div>
+            <p>${escapeHtml(record?.source || 'Breach result')}</p>
+            <h4>${escapeHtml(record?.breachName || 'Breach exposure')}</h4>
+          </div>
+          <span class="breach-severity">${escapeHtml(record?.severity || 'Medium')}</span>
+        </div>
+        <div class="breach-card-meta">
+          <span>${escapeHtml(record?.breachDate || 'Date unavailable')}</span>
+          <span>${escapeHtml(formatSelectorLabel(record?.selectorType, record?.selectorValue))}</span>
+        </div>
+        <div class="breach-field-grid">${fieldsMarkup}</div>
+      </article>
+    `;
+  }).join('');
+  return `
+    <div class="recon-group breach-exposure-group">
+      <div class="recon-group-head">
+        <p>Data Breach Exposure (${items.length})</p>
+      </div>
+      <div class="breach-card-grid">${cards}</div>
+    </div>
+  `;
+}
+
+function footprintDossierMarkup(payload, scopedResults, osintProfiles, personDataProfiles, numverifyProfiles, breachRecords) {
+  const results = Array.isArray(scopedResults) ? scopedResults : [];
+  const osint = Array.isArray(osintProfiles) ? osintProfiles : [];
+  const pdl = Array.isArray(personDataProfiles) ? personDataProfiles : [];
+  const numverify = Array.isArray(numverifyProfiles) ? numverifyProfiles : [];
+  const breaches = Array.isArray(breachRecords) ? breachRecords : [];
+  const selectors = collectKnownSelectors({
+    ...(payload && typeof payload === 'object' ? payload : {}),
+    results,
+    osint_profiles: osint,
+    person_data_profiles: pdl,
+    numverify_profiles: numverify,
+  });
+  const summary = collectLikelyNameSummary({
+    ...(payload && typeof payload === 'object' ? payload : {}),
+    results,
+    osint_profiles: osint,
+    person_data_profiles: pdl,
+  });
+  const likelyName = summary?.name || pdl.find((item) => String(item?.full_name || '').trim())?.full_name || 'Subject profile';
+  const startingSelectors = Array.isArray(payload?.selectors) ? payload.selectors : [];
+  const selectorRows = collectSelectorCorroborationRows(results, osint, pdl, numverify, breaches, startingSelectors);
+  const selectorCount = KNOWN_SELECTOR_GROUPS.reduce((sum, type) => sum + (Array.isArray(selectors?.[type]) ? selectors[type].length : 0), 0);
+  const collectionReady = results.filter((row) => String(row?.status || '').trim().toLowerCase() === 'present' && row?.supported_for_collection && String(row?.profile_url || '').trim()).length;
+  const selectorsMarkup = selectorRows.length
+    ? selectorRows.slice(0, 8).map((row) => {
+      const level = `${row.confidence?.label || 'Low'} confidence`;
+      const origin = row.isStartingSelector ? 'Starting' : 'Discovered';
+      return `
+        <div class="footprint-dossier-selector-row">
+          <span>${escapeHtml(origin)} / ${escapeHtml(level)}</span>
+          <strong>${escapeHtml(formatSelectorLabel(row.selectorType, row.selectorValue))}</strong>
+          <em>${row.sourceCount} source${row.sourceCount === 1 ? '' : 's'} / ${row.datapoints} datapoint${row.datapoints === 1 ? '' : 's'}</em>
+        </div>
+      `;
+    }).join('')
+    : '';
+  return `
+    <section class="footprint-dossier">
+      <div class="footprint-dossier-main">
+        <p>Digital footprint profile</p>
+        <h4>${escapeHtml(likelyName)}</h4>
+        <div class="footprint-dossier-source-strip">
+          <span>${selectorRows.filter((row) => row.sourceCount > 1).length} corroborated selector${selectorRows.filter((row) => row.sourceCount > 1).length === 1 ? '' : 's'}</span>
+          <span>${selectorRows.length} selector${selectorRows.length === 1 ? '' : 's'} with evidence</span>
+        </div>
+      </div>
+      <div class="footprint-dossier-stats">
+        <div><span>Profiles</span><strong>${osint.length + pdl.length + numverify.length + results.filter((row) => String(row?.status || '').trim().toLowerCase() === 'present').length}</strong></div>
+        <div><span>Selectors</span><strong>${selectorCount}</strong></div>
+        <div><span>Collectable</span><strong>${collectionReady}</strong></div>
+        <div><span>Breach hits</span><strong>${breaches.length}</strong></div>
+      </div>
+      <div class="footprint-dossier-selectors">
+        ${selectorsMarkup || '<div class="footprint-dossier-selector-row"><span>Selectors</span><strong>None extracted</strong></div>'}
+      </div>
+    </section>
+  `;
+}
+
+function selectorKeyFromParts(selectorType, selectorValue) {
+  const type = String(selectorType || '').trim().toLowerCase();
+  const value = normalizeKnownSelectorValue(type, selectorValue);
+  if (!type || !value) return '';
+  return `${type}|${value.toLowerCase()}`;
+}
+
+function selectorConfidenceAssessment(selectorType, selectorValue, sourceCount, datapoints, isStartingSelector) {
+  const type = String(selectorType || '').trim().toLowerCase();
+  const value = String(selectorValue || '').trim();
+  const masked = /[*xX\u2022\u00B7]/.test(value);
+  const uniqueStrong = ['email', 'phone', 'wallet'].includes(type);
+  const weakGeneric = ['name', 'location'].includes(type);
+  if (masked) {
+    return {
+      label: sourceCount > 1 ? 'Medium' : 'Low',
+      reason: `${selectorTypeDisplayLabel(type)} is partial or masked; corroboration is needed before treating it as target-owned.`,
+    };
+  }
+  if (uniqueStrong) {
+    if (isStartingSelector || sourceCount > 1 || datapoints > 1) {
+      return {
+        label: 'High',
+        reason: `${selectorTypeDisplayLabel(type)} is a strong unique selector${sourceCount > 1 ? ` and appears across ${sourceCount} sources` : ''}.`,
+      };
+    }
+    return {
+      label: 'Medium',
+      reason: `${selectorTypeDisplayLabel(type)} is strong, but was discovered from one source and may only maybe belong to the target.`,
+    };
+  }
+  if (type === 'username') {
+    if (sourceCount > 1 || datapoints >= 3) {
+      return {
+        label: 'Medium',
+        reason: 'Username is not inherently unique, but multiple datapoints increase confidence.',
+      };
+    }
+    return {
+      label: 'Low',
+      reason: 'Username can be reused by different people unless corroborated by other selectors or profile attributes.',
+    };
+  }
+  if (weakGeneric) {
+    return {
+      label: sourceCount > 2 ? 'Medium' : 'Low',
+      reason: `${selectorTypeDisplayLabel(type)} is a weak generic selector and should be used for discovery, not attribution by itself.`,
+    };
+  }
+  return {
+    label: sourceCount > 1 ? 'Medium' : 'Low',
+    reason: 'Selector confidence depends on source quality and corroborating attributes.',
+  };
+}
+
+function collectSelectorCorroborationRows(results, osintProfiles, personDataProfiles, numverifyProfiles, breachRecords, startingSelectors = []) {
+  const bySelector = new Map();
+  const startingKeys = new Set((Array.isArray(startingSelectors) ? startingSelectors : [])
+    .map((selector) => selectorKeyFromParts(selector?.type, selector?.value))
+    .filter(Boolean));
+  const ensure = (selectorType, selectorValue) => {
+    const key = selectorKeyFromParts(selectorType, selectorValue);
+    if (!key) return null;
+    if (!bySelector.has(key)) {
+      bySelector.set(key, {
+        key,
+        selectorType: String(selectorType || '').trim().toLowerCase(),
+        selectorValue: normalizeKnownSelectorValue(selectorType, selectorValue),
+        sources: new Set(),
+        datapoints: 0,
+        isStartingSelector: startingKeys.has(key),
+      });
+    }
+    return bySelector.get(key);
+  };
+  const add = (selectorType, selectorValue, source, datapoints = 1) => {
+    const row = ensure(selectorType, selectorValue);
+    if (!row) return;
+    const sourceLabel = String(source || '').trim();
+    if (sourceLabel) row.sources.add(sourceLabel);
+    row.datapoints += Math.max(1, Number(datapoints) || 1);
+  };
+  for (const row of Array.isArray(results) ? results : []) {
+    add(row?.selector_type, row?.selector, normalizeReconSiteLabel(row?.site || row?.site_key || row?.source, row?.profile_url, row?.site_url));
+  }
+  for (const profile of Array.isArray(osintProfiles) ? osintProfiles : []) {
+    add(profile?.query_type, profile?.query_value, normalizeReconSiteLabel(profile?.module || profile?.website, profile?.profile_url, profile?.website));
+  }
+  for (const profile of Array.isArray(personDataProfiles) ? personDataProfiles : []) {
+    add(profile?.query_type, profile?.query_value, 'People Data Labs', 2);
+  }
+  for (const profile of Array.isArray(numverifyProfiles) ? numverifyProfiles : []) {
+    add(profile?.query_type || 'phone', profile?.query_value || profile?.number, 'Numverify');
+  }
+  for (const breach of Array.isArray(breachRecords) ? breachRecords : []) {
+    add(breach?.selectorType, breach?.selectorValue, breach?.source || 'Breach intelligence', 2);
+  }
+  return Array.from(bySelector.values())
+    .map((row) => {
+      const sources = Array.from(row.sources).sort((a, b) => a.localeCompare(b));
+      const confidence = selectorConfidenceAssessment(row.selectorType, row.selectorValue, sources.length, row.datapoints, row.isStartingSelector);
+      return {
+        ...row,
+        sourceCount: sources.length,
+        sources,
+        confidence,
+      };
+    })
+    .sort((a, b) => {
+      if (a.isStartingSelector !== b.isStartingSelector) return a.isStartingSelector ? -1 : 1;
+      return b.sourceCount - a.sourceCount || b.datapoints - a.datapoints || a.selectorValue.localeCompare(b.selectorValue);
+    });
+}
+
+function collectFootprintEvidenceRows(results, osintProfiles, personDataProfiles, numverifyProfiles, breachRecords) {
+  const rows = [];
+  const seen = new Set();
+  const add = (row) => {
+    const key = [
+      row.kind,
+      row.title,
+      row.source,
+      row.selectorType,
+      row.selectorValue,
+      row.url,
+      row.detail,
+    ].map((value) => String(value || '').trim().toLowerCase()).join('|');
+    if (seen.has(key)) return;
+    seen.add(key);
+    rows.push(row);
+  };
+  for (const profile of Array.isArray(osintProfiles) ? osintProfiles : []) {
+    const source = normalizeReconSiteLabel(profile?.module || profile?.website, profile?.profile_url, profile?.website);
+    const title = String(profile?.title || profile?.name || profile?.username || source || 'Profile').trim();
+    const detailBits = [
+      profile?.username ? `@${profile.username}` : '',
+      profile?.email ? `email ${profile.email}` : '',
+      profile?.phone ? `phone ${profile.phone}` : '',
+      profile?.location || profile?.biolocation || '',
+    ].filter(Boolean);
+    add({
+      kind: 'Profile',
+      title,
+      source,
+      selectorType: profile?.query_type,
+      selectorValue: profile?.query_value,
+      detail: detailBits.join(' / ') || 'Profile matched by provider',
+      url: normalizeExternalUrl(profile?.profile_url || profile?.website),
+    });
+  }
+  for (const row of Array.isArray(results) ? results : []) {
+    if (String(row?.status || '').trim().toLowerCase() !== 'present') continue;
+    const source = normalizeReconSiteLabel(row?.site || row?.site_key || row?.source, row?.profile_url, row?.site_url);
+    add({
+      kind: row?.supported_for_collection ? 'Collectable profile' : (String(row?.profile_url || '').trim() ? 'Profile URL' : 'Known present'),
+      title: source,
+      source,
+      selectorType: row?.selector_type,
+      selectorValue: row?.selector,
+      detail: row?.profile_url ? 'Direct account URL returned' : 'Provider indicated account presence without direct URL',
+      url: normalizeExternalUrl(row?.profile_url),
+    });
+  }
+  for (const profile of Array.isArray(personDataProfiles) ? personDataProfiles : []) {
+    const title = String(profile?.full_name || 'Person data profile').trim();
+    const role = [profile?.job_title, profile?.job_company_name].filter(Boolean).join(' at ');
+    const contactBits = [
+      profile?.professional_email || profile?.work_email || '',
+      profile?.mobile_phone || '',
+      role,
+      profile?.location_name || '',
+    ].filter(Boolean);
+    add({
+      kind: 'Identity enrichment',
+      title,
+      source: 'People Data Labs',
+      selectorType: profile?.query_type,
+      selectorValue: profile?.query_value,
+      detail: contactBits.join(' / ') || 'Identity attributes returned',
+      url: normalizeExternalUrl(profile?.linkedin_url),
+    });
+  }
+  for (const profile of Array.isArray(numverifyProfiles) ? numverifyProfiles : []) {
+    add({
+      kind: 'Phone intelligence',
+      title: String(profile?.number || profile?.international_format || profile?.query_value || 'Phone result').trim(),
+      source: 'Numverify',
+      selectorType: profile?.query_type || 'phone',
+      selectorValue: profile?.query_value || profile?.number,
+      detail: [profile?.country_name, profile?.carrier, profile?.line_type].filter(Boolean).join(' / ') || (profile?.valid ? 'Valid number' : 'Invalid or not recognized'),
+      url: '',
+    });
+  }
+  for (const breach of Array.isArray(breachRecords) ? breachRecords : []) {
+    const fieldSummary = Array.isArray(breach?.fields) && breach.fields.length
+      ? breach.fields.map(([label]) => label).slice(0, 5).join(', ')
+      : 'Data classes not returned';
+    add({
+      kind: breach?.demo ? 'Demo breach' : 'Breach exposure',
+      title: breach?.breachName || 'Breach exposure',
+      source: breach?.source || 'Breach intelligence',
+      selectorType: breach?.selectorType,
+      selectorValue: breach?.selectorValue,
+      detail: `${breach?.severity || 'Medium'} risk / ${fieldSummary}`,
+      url: '',
+    });
+  }
+  return rows.sort((a, b) => {
+    const rank = { 'Breach exposure': 0, 'Demo breach': 0, 'Identity enrichment': 1, Profile: 2, 'Collectable profile': 2, 'Profile URL': 3, 'Phone intelligence': 4, 'Known present': 5 };
+    return (rank[a.kind] ?? 9) - (rank[b.kind] ?? 9) || a.source.localeCompare(b.source) || a.title.localeCompare(b.title);
+  });
+}
+
+function footprintEvidenceCardsMarkup(rows, selectorRows = []) {
+  const items = Array.isArray(rows) ? rows : [];
+  if (!items.length) return '';
+  const selectorMeta = new Map((Array.isArray(selectorRows) ? selectorRows : []).map((row) => [row.key, row]));
+  const grouped = new Map();
+  const ensure = (row) => {
+    const key = selectorKeyFromParts(row?.selectorType, row?.selectorValue) || 'unknown|unknown';
+    if (!grouped.has(key)) {
+      grouped.set(key, {
+        key,
+        selectorType: String(row?.selectorType || '').trim().toLowerCase(),
+        selectorValue: normalizeKnownSelectorValue(row?.selectorType, row?.selectorValue) || String(row?.selectorValue || '').trim() || 'unknown',
+        rows: [],
+        sources: new Set(),
+      });
+    }
+    return grouped.get(key);
+  };
+  for (const row of items) {
+    const group = ensure(row);
+    group.rows.push(row);
+    if (row?.source) group.sources.add(String(row.source).trim());
+  }
+  const groups = Array.from(grouped.values()).map((group) => {
+    const meta = selectorMeta.get(group.key) || {};
+    const sourceList = Array.isArray(meta.sources) && meta.sources.length ? meta.sources : Array.from(group.sources).sort((a, b) => a.localeCompare(b));
+    return {
+      ...group,
+      sourceCount: Number.isFinite(meta.sourceCount) ? meta.sourceCount : sourceList.length,
+      datapoints: Number.isFinite(meta.datapoints) ? meta.datapoints : group.rows.length,
+      sources: sourceList,
+      confidence: meta.confidence || null,
+      isStartingSelector: meta.isStartingSelector === true,
+    };
+  }).sort((a, b) => b.sourceCount - a.sourceCount || b.datapoints - a.datapoints || a.selectorValue.localeCompare(b.selectorValue));
+  return `
+    <div class="recon-group footprint-evidence-group">
+      <div class="recon-group-head">
+        <p>Key Findings (${items.length})</p>
+      </div>
+      <div class="footprint-evidence-cards">
+        ${groups.map((group) => {
+    const selectorLabel = formatSelectorLabel(group.selectorType, group.selectorValue);
+    const selectorTypeLabel = selectorTypeDisplayLabel(group.selectorType);
+    const confidence = group.confidence || selectorConfidenceAssessment(group.selectorType, group.selectorValue, group.sourceCount, group.datapoints, group.isStartingSelector === true);
+    const origin = group.isStartingSelector ? 'Starting selector' : 'Discovered selector';
+    const sources = group.sources.slice(0, 4).map((source) => `<span>${escapeHtml(source)}</span>`).join('');
+    const pivotMarkup = pivotSelectorActionMarkup(group.selectorType, group.selectorValue, 'Pivot from this selector');
+    return `
+          <article class="footprint-finding-card"${sourceSelectorAttr(group.selectorType, group.selectorValue)}>
+            <header class="footprint-finding-head">
+              <div>
+                <div class="footprint-finding-kicker">${escapeHtml(origin)} / ${escapeHtml(selectorTypeLabel)}</div>
+                <h4>${escapeHtml(selectorLabel)}</h4>
+              </div>
+              <strong class="footprint-confidence-${escapeAttr(String(confidence.label || '').toLowerCase())}">${escapeHtml(confidence.label || 'Low')} confidence</strong>
+            </header>
+            <div class="footprint-finding-score">
+              <span>${group.sourceCount} source${group.sourceCount === 1 ? '' : 's'}</span>
+              <span>${group.datapoints} datapoint${group.datapoints === 1 ? '' : 's'}</span>
+              ${pivotMarkup ? `<span class="footprint-finding-pivot">${pivotMarkup}</span>` : ''}
+            </div>
+            <p class="footprint-confidence-reason">${escapeHtml(confidence.reason || '')}</p>
+            <div class="footprint-finding-sources">${sources || '<span>Unknown source</span>'}</div>
+            <div class="footprint-finding-list">
+              ${group.rows.map((row) => {
+      const title = row.url
+        ? `<a href="${escapeHtml(row.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(row.title || row.kind)}</a>`
+        : escapeHtml(row.title || row.kind);
+      return `
+                <div class="footprint-finding-item">
+                  <span>${escapeHtml(row.kind || 'Finding')} / ${escapeHtml(row.source || 'Unknown')}</span>
+                  <strong>${title}</strong>
+                  <p>${escapeHtml(row.detail || 'No detail returned')}</p>
+                </div>
+              `;
+    }).join('')}
+            </div>
+          </article>
+        `;
+  }).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function footprintRawDetailsMarkup(sections) {
+  const items = (Array.isArray(sections) ? sections : []).filter((item) => String(item?.markup || '').trim());
+  if (!items.length) return '';
+  return `
+    <details class="footprint-raw-details">
+      <summary>Provider Details</summary>
+      <div class="footprint-raw-details-body">
+        ${items.map((item) => `
+          <section>
+            <h4>${escapeHtml(item.title || 'Details')}</h4>
+            ${item.markup}
+          </section>
+        `).join('')}
+      </div>
+    </details>
+  `;
+}
+
 function knownSelectorPillMarkup(type, value) {
   const key = `${type}|${String(value || '').toLowerCase()}`;
   if (hiddenKnownSelectorKeys.has(key)) return '';
@@ -11052,15 +12055,26 @@ function renderKnownSelectorsPanel(payload) {
   footprintKnownSelectorsGroups.innerHTML = sections || '<p class="viz-empty">No selectors returned yet.</p>';
 }
 
+function setFootprintSelectorsCollapsed(collapsed) {
+  footprintSelectorsCollapsed = Boolean(collapsed);
+  footprintKnownSelectors?.classList.toggle('is-collapsed', footprintSelectorsCollapsed);
+  if (!(footprintKnownSelectorsToggle instanceof HTMLButtonElement)) return;
+  footprintKnownSelectorsToggle.setAttribute('aria-expanded', String(!footprintSelectorsCollapsed));
+  const label = footprintKnownSelectorsToggle.querySelector('.known-selectors-toggle-label');
+  if (label) label.textContent = footprintSelectorsCollapsed ? 'Expand' : 'Collapse';
+}
+
 function emptyReconPayload() {
   return {
     selectors: [],
     results: [],
+    scanner_results: [],
     collection_targets: [],
     leads: [],
     osint_profiles: [],
     osint_spec_results: [],
     numverify_profiles: [],
+    breach_records: [],
     person_data_profile: {},
     person_data_profiles: [],
     api_modules_queried: [],
@@ -11086,6 +12100,9 @@ function mergeReconPayloads(basePayload, incomingPayload) {
     }
     return output;
   };
+  // Scanner rows may be re-emitted after public metadata is collected. Keep the
+  // most recent version so a pending profile tile is upgraded in place.
+  const dedupeByLatest = (rows, keyFn) => dedupeBy([...rows].reverse(), keyFn).reverse();
   const merged = {
     selectors: dedupeBy([...(base.selectors || []), ...(incoming.selectors || [])], (row) => `${String(row?.type || '').toLowerCase()}|${String(row?.value || '').toLowerCase()}`),
     results: dedupeBy([...(base.results || []), ...(incoming.results || [])], (row) => [
@@ -11094,6 +12111,13 @@ function mergeReconPayloads(basePayload, incomingPayload) {
       String(row?.site_key || row?.site || '').toLowerCase(),
       String(row?.profile_url || '').toLowerCase(),
       String(row?.source || '').toLowerCase(),
+    ].join('|')),
+    scanner_results: dedupeByLatest([...(base.scanner_results || []), ...(incoming.scanner_results || [])], (row) => [
+      String(row?.selector_type || '').toLowerCase(),
+      String(row?.selector || '').toLowerCase(),
+      String(row?.site_name || row?.site || '').toLowerCase(),
+      String(row?.category || '').toLowerCase(),
+      String(row?.url || row?.profile_url || '').toLowerCase(),
     ].join('|')),
     collection_targets: dedupeBy([...(base.collection_targets || []), ...(incoming.collection_targets || [])], (row) => `${String(row?.platform || '').toLowerCase()}|${String(row?.username || '').toLowerCase()}`),
     leads: dedupeBy([...(base.leads || []), ...(incoming.leads || [])], (row) => [
@@ -11120,6 +12144,13 @@ function mergeReconPayloads(basePayload, incomingPayload) {
       String(row?.title || '').toLowerCase(),
     ].join('|')),
     numverify_profiles: dedupeBy([...(base.numverify_profiles || []), ...(incoming.numverify_profiles || [])], (row) => `${String(row?.number || row?.query_value || '').toLowerCase()}`),
+    breach_records: dedupeBy([...(base.breach_records || []), ...(incoming.breach_records || [])], (row) => [
+      String(row?.selectorType || '').toLowerCase(),
+      String(row?.selectorValue || '').toLowerCase(),
+      String(row?.breachName || '').toLowerCase(),
+      String(row?.breachDate || '').toLowerCase(),
+      String(row?.source || '').toLowerCase(),
+    ].join('|')),
     person_data_profiles: dedupeBy([...(base.person_data_profiles || []), ...(incoming.person_data_profiles || [])], (row) => `${String(row?.id || '').toLowerCase()}|${String(row?.full_name || '').toLowerCase()}|${String(row?.query_value || '').toLowerCase()}`),
     api_modules_queried: dedupeBy([...(base.api_modules_queried || []), ...(incoming.api_modules_queried || [])], (row) => `${String(row?.module || '').toLowerCase()}`),
   };
@@ -11208,6 +12239,7 @@ function applyReconPayload(payload, options = {}) {
 function renderReconResults(payload, targetEl = reconResults) {
   if (!(targetEl instanceof HTMLElement)) return;
   const rawResults = Array.isArray(payload?.results) ? payload.results : [];
+  const rawScannerResults = Array.isArray(payload?.scanner_results) ? payload.scanner_results : [];
   const rawOsintSpecRows = Array.isArray(payload?.osint_spec_results) ? payload.osint_spec_results : [];
   const sourceSelectorOptions = collectSourceSelectorFilterOptions(rawResults);
   const showSourceSelectorFilter = targetEl === footprintReconResults && sourceSelectorOptions.length > 1;
@@ -11220,6 +12252,9 @@ function renderReconResults(payload, targetEl = reconResults) {
   const results = activeFootprintSourceSelectorKey !== 'all'
     ? rawResults.filter((row) => sourceSelectorKey(row?.selector_type, row?.selector) === activeFootprintSourceSelectorKey)
     : rawResults;
+  const scannerResults = activeFootprintSourceSelectorKey !== 'all'
+    ? rawScannerResults.filter((row) => sourceSelectorKey(row?.selector_type, row?.selector) === activeFootprintSourceSelectorKey)
+    : rawScannerResults;
   const osintSpecRows = activeFootprintSourceSelectorKey !== 'all'
     ? rawOsintSpecRows.filter((row) => sourceSelectorKey(row?.query_type, row?.query_value) === activeFootprintSourceSelectorKey)
     : rawOsintSpecRows;
@@ -11255,6 +12290,12 @@ function renderReconResults(payload, targetEl = reconResults) {
     ? payload.person_data_profile
     : {};
   const personDataProfiles = Array.isArray(payload?.person_data_profiles) ? payload.person_data_profiles : [];
+  const scopedNumverifyProfiles = activeFootprintSourceSelectorKey !== 'all'
+    ? numverifyProfiles.filter((item) => sourceSelectorKey(item?.query_type || 'phone', item?.query_value || item?.number || item?.international_format || item?.e164 || '') === activeFootprintSourceSelectorKey)
+    : numverifyProfiles;
+  const scopedPersonDataProfiles = activeFootprintSourceSelectorKey !== 'all'
+    ? personDataProfiles.filter((item) => sourceSelectorKey(item?.query_type, item?.query_value) === activeFootprintSourceSelectorKey)
+    : personDataProfiles;
   const pdlProfiles = results.filter(
     (row) => row.status === 'present'
       && String(row.source || '').trim().toLowerCase() === 'pdl'
@@ -11280,6 +12321,14 @@ function renderReconResults(payload, targetEl = reconResults) {
     : results.filter((row) => row.status === 'present' && !String(row.profile_url || '').trim());
   const unknown = results.filter((row) => row.status === 'unknown');
   const showHibpAggregate = targetEl === footprintReconResults;
+  const breachRecords = showHibpAggregate
+    ? collectBreachExposureRecords(allOsintProfiles, osintSpecRows, payload, results)
+    : [];
+  const collectableProfileCount = nonPdlSupportedPresent.length;
+  const profilesToReviewCount = osintProfiles.length + scannerResults.length + nonPdlLeadPresent.length + knownPresentNoUrl.length;
+  const identitySignalCount = scopedPersonDataProfiles.length + scopedNumverifyProfiles.length;
+  const exposureRecordCount = breachRecords.length;
+  const hasProfileSignals = collectableProfileCount + profilesToReviewCount + identitySignalCount + exposureRecordCount > 0;
   const activeSelectorLabel = activeFootprintSourceSelectorKey === 'all'
     ? ''
     : (sourceSelectorOptions.find((item) => item.key === activeFootprintSourceSelectorKey)?.label || activeFootprintSourceSelectorKey);
@@ -11319,35 +12368,85 @@ function renderReconResults(payload, targetEl = reconResults) {
 
   targetEl.classList.remove('hidden');
   targetEl.innerHTML = `
-    ${osintProfilesMarkup(osintProfiles, results, { removable: targetEl === footprintReconResults })}
-    <div class="recon-status-stack">
-    <div class="recon-group">
-      <div class="recon-group-head">
-        <p>Collection-ready with account URL</p>
-        ${supportedPresentTargets.length ? `<button type="button" class="secondary-btn recon-group-collect-all" data-recon-collect-all="supported" data-recon-collect-all-targets="${escapeAttr(JSON.stringify(supportedPresentTargets))}">Collect All</button>` : ''}
+    ${hasProfileSignals ? `
+    <section class="footprint-profile-overview" aria-label="Profile review summary">
+      <div class="footprint-overview-item footprint-overview-item-ready">
+        <span>Ready to collect</span>
+        <strong>${collectableProfileCount}</strong>
       </div>
-      <div class="recon-pills">
-        ${nonPdlSupportedPresent.length
-    ? nonPdlSupportedPresent.map((row) => toReconBadge(row, 'success', { removable: targetEl === footprintReconResults, pivotable: false, collectable: true })).join('')
-    : '<span class="recon-pill">No supported profiles with direct URLs</span>'}
+      <div class="footprint-overview-item">
+        <span>Profiles to review</span>
+        <strong>${profilesToReviewCount}</strong>
       </div>
-    </div>
-    <div class="recon-group">
-      <p>Unsupported with account URL</p>
-      <div class="recon-pills">
-        ${nonPdlLeadPresent.length ? nonPdlLeadPresent.map((row) => toReconBadge(row, 'neutral', { removable: targetEl === footprintReconResults, pivotable: false })).join('') : '<span class="recon-pill">No unsupported account URLs detected</span>'}
+      <div class="footprint-overview-item">
+        <span>Identity signals</span>
+        <strong>${identitySignalCount}</strong>
       </div>
-    </div>
-    <div class="recon-group">
-      <p>Known present without direct account URL</p>
-      <div class="recon-pills">
-        ${knownPresentNoUrl.length ? knownPresentNoUrl.map((row) => toReconBadge(row, 'neutral', { removable: targetEl === footprintReconResults, pivotable: false })).join('') : '<span class="recon-pill">No known-present no-URL results</span>'}
-      </div>
-    </div>
-    </div>
-    ${numverifyProfilesMarkup(numverifyProfiles)}
-    ${personDataProfileMarkup(personDataProfile, personDataProfiles.length, pdlProfiles, { removable: targetEl === footprintReconResults })}
-    ${showHibpAggregate ? hibpAggregateMarkup(allOsintProfiles, osintSpecRows) : ''}
+      ${showHibpAggregate ? `<div class="footprint-overview-item footprint-overview-item-exposure">
+        <span>Exposure records</span>
+        <strong>${exposureRecordCount}</strong>
+      </div>` : ''}
+    </section>
+    <div class="footprint-profile-flow">
+      <section class="footprint-profile-tier footprint-profile-tier-collectable">
+        <header class="footprint-profile-tier-head">
+          <div><span>Priority accounts</span><h4>Collectable Profiles</h4></div>
+          <strong>${nonPdlSupportedPresent.length}</strong>
+        </header>
+        <p class="footprint-profile-tier-copy">High-value accounts that can be added directly to collection.</p>
+        ${collectionReadyProfilesMarkup(nonPdlSupportedPresent, supportedPresentTargets, { removable: targetEl === footprintReconResults })}
+      </section>
+      <section class="footprint-profile-tier footprint-profile-tier-discovered">
+        <header class="footprint-profile-tier-head">
+          <div><span>Account discovery</span><h4>Other Profiles</h4></div>
+          <strong>${osintProfiles.length + scannerResults.length + nonPdlLeadPresent.length + knownPresentNoUrl.length}</strong>
+        </header>
+        <p class="footprint-profile-tier-copy">Related accounts and service matches that need review before collection.</p>
+        ${osintProfilesMarkup(osintProfiles, results, { removable: targetEl === footprintReconResults })}
+        ${userScannerProfilesMarkup(scannerResults, results, { removable: targetEl === footprintReconResults })}
+        <div class="recon-status-stack footprint-profile-supporting-results">
+          <div class="recon-group">
+            <p>Unsupported with account URL</p>
+            <div class="recon-pills">
+              ${nonPdlLeadPresent.length ? nonPdlLeadPresent.map((row) => toReconBadge(row, 'neutral', { removable: targetEl === footprintReconResults, pivotable: false })).join('') : '<span class="recon-pill">No unsupported account URLs detected</span>'}
+            </div>
+          </div>
+          <div class="recon-group">
+            <p>Known present without direct account URL</p>
+            <div class="recon-pills">
+              ${knownPresentNoUrl.length ? knownPresentNoUrl.map((row) => toReconBadge(row, 'neutral', { removable: targetEl === footprintReconResults, pivotable: false })).join('') : '<span class="recon-pill">No known-present no-URL results</span>'}
+            </div>
+          </div>
+        </div>
+      </section>
+      <section class="footprint-profile-tier footprint-profile-tier-enrichment">
+        <header class="footprint-profile-tier-head">
+          <div><span>Identity enrichment</span><h4>Person Data Profiles</h4></div>
+          <strong>${scopedPersonDataProfiles.length + scopedNumverifyProfiles.length}</strong>
+        </header>
+        <p class="footprint-profile-tier-copy">Enriched identity, contact, and phone intelligence connected to the active selectors.</p>
+        ${personDataProfileMarkup(scopedPersonDataProfiles[0] || (activeFootprintSourceSelectorKey === 'all' ? personDataProfile : {}), scopedPersonDataProfiles.length, pdlProfiles, { removable: targetEl === footprintReconResults })}
+        ${numverifyProfilesMarkup(scopedNumverifyProfiles)}
+      </section>
+      ${showHibpAggregate ? `<section class="footprint-profile-tier footprint-profile-tier-breach">
+        <header class="footprint-profile-tier-head">
+          <div><span>Exposure intelligence</span><h4>Breach Exposure</h4></div>
+          <strong>${breachRecords.length}</strong>
+        </header>
+        <p class="footprint-profile-tier-copy">Credentials and personal attributes surfaced in exposed datasets.</p>
+        ${breachExposureMarkup(breachRecords)}
+      </section>` : ''}
+    </div>` : `
+      <section class="footprint-profile-empty-state">
+        <span class="footprint-empty-kicker">Profile intelligence</span>
+        <h4>No profile signals yet</h4>
+        <p>Run reconnaissance with a username, email, phone, or name to build a profile review queue.</p>
+        <div class="footprint-empty-steps" aria-label="Reconnaissance workflow">
+          <span><b>1</b> Add selectors</span>
+          <span><b>2</b> Run recon</span>
+          <span><b>3</b> Review profiles</span>
+        </div>
+      </section>`}
   `;
   if (targetEl === footprintReconResults) {
     if (activeFootprintSourceSelectorKey === 'all') {
@@ -12396,7 +13495,7 @@ function parseReconSelectorsFromRows(container = reconSelectorsList) {
   return selectors;
 }
 
-async function consumeReconStream(selectors, handlers = {}) {
+async function consumeReconStream(selectors, handlers = {}, options = {}) {
   const onStart = typeof handlers.onStart === 'function' ? handlers.onStart : () => {};
   const onProgress = typeof handlers.onProgress === 'function' ? handlers.onProgress : () => {};
   const onChunk = typeof handlers.onChunk === 'function' ? handlers.onChunk : () => {};
@@ -12405,6 +13504,7 @@ async function consumeReconStream(selectors, handlers = {}) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ selectors }),
+    signal: options?.signal,
   });
   if (!response.ok) {
     const message = await parseErrorResponse(response);
@@ -12490,21 +13590,41 @@ async function runRecon(event) {
   goReconAssessmentBtn?.classList.add('hidden');
   if (goReconAssessmentBtn instanceof HTMLButtonElement) goReconAssessmentBtn.disabled = true;
   clearHiddenReconEntities();
+  activeReconStreamController?.abort();
+  const runId = ++activeReconRunId;
+  const streamController = new AbortController();
+  activeReconStreamController = streamController;
+  latestReconPayload = emptyReconPayload();
+  setReconSnapshotFromPayload(latestReconPayload);
 
   try {
-    const response = await fetch('/api/recon', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ selectors }),
-    });
-    if (!response.ok) {
-      const message = await parseErrorResponse(response);
-      throw new Error(message);
-    }
-    const payload = await response.json();
-    latestReconPayload = payload;
-    setReconSnapshotFromPayload(payload);
-    applyReconPayload(payload, { statusPrefix: 'Recon complete', notifyModules: true });
+    let aggregate = emptyReconPayload();
+    let receivedFinalPayload = false;
+    await consumeReconStream(selectors, {
+      onStart: (streamEvent) => {
+        const total = Number(streamEvent?.selectors_total) || selectors.length;
+        reconStatus.textContent = `Recon stream started for ${total} selector(s)...`;
+        setModalOpen(false);
+        showDashboard();
+        setResultsView('footprint');
+      },
+      onProgress: (streamEvent) => {
+        const index = Number(streamEvent?.selector_index) || 1;
+        const total = Number(streamEvent?.selectors_total) || selectors.length;
+        reconStatus.textContent = `Recon in progress (${index}/${total}): ${formatSelectorLabel(streamEvent?.selector_type, streamEvent?.selector_value)}`;
+        updateProgressNotification('recon-main', { title: 'Recon Running', message: `Checking ${formatSelectorLabel(streamEvent?.selector_type, streamEvent?.selector_value)} (${index}/${total}).` });
+      },
+      onChunk: (chunkPayload, streamEvent) => {
+        if (runId !== activeReconRunId) return;
+        aggregate = mergeReconPayloads(aggregate, chunkPayload);
+        latestReconPayload = aggregate;
+        setReconSnapshotFromPayload(aggregate);
+        const partial = streamEvent?.partial === true;
+        receivedFinalPayload = receivedFinalPayload || streamEvent?.final === true || !partial;
+        applyReconPayload(aggregate, { statusPrefix: partial ? 'Recon streaming' : 'Recon complete', notifyModules: !partial });
+      },
+    }, { signal: streamController.signal });
+    if (!receivedFinalPayload) throw new Error('recon stream ended before a final result was received');
     finishProgressNotification('recon-main', {
       title: 'Recon Complete',
       message: `Processed ${selectors.length} selector${selectors.length === 1 ? '' : 's'}.`,
@@ -12527,6 +13647,7 @@ async function runRecon(event) {
     goReconAssessmentBtn?.classList.remove('hidden');
     if (goReconAssessmentBtn instanceof HTMLButtonElement) goReconAssessmentBtn.disabled = false;
   } catch (error) {
+    if (error?.name === 'AbortError' || runId !== activeReconRunId) return;
     console.error(error);
     useReconTargetsBtn.classList.add('hidden');
     useReconTargetsBtn.disabled = true;
@@ -12544,7 +13665,10 @@ async function runRecon(event) {
       type: 'error',
     });
   } finally {
-    setReconBusy(false);
+    if (runId === activeReconRunId) {
+      activeReconStreamController = null;
+      setReconBusy(false);
+    }
   }
 }
 
@@ -13028,6 +14152,7 @@ caseThreatFilter?.addEventListener('change', renderCases);
 caseSortSelect?.addEventListener('change', renderCases);
 openNewCaseBtn?.addEventListener('click', createNewCaseAndLaunch);
 generateDemoCaseBtn?.addEventListener('click', generateDemoCase);
+generateVipThreatDemoCaseBtn?.addEventListener('click', generateVipThreatDemoCase);
 openLlmSandboxBtn?.addEventListener('click', openLlmSandboxFromCaseWorkspace);
 caseTiles?.addEventListener('click', (event) => {
   const path = typeof event.composedPath === 'function' ? event.composedPath() : [];
@@ -13077,6 +14202,40 @@ viewFootprintBtn?.addEventListener('click', () => setResultsView('footprint'));
 viewPatternLifeBtn?.addEventListener('click', () => setResultsView('pattern'));
 viewTimelineBtn?.addEventListener('click', () => setResultsView('timeline'));
 viewEntityGraphBtn?.addEventListener('click', () => setResultsView('entitygraph'));
+[viewFootprintBtn, viewPatternLifeBtn, viewTimelineBtn, viewEntityGraphBtn].forEach((tab, index, tabs) => {
+  tab?.addEventListener('keydown', (event) => {
+    const key = event.key;
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(key)) return;
+    event.preventDefault();
+    const nextIndex = key === 'Home'
+      ? 0
+      : key === 'End'
+        ? tabs.length - 1
+        : (index + (key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
+    const nextTab = tabs[nextIndex];
+    nextTab?.focus();
+    nextTab?.click();
+  });
+});
+[viewWorkflowBtn].forEach((tab, index, tabs) => {
+  tab?.addEventListener('keydown', (event) => {
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+    event.preventDefault();
+    tabs[index]?.focus();
+    tabs[index]?.click();
+  });
+});
+[viewPostsBtn, viewMediaBtn].forEach((tab, index, tabs) => {
+  tab?.addEventListener('keydown', (event) => {
+    const key = event.key;
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(key)) return;
+    event.preventDefault();
+    const nextIndex = key === 'Home' ? 0 : key === 'End' ? tabs.length - 1 : (index + (key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
+    const nextTab = tabs[nextIndex];
+    nextTab?.focus();
+    nextTab?.click();
+  });
+});
 sortSelect.addEventListener('change', queueRefresh);
 setupForm.addEventListener('submit', collectAndOpen);
 reconForm.addEventListener('submit', runRecon);
@@ -13308,6 +14467,10 @@ function handleReconCollectionAction(event) {
     try {
       const targets = dedupeCollectionTargets(JSON.parse(rawTargets));
       if (!targets.length) return;
+      if (isVipThreatDemoCase()) {
+        loadVipThreatDemoCollection(targets);
+        return;
+      }
       loadTargetsIntoCollection(targets, { message: `Loaded ${targets.length} target${targets.length === 1 ? '' : 's'} into collection.` });
     } catch (error) {
       console.error(error);
@@ -13320,6 +14483,10 @@ function handleReconCollectionAction(event) {
     const platform = String(collectBtn.getAttribute('data-recon-collect-platform') || '').trim().toLowerCase();
     const username = String(collectBtn.getAttribute('data-recon-collect-username') || '').trim();
     if (!platform || !username) return;
+    if (isVipThreatDemoCase()) {
+      loadVipThreatDemoCollection([{ platform, username }]);
+      return;
+    }
     loadTargetsIntoCollection([{ platform, username }], { message: 'Loaded target into collection.' });
     return;
   }
@@ -13847,26 +15014,11 @@ insightsTabSignals?.addEventListener('click', () => setInsightsTab('signals'));
 openCaseNotesTopBtn?.addEventListener('click', () => {
   openCaseNotesModal();
 });
-newCollectionBtn?.addEventListener('click', () => {
-  if (!activeCaseId) {
-    showNotification('Open a case first.', 'warn');
-    showCaseWorkspace();
-    return;
-  }
-  setupStatus.textContent = '';
-  reconStatus.textContent = '';
-  reconResults.classList.add('hidden');
-  setModalMode('collection');
-  targetsList.innerHTML = '';
-  resetCollectionSourceState();
-  if (activeTargets.length) {
-    for (const target of activeTargets) addTargetRow(target.platform, target.username);
-  } else if (activeUsername) {
-    addTargetRow('twitter', `@${activeUsername}`);
-  } else {
-    addTargetRow('twitter', '');
-  }
-  setModalOpen(true);
+newCollectionBtn?.addEventListener('click', openCaseOperationChooser);
+caseNotesOperationsBtn?.addEventListener('click', async () => {
+  await closeCaseNotesModal();
+  if (!caseNotesModal?.classList.contains('hidden')) return;
+  openCaseOperationChooser();
 });
 backToCasesBtn?.addEventListener('click', async () => {
   if (!confirmUnsavedCaseExit('leave this case')) return;
@@ -14157,6 +15309,9 @@ footprintSelectorsList?.addEventListener('click', (event) => {
   row.remove();
   ensureAtLeastOneReconSelectorRow(footprintSelectorsList);
 });
+footprintKnownSelectorsToggle?.addEventListener('click', () => {
+  setFootprintSelectorsCollapsed(!footprintSelectorsCollapsed);
+});
 footprintKnownSelectorsGroups?.addEventListener('click', async (event) => {
   const target = event.target;
   if (!(target instanceof Element)) return;
@@ -14209,13 +15364,13 @@ quitSessionCaseBtn?.addEventListener('click', async () => {
 });
 quitOptionsCancelBtn?.addEventListener('click', closeQuitOptionsModal);
 quitOptionsQuitBtn?.addEventListener('click', async () => {
-  await quitPanoptoSession({ mode: 'quit' });
+  await quitOrionSession({ mode: 'quit' });
 });
 quitOptionsWipeBtn?.addEventListener('click', async () => {
-  await quitPanoptoSession({ mode: 'wipe' });
+  await quitOrionSession({ mode: 'wipe' });
 });
 quitOptionsSaveBtn?.addEventListener('click', async () => {
-  await quitPanoptoSession({ mode: 'save' });
+  await quitOrionSession({ mode: 'save' });
 });
 
 function openQuitOptionsModal() {
@@ -14228,11 +15383,11 @@ function closeQuitOptionsModal() {
   syncModalActiveState();
 }
 
-async function quitPanoptoSession(options = {}) {
+async function quitOrionSession(options = {}) {
   const mode = String(options?.mode || 'quit').toLowerCase();
   const clearData = mode === 'wipe';
   const clearConfig = mode === 'wipe';
-  if (!confirmUnsavedCaseExit('quit PANOPTO')) return;
+  if (!confirmUnsavedCaseExit('quit Orion')) return;
   closeQuitOptionsModal();
   if (quitBtn) {
     quitBtn.disabled = true;
@@ -14266,15 +15421,15 @@ async function quitPanoptoSession(options = {}) {
     });
     if (mode === 'wipe') {
       statusEl.textContent = 'Session ended. Wiped API keys, cases, and collected data.';
-      resultsEl.innerHTML = '<div class="empty">PANOPTO session ended. Restart server to begin fresh.</div>';
+      resultsEl.innerHTML = '<div class="empty">Orion session ended. Restart server to begin fresh.</div>';
     } else if (mode === 'save') {
       statusEl.textContent = 'Session ended. API keys, cases, and associated data were saved.';
-      resultsEl.innerHTML = '<div class="empty">PANOPTO session ended. Restart server to continue with saved state.</div>';
+      resultsEl.innerHTML = '<div class="empty">Orion session ended. Restart server to continue with saved state.</div>';
     } else {
       statusEl.textContent = 'Session ended.';
-      resultsEl.innerHTML = '<div class="empty">PANOPTO session ended.</div>';
+      resultsEl.innerHTML = '<div class="empty">Orion session ended.</div>';
     }
-    // Attempt to close the PANOPTO tab after a successful shutdown.
+    // Attempt to close the Orion tab after a successful shutdown.
     window.setTimeout(() => {
       try {
         window.close();
@@ -14322,7 +15477,8 @@ renderLeadsList();
 renderFootprintTimeline();
 renderFootprintEntityGraph();
 renderKnownSelectorsPanel(emptyReconPayload());
-setDashboardCaseTitle('PANOPTO');
+setFootprintSelectorsCollapsed(false);
+setDashboardCaseTitle('Orion');
 renderCollectionStreams();
 renderWorkflowPanel();
 renderLlmSandboxExamples();

@@ -65,7 +65,7 @@ The default database file is `osint_data.db` in the repository root. Some API re
 
 ## Configuration and secrets
 
-PANOPTO supports both UI-managed config and environment variables.
+Orion supports both UI-managed config and environment variables.
 
 Files written locally:
 
@@ -141,6 +141,7 @@ python3 panopto.py
 Post-level warning assessments are stored in `metadata.llm_assessment`.
 
 - Demo case generation at `/api/cases/demo` seeds sample assessment data.
+- VIP threat walkthrough generation at `/api/cases/demo/vip-threat` seeds the fictional `@voidpill3d` / Stephen Brooks demo.
 - Manual and batch LLM assessment routes are exposed through `/api/llm/estimate`, `/api/llm/run`, and `/api/posts/assessment`.
 
 Environment variables:
@@ -233,9 +234,9 @@ Date parsing accepts `YYYY-MM-DD` and common U.S. numeric forms such as `MM/DD/Y
 
 The frontend is intentionally self-contained. There are no CDN dependencies for React, Tailwind, or runtime JS frameworks, which keeps local preview reliable in restricted environments.
 
-Frontend-specific notes live in [frontend/README.md](/home/osint/Documents/panopto/frontend/README.md).
+Frontend-specific notes live in [frontend/README.md](/home/osint/Documents/orion/frontend/README.md).
 
-Production handover notes live in [HANDOVER.md](/home/osint/Documents/panopto/HANDOVER.md).
+Production handover notes live in [HANDOVER.md](/home/osint/Documents/orion/HANDOVER.md).
 
 ## Development
 
@@ -254,7 +255,7 @@ PYTHONPATH=. .venv/bin/pytest tests/test_recon.py -q
 
 ## Notes and constraints
 
-- PANOPTO is built for local operator workflows, not multi-user deployment.
+- Orion is built for local operator workflows, not multi-user deployment.
 - Static and API content is served from the built-in Python HTTP server.
 - Some platform collectors depend on third-party availability and anti-bot behaviour, so collection quality will vary by source.
 - The repo may contain generated recon screenshots in `frontend/static/recon_shots/` from prior local runs.
