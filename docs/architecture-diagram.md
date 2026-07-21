@@ -1,4 +1,4 @@
-# PANOPTO Architecture Diagram
+# Orion Architecture Diagram
 
 This diagram reflects the current repository structure and runtime flow across the local UI, HTTP API, orchestration layer, optional enrichments, and SQLite persistence.
 
@@ -6,7 +6,7 @@ This diagram reflects the current repository structure and runtime flow across t
 flowchart TB
     user[Analyst / Operator]
     browser[Browser UI<br/>frontend/static/*]
-    launcher[CLI Launcher<br/>panopto.py / python -m panopto]
+    launcher[CLI Launcher<br/>local server entrypoint]
     server[Loopback HTTP Server<br/>frontend/server.py]
 
     subgraph api[API Surface]
@@ -20,13 +20,13 @@ flowchart TB
     end
 
     subgraph services[Core Services]
-        collection_service[Collection Service<br/>panopto/collection_service.py]
-        collection_jobs[Background Job Manager<br/>panopto/collection_jobs.py]
-        recon_service[Recon Service<br/>panopto/recon.py]
-        post_query[Post Query / Tagging<br/>panopto/post_query.py]
-        llm[LLM Warning Assessment<br/>panopto/analysis/llm_warning_assessor.py]
-        face[Face Recognition Engine<br/>panopto/face_analysis.py]
-        app_config[Config Store<br/>panopto/config.py]
+        collection_service[Collection Service<br/>target parsing and orchestration]
+        collection_jobs[Background Job Manager<br/>async collection lifecycle]
+        recon_service[Recon Service<br/>selector enrichment and screenshots]
+        post_query[Post Query / Tagging<br/>search, filters, and signals]
+        llm[LLM Warning Assessment<br/>optional assessment workflow]
+        face[Face Recognition Engine<br/>media clustering workflow]
+        app_config[Config Store<br/>local settings and secrets]
     end
 
     subgraph collectors[Collection Connectors]
@@ -52,8 +52,8 @@ flowchart TB
         sqlite[(SQLite<br/>osint_data.db)]
         cases_tbl[cases table]
         posts_tbl[twitter_posts table<br/>stores all platforms]
-        config_file[.panopto_config.json]
-        secrets_file[.panopto_secrets.enc]
+        config_file[Local config file]
+        secrets_file[Encrypted secrets file]
         screenshots[frontend/static/recon_shots/*]
     end
 
@@ -124,10 +124,10 @@ flowchart TB
 
 ## Runtime interpretation
 
-- PANOPTO is a local-first system: the browser UI talks only to the loopback HTTP server in `frontend/server.py`.
+- Orion is a local-first system: the browser UI talks only to the loopback HTTP server in `frontend/server.py`.
 - `frontend/server.py` is the control plane. It serves static assets, enforces loopback-only API access, and dispatches requests into collection, recon, query, config, LLM, and case-storage modules.
-- Collection has two execution paths: direct synchronous collection and background jobs via `panopto/collection_jobs.py`, both of which delegate to `panopto/collection_service.py`.
-- Source-specific collectors normalize data into a shared post shape before persistence in SQLite through `panopto/storage/posts.py`.
-- Recon is separate from post collection. `panopto/recon.py` checks public profiles, can capture screenshots, and can optionally enrich results with People Data Labs, OSINT Industries, and Numverify.
-- The single SQLite database is the main system of record for cases and posts. Additional local state lives in `.panopto_config.json`, optional encrypted secrets in `.panopto_secrets.enc`, and screenshot assets in `frontend/static/recon_shots/`.
+- Collection has two execution paths: direct synchronous collection and background jobs, both of which delegate to the collection orchestration layer.
+- Source-specific collectors normalize data into a shared post shape before persistence in SQLite.
+- Recon is separate from post collection. It checks public profiles, can capture screenshots, and can optionally enrich results with People Data Labs, OSINT Industries, and Numverify.
+- The single SQLite database is the main system of record for cases and posts. Additional local state includes non-secret settings, optional encrypted secrets, and screenshot assets.
 - Optional analysis paths hang off stored posts: LLM warning assessment adds `metadata.llm_assessment`, and face recognition clusters media when the required local ML dependencies are available.

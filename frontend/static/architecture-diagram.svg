@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 1040" role="img" aria-labelledby="title desc">
-  <title id="title">PANOPTO architecture diagram</title>
+  <title id="title">Orion architecture diagram</title>
   <desc id="desc">Overview of the local UI, loopback HTTP server, API surface, services, collectors, storage, and optional external integrations.</desc>
   <defs>
     <linearGradient id="bg" x1="0" x2="0" y1="0" y2="1">
@@ -24,7 +24,7 @@
   <rect width="1400" height="1040" fill="url(#bg)"/>
 
   <rect x="36" y="26" width="1328" height="988" rx="24" fill="none" stroke="rgba(158,176,198,0.16)" stroke-width="2"/>
-  <text x="62" y="72" class="label">PANOPTO Architecture</text>
+  <text x="62" y="72" class="label">Orion Architecture</text>
   <text x="62" y="102" class="small">Local browser UI -> loopback HTTP server -> APIs -> services -> collectors/storage, with optional enrichments.</text>
 
   <rect x="56" y="140" width="246" height="118" class="node"/>
@@ -37,7 +37,7 @@
 
   <rect x="648" y="140" width="310" height="118" class="node"/>
   <text x="803" y="182" text-anchor="middle" class="label">CLI Launcher</text>
-  <text x="803" y="210" text-anchor="middle" class="small">panopto.py / python -m panopto</text>
+  <text x="803" y="210" text-anchor="middle" class="small">local server entrypoint</text>
 
   <rect x="1000" y="140" width="324" height="118" class="node"/>
   <text x="1162" y="182" text-anchor="middle" class="label">Loopback HTTP Server</text>
@@ -73,22 +73,22 @@
   <text x="520" y="350" class="group-title">Core Services</text>
   <rect x="518" y="374" width="168" height="72" class="node"/>
   <text x="602" y="405" text-anchor="middle" class="small">Collection Service</text>
-  <text x="602" y="427" text-anchor="middle" class="small">panopto/collection_service.py</text>
+  <text x="602" y="427" text-anchor="middle" class="small">target parsing and orchestration</text>
   <rect x="710" y="374" width="162" height="72" class="node"/>
   <text x="791" y="405" text-anchor="middle" class="small">Job Manager</text>
-  <text x="791" y="427" text-anchor="middle" class="small">panopto/collection_jobs.py</text>
+  <text x="791" y="427" text-anchor="middle" class="small">async collection lifecycle</text>
   <rect x="518" y="470" width="168" height="72" class="node"/>
   <text x="602" y="501" text-anchor="middle" class="small">Recon Service</text>
-  <text x="602" y="523" text-anchor="middle" class="small">panopto/recon.py</text>
+  <text x="602" y="523" text-anchor="middle" class="small">selector enrichment and screenshots</text>
   <rect x="710" y="470" width="162" height="72" class="node"/>
   <text x="791" y="501" text-anchor="middle" class="small">Post Query</text>
-  <text x="791" y="523" text-anchor="middle" class="small">panopto/post_query.py</text>
+  <text x="791" y="523" text-anchor="middle" class="small">search, filters, and signals</text>
   <rect x="518" y="566" width="168" height="72" class="node"/>
   <text x="602" y="597" text-anchor="middle" class="small">LLM Assessment</text>
   <text x="602" y="619" text-anchor="middle" class="small">llm_warning_assessor.py</text>
   <rect x="710" y="566" width="162" height="72" class="node"/>
   <text x="791" y="597" text-anchor="middle" class="small">Face Recognition</text>
-  <text x="791" y="619" text-anchor="middle" class="small">panopto/face_analysis.py</text>
+  <text x="791" y="619" text-anchor="middle" class="small">media clustering workflow</text>
 
   <rect x="942" y="314" width="382" height="382" rx="20" class="group"/>
   <text x="968" y="350" class="group-title">Collectors And Storage</text>
@@ -124,7 +124,7 @@
   <rect x="826" y="802" width="176" height="72" class="node"/>
   <text x="914" y="833" text-anchor="middle" class="small">Public Social Platforms</text>
   <rect x="1024" y="802" width="138" height="72" class="store"/>
-  <text x="1093" y="833" text-anchor="middle" class="small">.panopto_config.json</text>
+  <text x="1093" y="833" text-anchor="middle" class="small">Local config file</text>
   <rect x="1184" y="802" width="114" height="72" class="store"/>
   <text x="1241" y="833" text-anchor="middle" class="small">Secrets</text>
   <text x="1241" y="855" text-anchor="middle" class="small">and screenshots</text>

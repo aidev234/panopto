@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from hashlib import sha1
+from html import unescape as html_unescape
 import json
 from pathlib import Path
 import re
@@ -1112,6 +1113,224 @@ def _run_user_scanner_selector(*, selector_type: str, selector_value: str) -> li
     return rows
 
 
+def _scanner_result_is_confirmed(item: dict[str, Any]) -> bool:
+    """A scanner tile represents a discovered account, not an availability check."""
+    return str(item.get("status") or "").strip().lower() in {"found", "registered"}
+
+
+def _profile_record_from_scanner_row(row: dict[str, Any], *, enrichment_status: str) -> dict[str, Any]:
+    """Attach a stable, provenance-aware profile shape to a confirmed finding."""
+    fields = {
+        key: value
+        for key, value in row.items()
+        if key in {
+            "full_name", "display_name", "name", "bio", "description", "summary", "about",
+            "avatar_url", "picture_url", "profile_image_url", "banner_url", "header_url", "location",
+            "website", "company", "followers", "following", "posts", "public_repos", "karma",
+            "joined_at", "created_at",
+        }
+        and value not in (None, "", [], {})
+    }
+    status = str(row.get("status") or "").strip().lower()
+    return {
+        **row,
+        "profile_record": {
+            "presence_status": "confirmed",
+            "confidence": 0.9 if status == "found" else 0.8,
+            "source_url": str(row.get("profile_url") or row.get("url") or "").strip(),
+            "extractor": "user_scanner",
+            "checked_at": int(time.time()),
+            "enrichment_status": enrichment_status,
+            "fields": fields,
+        },
+    }
+
+
+def _strip_profile_html(value: Any) -> str:
+    text = re.sub(r"<[^>]+>", " ", str(value or ""))
+    return re.sub(r"\s+", " ", html_unescape(text)).strip()
+
+
+def _scanner_profile_data(site_key: str, username: str) -> dict[str, Any]:
+    """Fetch public metadata for scanner modules with stable profile endpoints."""
+    user = _clean_username(username)
+    if not user:
+        return {}
+    headers = {**_HEADERS, "Accept": "application/json"}
+    try:
+        if site_key == "github":
+            response = requests.get(f"https://api.github.com/users/{quote(user, safe='')}", headers=headers, timeout=_DEFAULT_TIMEOUT)
+            if response.status_code != 200:
+                return {}
+            data = response.json()
+            return {
+                "profile_url": data.get("html_url"), "full_name": data.get("name"), "bio": data.get("bio"),
+                "avatar_url": data.get("avatar_url"), "location": data.get("location"), "website": data.get("blog"),
+                "company": data.get("company"), "followers": data.get("followers"), "following": data.get("following"),
+                "public_repos": data.get("public_repos"),
+            }
+        if site_key == "gitlab":
+            response = requests.get("https://gitlab.com/api/v4/users", params={"username": user}, headers=headers, timeout=_DEFAULT_TIMEOUT)
+            if response.status_code != 200 or not isinstance(response.json(), list) or not response.json():
+                return {}
+            data = response.json()[0]
+            return {
+                "profile_url": data.get("web_url"), "full_name": data.get("name"), "bio": data.get("bio"),
+                "avatar_url": data.get("avatar_url"), "location": data.get("location"), "website": data.get("website_url"),
+            }
+        if site_key == "bluesky":
+            actor = user if "." in user or user.startswith("did:") else f"{user}.bsky.social"
+            response = requests.get("https://public.api.bsky.app/xrpc/app.bsky.actor.getProfile", params={"actor": actor}, headers=headers, timeout=_DEFAULT_TIMEOUT)
+            if response.status_code != 200:
+                return {}
+            data = response.json()
+            return {
+                "profile_url": f"https://bsky.app/profile/{data.get('handle') or actor}", "full_name": data.get("displayName"),
+                "bio": data.get("description"), "avatar_url": data.get("avatar"), "banner_url": data.get("banner"),
+                "followers": data.get("followersCount"), "following": data.get("followsCount"), "posts": data.get("postsCount"),
+            }
+        if site_key == "mastodon":
+            response = requests.get("https://mastodon.social/api/v1/accounts/lookup", params={"acct": user}, headers=headers, timeout=_DEFAULT_TIMEOUT)
+            if response.status_code != 200:
+                return {}
+            data = response.json()
+            return {
+                "profile_url": data.get("url"), "full_name": data.get("display_name"), "bio": _strip_profile_html(data.get("note")),
+                "avatar_url": data.get("avatar"), "header_url": data.get("header"), "followers": data.get("followers_count"),
+                "following": data.get("following_count"), "posts": data.get("statuses_count"),
+            }
+        if site_key == "devto":
+            response = requests.get("https://dev.to/api/users/by_username", params={"url": user}, headers=headers, timeout=_DEFAULT_TIMEOUT)
+            if response.status_code != 200:
+                return {}
+            data = response.json()
+            return {
+                "profile_url": data.get("website_url") or f"https://dev.to/{user}", "full_name": data.get("name"),
+                "bio": data.get("summary"), "avatar_url": data.get("profile_image_90") or data.get("profile_image"),
+                "location": data.get("location"), "website": data.get("website_url"), "joined_at": data.get("joined_at"),
+            }
+        if site_key == "codeberg":
+            response = requests.get(f"https://codeberg.org/api/v1/users/{quote(user, safe='')}", headers=headers, timeout=_DEFAULT_TIMEOUT)
+            if response.status_code != 200:
+                return {}
+            data = response.json()
+            return {
+                "profile_url": data.get("html_url"), "full_name": data.get("full_name"), "bio": data.get("description"),
+                "avatar_url": data.get("avatar_url"), "location": data.get("location"), "website": data.get("website"),
+            }
+        if site_key == "huggingface":
+            response = requests.get(f"https://huggingface.co/api/users/{quote(user, safe='')}", headers=headers, timeout=_DEFAULT_TIMEOUT)
+            if response.status_code != 200:
+                return {}
+            data = response.json()
+            return {
+                "profile_url": f"https://huggingface.co/{data.get('user') or user}", "full_name": data.get("fullname"),
+                "bio": data.get("bio"), "avatar_url": data.get("avatarUrl"), "website": data.get("website"),
+            }
+        if site_key == "hackernews":
+            response = requests.get(f"https://hacker-news.firebaseio.com/v0/user/{quote(user, safe='')}.json", headers=headers, timeout=_DEFAULT_TIMEOUT)
+            if response.status_code != 200:
+                return {}
+            data = response.json()
+            if not isinstance(data, dict):
+                return {}
+            return {"profile_url": f"https://news.ycombinator.com/user?id={quote(user, safe='')}", "full_name": data.get("id"), "bio": _strip_profile_html(data.get("about")), "karma": data.get("karma"), "created_at": data.get("created")}
+        if site_key == "lichess":
+            response = requests.get(f"https://lichess.org/api/user/{quote(user, safe='')}", headers=headers, timeout=_DEFAULT_TIMEOUT)
+            if response.status_code != 200:
+                return {}
+            data = response.json()
+            profile = data.get("profile") if isinstance(data.get("profile"), dict) else {}
+            return {
+                "profile_url": f"https://lichess.org/@/{data.get('username') or user}", "full_name": profile.get("firstName") or data.get("username"),
+                "bio": profile.get("bio"), "location": profile.get("location"), "followers": data.get("count", {}).get("followed") if isinstance(data.get("count"), dict) else None,
+                "following": data.get("count", {}).get("following") if isinstance(data.get("count"), dict) else None,
+            }
+        if site_key == "chesscom":
+            response = requests.get(f"https://api.chess.com/pub/player/{quote(user, safe='')}", headers=headers, timeout=_DEFAULT_TIMEOUT)
+            if response.status_code != 200:
+                return {}
+            data = response.json()
+            return {"profile_url": data.get("url"), "full_name": data.get("name"), "bio": data.get("status"), "avatar_url": data.get("avatar"), "location": data.get("location"), "followers": data.get("followers"), "joined_at": data.get("joined")}
+        if site_key == "reddit":
+            response = requests.get(f"https://www.reddit.com/user/{quote(user, safe='')}/about.json", headers={"User-Agent": "panopto-recon/1.0", "Accept": "application/json"}, timeout=_DEFAULT_TIMEOUT)
+            if response.status_code != 200:
+                return {}
+            data = response.json().get("data", {})
+            if not isinstance(data, dict):
+                return {}
+            subreddit = data.get("subreddit") if isinstance(data.get("subreddit"), dict) else {}
+            return {"profile_url": f"https://www.reddit.com/user/{data.get('name') or user}", "full_name": subreddit.get("title"), "bio": subreddit.get("public_description"), "avatar_url": subreddit.get("icon_img") or subreddit.get("banner_img"), "karma": (data.get("link_karma") or 0) + (data.get("comment_karma") or 0), "created_at": data.get("created_utc")}
+    except (requests.RequestException, ValueError, TypeError, AttributeError):
+        return {}
+    return {}
+
+
+def _enrich_user_scanner_results(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    confirmed = [row for row in rows if _scanner_result_is_confirmed(row)]
+    enrichable = [row for row in confirmed if not bool(row.get("is_email"))]
+    if not confirmed:
+        return rows
+
+    def enrich(row: dict[str, Any]) -> dict[str, Any]:
+        username = str(row.get("username") or "").strip()
+        metadata = _scanner_profile_data(_site_key(row.get("site_name") or row.get("site")), username)
+        enriched = row if not metadata else {**row, **{key: value for key, value in metadata.items() if value not in (None, "", [], {})}}
+        return _profile_record_from_scanner_row(enriched, enrichment_status="complete")
+
+    replacements: dict[int, dict[str, Any]] = {}
+    if enrichable:
+        with ThreadPoolExecutor(max_workers=min(8, len(enrichable))) as executor:
+            enriched = list(executor.map(enrich, enrichable))
+        replacements = {id(original): replacement for original, replacement in zip(enrichable, enriched)}
+    return [
+        replacements.get(id(row), _profile_record_from_scanner_row(row, enrichment_status="complete"))
+        if _scanner_result_is_confirmed(row)
+        else row
+        for row in rows
+    ]
+
+
+def stream_user_scanner_selector(
+    *,
+    selector_type: str,
+    selector_value: str,
+    on_result: Any,
+) -> list[dict[str, Any]]:
+    """Call ``on_result`` for each confirmed scanner match as its check settles."""
+    if selector_type not in {"username", "email"}:
+        return []
+    engine = _load_user_scanner_engine()
+    if engine is None or not hasattr(engine, "check_all_stream"):
+        rows = [row for row in _run_user_scanner_selector(selector_type=selector_type, selector_value=selector_value) if _scanner_result_is_confirmed(row)]
+        for row in rows:
+            on_result(_profile_record_from_scanner_row(row, enrichment_status="pending"))
+        rows = _enrich_user_scanner_results(rows)
+        for row in rows:
+            on_result(row)
+        return rows
+
+    streamed: list[dict[str, Any]] = []
+
+    async def _scan() -> None:
+        async for item in engine.check_all_stream(selector_value, is_email=selector_type == "email"):
+            if hasattr(item, "as_dict") and callable(getattr(item, "as_dict")):
+                row = item.as_dict()
+            elif isinstance(item, dict):
+                row = dict(item)
+            else:
+                continue
+            if not _scanner_result_is_confirmed(row):
+                continue
+            on_result(_profile_record_from_scanner_row(row, enrichment_status="pending"))
+            enriched = _enrich_user_scanner_results([row])[0]
+            streamed.append(enriched)
+            on_result(enriched)
+
+    asyncio.run(_scan())
+    return streamed
+
+
 def _run_pdl_enrichment(*, selectors: list[dict[str, str]], rows: list[dict[str, Any]]) -> dict[str, Any]:
     api_key = _pdl_api_key()
     if not api_key:
@@ -2036,12 +2255,19 @@ def _shape_numverify_profile(payload: dict[str, Any], *, query_value: str) -> di
     }
 
 
-def run_recon(selectors: list[dict[str, str]]) -> dict[str, Any]:
+def run_recon(
+    selectors: list[dict[str, str]],
+    *,
+    scanner_rows_by_selector: dict[tuple[str, str], list[dict[str, Any]]] | None = None,
+) -> dict[str, Any]:
     normalized_selectors = normalize_recon_selectors(selectors)
     if not normalized_selectors:
         raise ValueError("at least one valid selector is required")
 
     rows: list[dict[str, Any]] = []
+    # Keep the vendor output separate from normalized profile rows. Enrichment can
+    # promote a row later, but the UI still needs every scanner response.
+    scanner_results: list[dict[str, Any]] = []
     row_presence_index: dict[tuple[str, str, str], int] = {}
 
     def _append_row_from_scan_item(
@@ -2061,7 +2287,7 @@ def run_recon(selectors: list[dict[str, str]]) -> dict[str, Any]:
             site_key = "unknown"
         platform = _site_to_collection_platform(site_key)
         supported_for_collection = bool(platform and selector_type == "username")
-        source_url = str(item.get("url") or item.get("profile_url") or "").strip()
+        source_url = str(item.get("profile_url") or item.get("url") or "").strip()
         profile_url = ""
         if selector_type == "username":
             guessed = _build_profile_url_for_username(site_key, selector_value)
@@ -2089,11 +2315,15 @@ def run_recon(selectors: list[dict[str, str]]) -> dict[str, Any]:
             "supported_for_collection": supported_for_collection,
             "status": status,
             "reason": str(item.get("reason") or "").strip(),
+            "scanner_category": str(item.get("category") or "").strip(),
+            "scanner_username": str(item.get("username") or "").strip(),
+            "scanner_is_email": bool(item.get("is_email")),
             "profile_url": profile_url,
             "site_url": source_url,
             "has_direct_profile_url": has_direct_profile_url,
             "category": category,
             "source": source,
+            "scanner_result": dict(item) if source == "scanner" else None,
         }
 
         dedupe_key = (selector_type, selector_value.strip().lower(), site_key)
@@ -2130,8 +2360,13 @@ def run_recon(selectors: list[dict[str, str]]) -> dict[str, Any]:
             selector_value = str(selector.get("value") or "").strip()
             if not selector_type or not selector_value:
                 continue
+            cached_rows = (scanner_rows_by_selector or {}).get((selector_type, selector_value))
+            if cached_rows is not None:
+                output.append((selector_type, selector_value, cached_rows))
+                continue
             scan_rows = _run_user_scanner_selector(selector_type=selector_type, selector_value=selector_value)
-            output.append((selector_type, selector_value, scan_rows if isinstance(scan_rows, list) else []))
+            confirmed_rows = [row for row in scan_rows if isinstance(row, dict) and _scanner_result_is_confirmed(row)] if isinstance(scan_rows, list) else []
+            output.append((selector_type, selector_value, _enrich_user_scanner_results(confirmed_rows)))
         return output
 
     def _task_osint() -> tuple[list[tuple[str, str, list[dict[str, Any]], list[dict[str, Any]]]], int]:
@@ -2193,6 +2428,13 @@ def run_recon(selectors: list[dict[str, str]]) -> dict[str, Any]:
         for item in scan_rows:
             if not isinstance(item, dict):
                 continue
+            scanner_results.append(
+                {
+                    "selector_type": selector_type,
+                    "selector": selector_value,
+                    **item,
+                }
+            )
             _append_row_from_scan_item(
                 selector_type=selector_type,
                 selector_value=selector_value,
@@ -2481,6 +2723,7 @@ def run_recon(selectors: list[dict[str, str]]) -> dict[str, Any]:
     return {
         "selectors": normalized_selectors,
         "results": rows,
+        "scanner_results": scanner_results,
         "collection_targets": collection_targets,
         "leads": leads,
         "osint_profiles": osint_profiles,

@@ -180,6 +180,64 @@ def test_run_recon_categorizes_supported_unsupported_and_no_url():
     assert any(row.get("site_key") == "discord" for row in payload["known_present_without_url"])
 
 
+def test_run_recon_preserves_all_user_scanner_result_fields_for_tiles():
+    scanner_rows = [
+        {
+            "site_name": "Example Site",
+            "category": "Community",
+            "status": "Registered",
+            "reason": "Account match",
+            "url": "https://example.test/profile",
+            "username": "person@example.com",
+            "is_email": True,
+            "profile_image_url": "https://cdn.example.test/person.jpg",
+        }
+    ]
+
+    with patch("panopto.recon._run_user_scanner_selector", return_value=scanner_rows):
+        with patch("panopto.recon._capture_profile_screenshot", return_value=""):
+            payload = run_recon([{"type": "email", "value": "person@example.com"}])
+
+    scanner_result = payload["scanner_results"][0]
+    assert scanner_result == {"selector_type": "email", "selector": "person@example.com", **scanner_rows[0], "profile_record": scanner_result["profile_record"]}
+    assert scanner_result["profile_record"]["presence_status"] == "confirmed"
+    assert scanner_result["profile_record"]["enrichment_status"] == "complete"
+    row = payload["results"][0]
+    assert row["scanner_category"] == "Community"
+    assert row["scanner_username"] == "person@example.com"
+    assert row["scanner_is_email"] is True
+    assert row["scanner_result"]["profile_image_url"] == "https://cdn.example.test/person.jpg"
+
+
+def test_run_recon_only_emits_confirmed_scanner_profiles_with_enrichment():
+    scanner_rows = [
+        {"site_name": "Github", "category": "Dev", "status": "Found", "url": "https://github.com", "username": "lnmangionie"},
+        {"site_name": "Gitlab", "category": "Dev", "status": "Not Found", "url": "https://gitlab.com", "username": "lnmangionie"},
+        {"site_name": "Reddit", "category": "Social", "status": "Error", "url": "https://reddit.com", "username": "lnmangionie"},
+    ]
+    metadata = {
+        "profile_url": "https://github.com/lnmangionie",
+        "full_name": "L. Mangionie",
+        "bio": "Public profile bio",
+        "avatar_url": "https://avatars.example.test/lnmangionie.jpg",
+        "location": "London",
+        "followers": 12,
+    }
+
+    with patch("panopto.recon._run_user_scanner_selector", return_value=scanner_rows):
+        with patch("panopto.recon._scanner_profile_data", return_value=metadata):
+            with patch("panopto.recon._capture_profile_screenshot", return_value=""):
+                payload = run_recon([{"type": "username", "value": "lnmangionie"}])
+
+    scanner_result = payload["scanner_results"][0]
+    assert scanner_result == {"selector_type": "username", "selector": "lnmangionie", **scanner_rows[0], **metadata, "profile_record": scanner_result["profile_record"]}
+    assert scanner_result["profile_record"]["fields"]["full_name"] == "L. Mangionie"
+    assert scanner_result["profile_record"]["fields"]["followers"] == 12
+    assert len(payload["results"]) == 1
+    assert payload["results"][0]["profile_url"] == "https://github.com/lnmangionie"
+    assert payload["results"][0]["scanner_result"]["full_name"] == "L. Mangionie"
+
+
 def test_run_recon_includes_linkedin_screenshot_when_present():
     fake_rows = [
         {"site_name": "Linkedin", "status": "Found", "url": "https://www.linkedin.com"},

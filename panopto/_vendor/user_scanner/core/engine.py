@@ -65,3 +65,12 @@ async def check_all(target: str, is_email: bool = True) -> List[Result]:
         results.extend(sublist)
 
     return results
+
+
+async def check_all_stream(target: str, is_email: bool = True):
+    """Yield each site result as soon as its concurrent validation completes."""
+    categories = load_categories(is_email=is_email)
+    modules = [module for category_path in categories.values() for module in load_modules(category_path)]
+    tasks = [asyncio.create_task(check(module, target)) for module in modules]
+    for task in asyncio.as_completed(tasks):
+        yield await task
