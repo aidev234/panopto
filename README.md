@@ -1,6 +1,6 @@
-# PANOPTO
+# ORION
 
-PANOPTO is a local OSINT workstation for collecting public social content, storing it in SQLite, and working through cases in a browser UI. The current stack covers:
+ORION is a local OSINT workstation for collecting public social content, storing it in SQLite, and working through cases in a browser UI. The current stack covers:
 
 - Post collection for Twitter/X, Reddit, TikTok, Bluesky, Instagram, and YouTube
 - Recon for username and email selectors
