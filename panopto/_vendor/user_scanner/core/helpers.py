@@ -1,19 +1,88 @@
 import importlib
 import importlib.util
-import inspect
-import functools
-from itertools import permutations
 from types import ModuleType
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Dict, List, Optional
+import inspect
+import json
+import os
 import random
+import re
 import threading
+import functools
+import asyncio
+from dataclasses import dataclass
+from typing import Any, Callable
+
 import httpx
-from concurrent.futures import ThreadPoolExecutor, as_completed
+
+# Pragmatic RFC 5322 / email-validator-style syntax check: an unquoted
+# dot-atom local part, a dotted host name, and an alphabetic TLD. It does not
+# accept quoted local parts, IP-address literals, or internationalized (IDN)
+# domains — none of which the scanners target.
+_EMAIL_LOCAL = r"[A-Za-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[A-Za-z0-9!#$%&'*+/=?^_`{|}~-]+)*"
+_EMAIL_LABEL = r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?"
+EMAIL_RE = re.compile(rf"{_EMAIL_LOCAL}@(?:{_EMAIL_LABEL}\.)+[A-Za-z]{{2,63}}")
+
+LOUD_MODULES: Dict[str, List[str]] = {
+    "user": [],
+    "email": [
+        "leetcode",
+        "netflix",
+        "sexvid",
+        "made.porn",
+        "flirtbate",
+        "babestation",
+        "flipkart",
+        "ama",
+        "buymeacoffee",
+        "luarocks",
+        "uniscore",
+        "finch",
+        "slowly",
+        "heyjapan",
+        "bnrlanguages",
+        "bunpo",
+        "hellochinese",
+        "hanzii",
+        "programminghub",
+        "talkpal",
+        "dragongroot",
+        "hoichoi",
+        "fantasia",
+    ],
+}
+
+CONFIG_PATH = Path(__file__).parent.parent / "config.json"
 
 
+@dataclass(frozen=True)
+class ScanConfig:
+    allow_loud: bool = False
+    no_nsfw: bool = False
+    show_all: bool = False
+    verbose: bool = False
+    timeout: Optional[float] = None
+
+_global_timeout: Optional[float] = None
+
+def set_global_timeout(timeout: float) -> None:
+    global _global_timeout
+    _global_timeout = timeout
+
+def get_global_timeout() -> Optional[float]:
+    return _global_timeout
+
+
+def is_valid_email(email: str) -> bool:
+    if not email or len(email) > 254:
+        return False
+    local, _, domain = email.rpartition("@")
+    if len(local) > 64 or len(domain) > 253:
+        return False
+    return bool(EMAIL_RE.fullmatch(email))
 def get_site_name(module) -> str:
-    name = module.__name__.split('.')[-1].capitalize().replace("_", ".")
+    name = module.__name__.split(".")[-1].capitalize().replace("_", ".")
     if name == "X":
         return "X (Twitter)"
     return name
@@ -42,9 +111,11 @@ def load_categories(is_email: bool = False, no_nsfw: bool = False) -> Dict[str, 
     categories = {}
 
     for subfolder in root.iterdir():
-        if subfolder.is_dir() and \
-                subfolder.name.lower() not in ["cli", "utils", "core"] and \
-                "__" not in subfolder.name:  # Removes __pycache__
+        if (
+            subfolder.is_dir()
+            and subfolder.name.lower() not in ["cli", "utils", "core"]
+            and "__" not in subfolder.name  # Removes __pycache__
+        ):
             if no_nsfw and subfolder.name == "adult":
                 continue
             categories[subfolder.name] = subfolder.resolve()
@@ -52,14 +123,19 @@ def load_categories(is_email: bool = False, no_nsfw: bool = False) -> Dict[str, 
     return categories
 
 
+def is_loud(name: str, is_email: bool = False) -> bool:
+    key = "email" if is_email else "user"
+    return name.lower() in LOUD_MODULES[key]
+
+
 def get_scan_func(module) -> Optional[Callable[[str], Any]]:
     for attr_name in dir(module):
         if not attr_name.startswith("validate_"):
             continue
 
-        func = getattr(module, attr_name)
-        if inspect.isfunction(func) or inspect.iscoroutinefunction(func):
-            return func
+        f = getattr(module, attr_name)
+        if inspect.isfunction(f) or inspect.iscoroutinefunction(f):
+            return f
     return None
 
 
@@ -75,8 +151,7 @@ def find_module(name: str, is_email: bool = False, no_nsfw: bool = False) -> Lis
 
 
 def find_category(module: ModuleType) -> str | None:
-
-    module_file = getattr(module, '__file__', None)
+    module_file = getattr(module, "__file__", None)
     if not module_file:
         return None
 
@@ -87,104 +162,100 @@ def find_category(module: ModuleType) -> str | None:
     return None
 
 
-def generate_permutations(username: str, pattern: str, limit: int | None = None, is_email: bool = False) -> List[str]:
-    """
-    Generate all order-based permutations of characters in `pattern`
-    appended after `username`.
-    """
+async def _validate_proxy_async(proxy: str, timeout: int) -> Optional[str]:
+    try:
+        async with httpx.AsyncClient(proxy=proxy, timeout=timeout) as client:
+            response = await client.get("http://gstatic.com/generate_204")
+            if response.status_code in (200, 204):
+                return proxy
+    except Exception:
+        pass
+    return None
 
-    if limit and limit <= 0:
-        return []
+async def _validate_proxies_batch(proxy_list: List[str], timeout: int, max_workers: int) -> List[str]:
+    working_proxies = []
+    sem = asyncio.Semaphore(max_workers)
 
-    permutations_set = {username}
-    chars = list(pattern)
+    async def _worker(proxy: str):
+        async with sem:
+            res = await _validate_proxy_async(proxy, timeout)
+            if res:
+                working_proxies.append(res)
 
-    domain = ""
-    if is_email:
-        username, domain = username.strip().split("@")
+    tasks = [_worker(proxy) for proxy in proxy_list]
+    if tasks:
+        await asyncio.gather(*tasks)
 
-    # generate permutations of length 1 → len(chars)
-    for r in range(len(chars)):
-        for combo in permutations(chars, r):
-            new = username + ''.join(combo)
-            if is_email:
-                new += "@" + domain
-            permutations_set.add(new)
-            if limit and len(permutations_set) >= limit:
-                return sorted(permutations_set)
-
-    return sorted(permutations_set)
-
+    return working_proxies
 
 def validate_proxies(proxy_list: List[str], timeout: int = 5, max_workers: int = 50) -> List[str]:
-    """Validate proxies by testing them against google.com. Returns list of working proxies."""
-    working_proxies = []
-    
-    def test_proxy(proxy: str) -> Optional[str]:
-        try:
-            with httpx.Client(proxy=proxy, timeout=timeout) as client:
-                response = client.get("https://www.google.com")
-                if response.status_code == 200:
-                    return proxy
-        except Exception:
-            pass
-        return None
-    
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = {executor.submit(test_proxy, proxy): proxy for proxy in proxy_list}
-        for future in as_completed(futures):
-            result = future.result()
-            if result:
-                working_proxies.append(result)
-    
-    return working_proxies
+    """Validate proxies by testing them against gstatic.com/generate_204. Returns list of working proxies."""
+    return asyncio.run(_validate_proxies_batch(proxy_list, timeout, max_workers))
 
 
 class ProxyManager:
     """Thread-safe proxy manager that loads and rotates proxies from a file."""
-    
-    def __init__(self, proxy_file: str):
+
+    def __init__(self, proxy_file: Optional[str] = None, proxies: Optional[list[str]] = None):
         self.proxies: list[str] = []
         self.current_index = 0
         self.lock = threading.Lock()
-        self._load_proxies(proxy_file)
-    
+        if proxies is not None:
+            self._load_proxies_from_list(proxies)
+        elif proxy_file is not None:
+            self._load_proxies(proxy_file)
+        else:
+            raise ValueError("Either proxy_file or proxies must be provided")
+
+    def _load_proxies_from_list(self, proxy_list: list[str]) -> None:
+        """Load proxies from a provided list. Keep explicit schemes, default to http:// when missing."""
+        for line in proxy_list:
+            line = line.strip()
+            if line and not line.startswith("#"):
+                if "://" not in line:
+                    line = "http://" + line
+                self.proxies.append(line)
+
+        if not self.proxies:
+            raise ValueError("No valid proxies found in list")
+
     def _load_proxies(self, proxy_file: str) -> None:
-        """Load proxies from a text file. Supports http://, https://, and socks5:// proxies."""
+        """Load proxies from a text file. Keep explicit schemes, default to http:// when missing."""
         try:
-            with open(proxy_file, 'r', encoding='utf-8') as f:
+            with open(proxy_file, "r", encoding="utf-8") as f:
                 for line in f:
                     line = line.strip()
-                    if line and not line.startswith('#'):
-                        # Keep explicit schemes. Only prepend http:// when missing.
+                    if line and not line.startswith("#"):
+                        # Keep explicit schemes (http://, socks5://, socks5h://, etc.).
+                        # Only prepend http:// when no scheme is provided.
                         if "://" not in line:
-                            line = 'http://' + line
+                            line = "http://" + line
                         self.proxies.append(line)
-            
+
             if not self.proxies:
                 raise ValueError("No valid proxies found in file")
-                
+
         except FileNotFoundError:
             raise FileNotFoundError(f"Proxy file not found: {proxy_file}")
         except Exception as e:
             raise Exception(f"Error loading proxies: {e}")
-    
+
     def get_next_proxy(self) -> Optional[str]:
         """Get the next proxy in rotation (round-robin)."""
         if not self.proxies:
             return None
-        
+
         with self.lock:
             proxy = self.proxies[self.current_index]
             self.current_index = (self.current_index + 1) % len(self.proxies)
             return proxy
-    
+
     def get_random_proxy(self) -> Optional[str]:
         """Get a random proxy from the list."""
         if not self.proxies:
             return None
         return random.choice(self.proxies)
-    
+
     def count(self) -> int:
         """Return the number of loaded proxies."""
         return len(self.proxies)
@@ -194,11 +265,11 @@ class ProxyManager:
 _proxy_manager: Optional[ProxyManager] = None
 
 
-def set_proxy_manager(proxy_file: Optional[str]) -> None:
-    """Initialize the global proxy manager with a proxy file."""
+def set_proxy_manager(proxy_file: Optional[str] = None, proxies: Optional[list[str]] = None) -> None:
+    """Initialize the global proxy manager with a proxy file or list."""
     global _proxy_manager
-    if proxy_file:
-        _proxy_manager = ProxyManager(proxy_file)
+    if proxy_file or proxies is not None:
+        _proxy_manager = ProxyManager(proxy_file=proxy_file, proxies=proxies)
     else:
         _proxy_manager = None
 
@@ -219,8 +290,10 @@ def get_proxy_count() -> int:
 
 # Function to return random user agent
 
+
 def get_random_user_agent():
-    agents = [                                                                                                                                                  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    agents = [
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
         "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36 Edg/144.0.0.0",
@@ -228,8 +301,53 @@ def get_random_user_agent():
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:147.0) Gecko/20100101 Firefox/147.0",
         "Mozilla/5.0 (iPhone; CPU iPhone OS 19_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/19.0 Mobile/15E148 Safari/604.1",
         "Mozilla/5.0 (Linux; Android 15; Pixel 9 Pro) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Mobile Safari/537.36",
-        "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Mobile Safari/537.36"
-             ]
+        "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Mobile Safari/537.36",
+    ]
     """return random"""
     random_agent = random.choice(agents)
     return random_agent
+
+
+def _get_config_path(path: str | Path | None = None) -> Path:
+    """
+    Determine the config path in this order:
+      1. explicit path argument (if provided)
+      2. environment variable USER_SCANNER_CONFIG (if set)
+      3. default CONFIG_PATH
+    """
+    if path:
+        return Path(path)
+    env = os.environ.get("USER_SCANNER_CONFIG")
+    if env:
+        return Path(env)
+    return CONFIG_PATH
+
+
+def load_config(path: str | Path | None = None) -> dict:
+    cp = _get_config_path(path)
+    if cp.exists():
+        try:
+            return json.loads(cp.read_text())
+        except json.JSONDecodeError:
+            # This prevents the crash on corrupted JSON
+            pass
+
+    default = {
+        "auto_update_status": True,
+        "auto_hudson_prompt": True,
+        "auto_loud_single_module_prompt": True,
+    }
+    cp.parent.mkdir(parents=True, exist_ok=True)
+    cp.write_text(json.dumps(default, indent=2))
+    return default
+
+
+
+def save_config_value(key: str, value: Any, path: str | Path | None = None):
+    """Generic helper to update any specific key in the config."""
+    cp = _get_config_path(path)
+    content = load_config(path)
+    content[key] = value
+    cp.parent.mkdir(parents=True, exist_ok=True)
+    cp.write_text(json.dumps(content, indent=2))
+

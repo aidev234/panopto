@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="Retro forum face icon">
+  <rect width="256" height="256" rx="44" fill="#f8fafc"/>
+  <rect x="42" y="54" width="172" height="148" rx="26" fill="#111827"/>
+  <rect x="58" y="70" width="140" height="116" rx="16" fill="#d9f99d"/>
+  <rect x="82" y="102" width="30" height="22" fill="#111827"/>
+  <rect x="144" y="102" width="30" height="22" fill="#111827"/>
+  <path d="M84 150c22 18 66 18 88 0" fill="none" stroke="#111827" stroke-width="12" stroke-linecap="round"/>
+  <path d="M66 42h124M86 214h84" stroke="#111827" stroke-width="14" stroke-linecap="round"/>
+</svg>

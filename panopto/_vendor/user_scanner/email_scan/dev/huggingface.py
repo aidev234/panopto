@@ -6,15 +6,16 @@ async def _check(email: str) -> Result:
     url = "https://huggingface.co/api/check-user-email"
     show_url = "https://huggingface.co"
     payload = {'email': email}
+
     headers = {
         'User-Agent': "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
         'Accept-Encoding': "identity",
         'referer': "https://huggingface.co/join",
     }
 
-    async with httpx.AsyncClient(http2=True) as client:
+    async with httpx.AsyncClient(timeout=15.0, http2=True) as client:
         try:
-            response = await client.post(url, json=payload, headers=headers, timeout=5)
+            response = await client.post(url, json=payload, headers=headers, timeout=15.0)
             res_text = response.text
             st_code = response.status_code
 

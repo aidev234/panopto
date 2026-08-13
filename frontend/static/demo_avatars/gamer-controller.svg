@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="Neon game controller icon">
+  <rect width="256" height="256" rx="44" fill="#111827"/>
+  <circle cx="74" cy="86" r="34" fill="#1f2937"/>
+  <circle cx="182" cy="86" r="34" fill="#1f2937"/>
+  <path d="M56 116h144c20 0 36 16 36 36v20c0 25-30 38-48 20l-21-21H89l-21 21c-18 18-48 5-48-20v-20c0-20 16-36 36-36z" fill="#0f172a" stroke="#67e8f9" stroke-width="8"/>
+  <path d="M70 150h34M87 133v34" stroke="#f8fafc" stroke-width="12" stroke-linecap="round"/>
+  <circle cx="170" cy="145" r="10" fill="#fb7185"/>
+  <circle cx="198" cy="162" r="10" fill="#a78bfa"/>
+  <path d="M74 49l20 20M182 49l-20 20" stroke="#facc15" stroke-width="8" stroke-linecap="round"/>
+</svg>

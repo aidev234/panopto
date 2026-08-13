@@ -1,103 +1,242 @@
 import asyncio
+import httpx
 from pathlib import Path
 from types import ModuleType
 from typing import List, Optional, Set
+
 from colorama import Fore, Style
 
-from user_scanner.core.helpers import find_category, load_categories, load_modules
+from user_scanner.core.helpers import (
+    ScanConfig,
+    find_category,
+    get_proxy,
+    get_scan_func,
+    get_site_name,
+    is_loud,
+    load_categories,
+    load_modules,
+    get_global_timeout,
+)
 from user_scanner.core.result import Result, Status
+from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, MofNCompleteColumn
+
+# Monkey-patch httpx clients to automatically use proxies for email scans
+_original_async_client_init = httpx.AsyncClient.__init__
+_original_client_init = httpx.Client.__init__
+
+def _patched_async_client_init(self, *args, **kwargs):
+    if "proxy" not in kwargs and "proxies" not in kwargs:
+        proxy = get_proxy()
+        if proxy:
+            kwargs["proxy"] = proxy
+            
+    global_timeout = get_global_timeout()
+    if global_timeout is not None:
+        kwargs["timeout"] = global_timeout
+        
+    _original_async_client_init(self, *args, **kwargs)
+
+def _patched_client_init(self, *args, **kwargs):
+    if "proxy" not in kwargs and "proxies" not in kwargs:
+        proxy = get_proxy()
+        if proxy:
+            kwargs["proxy"] = proxy
+            
+    global_timeout = get_global_timeout()
+    if global_timeout is not None:
+        kwargs["timeout"] = global_timeout
+        
+    _original_client_init(self, *args, **kwargs)
+
+httpx.AsyncClient.__init__ = _patched_async_client_init  # type: ignore[method-assign]
+httpx.Client.__init__ = _patched_client_init  # type: ignore[method-assign]
+
 
 # Concurrency control
 MAX_CONCURRENT_REQUESTS = 25
 
+def set_concurrency(val: int):
+    global MAX_CONCURRENT_REQUESTS
+    MAX_CONCURRENT_REQUESTS = val
 
-async def _async_worker(module: ModuleType, email: str, sem: asyncio.Semaphore,
-                        show_url: bool = False, only_found: bool = False,
-                        printed_cats: Optional[Set] = None) -> Result:
+async def _async_worker(
+    module: ModuleType,
+    email: str,
+    sem: asyncio.Semaphore,
+    configs: ScanConfig,
+    printed_cats: Optional[Set] = None,
+) -> Result:
     async with sem:
-        module_name = module.__name__.split(".")[-1]
-        func_name = f"validate_{module_name}"
+        site_name = get_site_name(module)
+        func = get_scan_func(module)
         actual_cat = find_category(module) or "Email"
 
         params = {
-            "site_name": module_name.capitalize(),
+            "site_name": site_name.capitalize(),
             "username": email,
             "category": actual_cat,
             "is_email": True,
         }
 
-        if not hasattr(module, func_name):
-            return (
-                Result.error(f"Function {func_name} not found")
-                .update(**params)
-                .show(show_url=show_url, only_found=only_found)
-            )
+        if not func:
+            return Result.error(
+                f"{site_name} has no validate_ function", **params
+            ).show(configs)
 
-        func = getattr(module, func_name)
+        if not configs.allow_loud and is_loud(site_name, is_email=True):
+            return Result.skipped().update(**params).show(configs)
 
         try:
-            res = func(email)
-            result = await res if asyncio.iscoroutine(res) else res
+            import inspect
+            if inspect.iscoroutinefunction(func):
+                result = await func(email)
+            else:
+                result = await asyncio.to_thread(func, email)
         except Exception as e:
             result = Result.error(e)
 
         result.update(**params)
 
-        # Logic to print header dynamically for --only-found streaming
-        if only_found and result.status == Status.TAKEN:
+        # Logic to print header dynamically for --show-all streaming
+        if not configs.show_all and result.status == Status.TAKEN:
             if printed_cats is not None and actual_cat not in printed_cats:
                 print(
-                    f"\n{Fore.MAGENTA}== {actual_cat.upper()} SITES =={Style.RESET_ALL}")
+                    f"\n{Fore.MAGENTA}== {actual_cat.upper()} SITES =={Style.RESET_ALL}"
+                )
                 printed_cats.add(actual_cat)
 
-        return result.show(show_url=show_url, only_found=only_found)
+        return result.show(configs)
 
 
-async def _run_batch(modules: List[ModuleType], email: str, show_url: bool = False,
-                     only_found: bool = False, printed_cats: Optional[Set] = None) -> List[Result]:
+async def _run_batch(
+    modules: List[ModuleType],
+    email: str,
+    configs: ScanConfig,
+    printed_cats: Optional[Set] = None,
+) -> List[Result]:
     sem = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
     tasks = []
     for module in modules:
-        tasks.append(_async_worker(module, email, sem, show_url=show_url,
-                                   only_found=only_found, printed_cats=printed_cats))
+        tasks.append(
+            _async_worker(
+                module,
+                email,
+                sem,
+                configs,
+                printed_cats=printed_cats,
+            )
+        )
 
     if not tasks:
         return []
-    return list(await asyncio.gather(*tasks))
+
+    results = []
+    
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        MofNCompleteColumn(),
+        TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+        transient=True,
+    ) as progress:
+        task_id = progress.add_task(f"[cyan]Scanning {email}...", total=len(tasks))
+
+        for coro in asyncio.as_completed(tasks):
+            result = await coro
+            results.append(result)
+            progress.advance(task_id)
+
+    return results
 
 
-def run_email_module_batch(module: ModuleType, email: str, show_url: bool = False, only_found: bool = False) -> List[Result]:
-    return asyncio.run(_run_batch([module], email, show_url=show_url, only_found=only_found))
+async def _run_email_module_batch_async(
+    module: ModuleType, email: str, configs: ScanConfig
+) -> List[Result]:
+    return await _run_batch([module], email, configs)
+
+def run_email_module_batch(
+    module: ModuleType, email: str, configs: ScanConfig
+) -> List[Result]:
+    return asyncio.run(_run_email_module_batch_async(module, email, configs))
 
 
-def run_email_category_batch(category_path: Path, email: str, show_url: bool = False, only_found: bool = False) -> List[Result]:
+async def _run_email_category_batch_async(
+    category_path: Path, email: str, configs: ScanConfig
+) -> List[Result]:
     cat_name = category_path.stem.capitalize()
     modules = load_modules(category_path)
     printed_cats = set()
 
-    if not only_found:
+    if configs.show_all:
         print(f"\n{Fore.MAGENTA}== {cat_name.upper()} SITES =={Style.RESET_ALL}")
         printed_cats.add(cat_name)
 
-    return asyncio.run(_run_batch(modules, email, show_url=show_url,
-                                  only_found=only_found, printed_cats=printed_cats))
+    return await _run_batch(
+        modules,
+        email,
+        configs,
+        printed_cats=printed_cats,
+    )
+
+def run_email_category_batch(
+    category_path: Path, email: str, configs: ScanConfig
+) -> List[Result]:
+    return asyncio.run(_run_email_category_batch_async(category_path, email, configs))
 
 
-def run_email_full_batch(email: str, show_url: bool = False, only_found: bool = False) -> List[Result]:
-    categories = load_categories(is_email=True)
+async def _run_email_full_batch_async(email: str, configs: ScanConfig) -> List[Result]:
+    categories = load_categories(True, configs.no_nsfw)
     all_results = []
-    printed_cats = set()
+    printed_cats: Set[str] = set()
 
+    # 1. Pre-spawn all tasks for all categories (global concurrency)
+    category_tasks = []
+    total_tasks = 0
     for cat_name, cat_path in categories.items():
+        display_name = cat_name.capitalize()
         modules = load_modules(cat_path)
+        
+        sem = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
+        tasks = []
+        for module in modules:
+            tasks.append(
+                _async_worker(
+                    module,
+                    email,
+                    sem,
+                    configs,
+                    printed_cats=printed_cats,
+                )
+            )
+        category_tasks.append((display_name, tasks))
+        total_tasks += len(tasks)
 
-        if not only_found:
-            print(
-                f"\n{Fore.MAGENTA}== {cat_name.upper()} SITES =={Style.RESET_ALL}")
-            printed_cats.add(cat_name)
-
-        cat_results = asyncio.run(_run_batch(modules, email, show_url=show_url,
-                                             only_found=only_found, printed_cats=printed_cats))
-        all_results.extend(cat_results)
+    # 2. Await tasks category by category to stream grouped output
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        MofNCompleteColumn(),
+        TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+        transient=True,
+    ) as progress:
+        task_id = progress.add_task(f"[cyan]Scanning {email}...", total=total_tasks)
+        
+        for display_name, tasks in category_tasks:
+            if not tasks:
+                continue
+                
+            if configs.show_all:
+                print(f"\n{Fore.MAGENTA}== {display_name.upper()} SITES =={Style.RESET_ALL}")
+                printed_cats.add(display_name)
+                
+            for coro in asyncio.as_completed(tasks):
+                result = await coro
+                all_results.append(result)
+                progress.advance(task_id)
 
     return all_results
+
+def run_email_full_batch(email: str, configs: ScanConfig) -> List[Result]:
+    return asyncio.run(_run_email_full_batch_async(email, configs))

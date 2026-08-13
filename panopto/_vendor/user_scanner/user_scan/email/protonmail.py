@@ -3,6 +3,17 @@ from user_scanner.core.result import Result
 
 
 def validate_protonmail(user: str) -> Result:
+    """Validate Proton Mail username availability.
+
+    Proton exposes an availability API used by their web account app.
+
+    - Code 12106: username exists (taken)
+    - Code 1000: username does not exist (available)
+
+    Ref: https://github.com/kaifcodec/user-scanner/issues/284
+    """
+
+    # Use the same endpoint described in the issue; keep params explicit.
     url = (
         "https://account.proton.me/api/core/v4/users/available"
         f"?Name={user}%40proton.me&ParseDomain=1"
@@ -10,6 +21,7 @@ def validate_protonmail(user: str) -> Result:
     show_url = "https://account.proton.me"
 
     headers = {
+        # This header appears required by Proton's API.
         "x-pm-appversion": "web-mail@6.0.1.3",
         "Accept": "application/json",
     }
@@ -28,6 +40,7 @@ def validate_protonmail(user: str) -> Result:
             return Result.taken()
         if code == 1000:
             return Result.available()
+
         return Result.error(f"Unexpected Proton response code: {code}")
 
     return generic_validate(url, process, show_url=show_url, headers=headers)

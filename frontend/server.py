@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import base64
 import binascii
 import html
@@ -35,10 +36,11 @@ from panopto.errors import UsernameNotFoundError
 from panopto.post_query import normalize_tag, query_posts
 from panopto.collection_jobs import get_collection_job_status, start_collection_job
 from panopto.config import load_config, load_public_config, save_config
-from panopto.recon import normalize_recon_selectors, run_recon, stream_user_scanner_selector
+from panopto.recon import _recon_row_from_scanner_item, normalize_recon_selectors, run_recon, stream_user_scanner_selector
 from panopto.face_analysis import FaceRecognitionEngine
 from panopto.storage.posts import (
     build_vip_threat_demo_recon,
+    acknowledge_watchlist_activity,
     clear_posts,
     create_case,
     create_demo_case,
@@ -239,6 +241,26 @@ def _html_escape(text: str) -> str:
     return html.escape(str(text or ""), quote=True)
 
 
+def _html_escape_with_figure_links(text: str) -> str:
+    """Render analyst-entered Markdown figure citations as safe report links."""
+    value = str(text or "")
+    pattern = re.compile(r"\[([^\]\r\n]+)\]\((https?://[^\s)]+)\)")
+    chunks: list[str] = []
+    cursor = 0
+    for match in pattern.finditer(value):
+        chunks.append(_html_escape(value[cursor:match.start()]))
+        label = match.group(1).strip()
+        href = match.group(2).strip()
+        parsed = urlparse(href)
+        if parsed.scheme.lower() in {"http", "https"} and parsed.netloc:
+            chunks.append(f'<a class="figure-citation-link" href="{_html_escape(href)}">{_html_escape(label)}</a>')
+        else:
+            chunks.append(_html_escape(match.group(0)))
+        cursor = match.end()
+    chunks.append(_html_escape(value[cursor:]))
+    return "".join(chunks)
+
+
 def _wrap_pdf_text(text: str, width: int) -> list[str]:
     normalized = str(text or "").replace("\r\n", "\n").replace("\r", "\n")
     if not normalized.strip():
@@ -432,14 +454,26 @@ def _normalize_case_notes_report_preferences(notes: dict) -> dict[str, set[str]]
         )
         if str(item or "").strip()
     }
+    excluded_pattern_life_evidence_keys = {
+        str(item or "").strip().lower()
+        for item in (
+            prefs.get("excluded_pattern_life_evidence_keys")
+            if isinstance(prefs.get("excluded_pattern_life_evidence_keys"), list)
+            else []
+        )
+        if str(item or "").strip()
+    }
     return {
         "excluded_sections": excluded_sections,
         "excluded_footprint_result_keys": excluded_footprint_keys,
+        "excluded_pattern_life_evidence_keys": excluded_pattern_life_evidence_keys,
     }
 
 
 def _footprint_source_priority(source: str) -> int:
     clean = str(source or "").strip().lower()
+    if clean == "case profile record":
+        return -1
     if clean == "osint industries":
         return 0
     if clean == "people data labs":
@@ -470,6 +504,8 @@ def _normalize_recon_snapshot_payload(notes: dict) -> dict:
 
 def _build_digital_footprint_back_matter(notes: dict) -> list[dict[str, str]]:
     payload = _normalize_recon_snapshot_payload(notes)
+    snapshot = notes.get("recon_snapshot") if isinstance(notes.get("recon_snapshot"), dict) else {}
+    snapshot_captured_at = str(snapshot.get("saved_at") or "").strip()
     preferences = _normalize_case_notes_report_preferences(notes)
     excluded_keys = preferences.get("excluded_footprint_result_keys", set())
     entries: list[dict[str, str]] = []
@@ -481,6 +517,62 @@ def _build_digital_footprint_back_matter(notes: dict) -> list[dict[str, str]]:
             return None
         return {"label": clean_label, "value": clean_value}
 
+    def _case_field_label(path: list[str]) -> str:
+        aliases = {
+            "full_name": "Full Name", "name": "Name", "username": "Username", "handle": "Handle",
+            "display_name": "Display Name", "location": "Location", "location_name": "Location",
+            "city": "City", "state": "State / Region", "country": "Country", "email": "Email",
+            "phone": "Phone", "phone_number": "Phone", "bio": "Biography", "description": "Description",
+            "job_title": "Job Title", "job_company_name": "Employer", "company": "Employer",
+            "aliases": "Aliases", "website": "Website", "profile_url": "Profile URL",
+        }
+        return " / ".join(aliases.get(part.lower(), part.replace("_", " ").replace("-", " ").title()) for part in path)
+
+    def _observed_detail_fields(record: dict[str, Any] | None) -> list[dict[str, str]]:
+        """Flatten provider fields so the report shows observed facts, not a JSON blob."""
+        fields: list[tuple[list[str], str]] = []
+
+        def visit(value: Any, path: list[str]) -> None:
+            if value is None or value == "" or value == [] or value == {}:
+                return
+            if isinstance(value, dict):
+                for key, child in value.items():
+                    visit(child, [*path, str(key)])
+                return
+            if isinstance(value, (list, tuple)):
+                scalar_values = [str(item).strip() for item in value if not isinstance(item, (dict, list, tuple)) and str(item).strip()]
+                if scalar_values:
+                    fields.append((path, ", ".join(scalar_values)))
+                for index, child in enumerate(value, start=1):
+                    if isinstance(child, (dict, list, tuple)):
+                        visit(child, [*path, str(index)])
+                return
+            fields.append((path, str(value).strip()))
+
+        visit(record or {}, [])
+        # These fields describe how the application handled a record, rather
+        # than attributes of the profile itself.  In particular, a profile's
+        # collection queue state must not leak into the exported profile card.
+        excluded = {
+            "source", "selector", "selector_type", "query_type", "query_value",
+            "status", "reason", "profile_url", "url", "profile_image_url",
+            "picture_url", "avatar_url", "image_url", "screenshot_url",
+            "collection_ready", "collection_method", "identification_method",
+            "provenance",
+        }
+        unique: dict[str, str] = {}
+        for path, value in fields:
+            if not path or path[-1].lower() in excluded or not value:
+                continue
+            label = _case_field_label(path)
+            unique.setdefault(label, value)
+        priority = ("Full Name", "Name", "Username", "Handle", "Display Name", "Aliases", "Email", "Phone", "Location", "City", "State", "Country", "Job Title", "Employer", "Biography", "Description", "Website")
+        def sort_key(item: tuple[str, str]) -> tuple[int, str]:
+            label = item[0]
+            rank = next((index for index, term in enumerate(priority) if label == term or label.startswith(f"{term} /")), len(priority))
+            return rank, label
+        return [{"label": label, "value": value} for label, value in sorted(unique.items(), key=sort_key)[:30]]
+
     def add_item(
         *,
         source: str,
@@ -491,6 +583,9 @@ def _build_digital_footprint_back_matter(notes: dict) -> list[dict[str, str]]:
         image_url: str = "",
         metadata: list[dict[str, str]] | None = None,
         exclusion_aliases: list[str] | None = None,
+        original_record: dict[str, Any] | None = None,
+        collection_method: str = "",
+        include_evidence_metadata: bool = True,
     ) -> None:
         clean_source = str(source or "").strip() or "Digital Footprint"
         clean_selector_type = str(selector_type or "").strip().lower()
@@ -505,14 +600,39 @@ def _build_digital_footprint_back_matter(notes: dict) -> list[dict[str, str]]:
             row = _field(str(item.get("label") or ""), str(item.get("value") or ""))
             if row:
                 metadata_rows.append(row)
+        existing_labels = {str(row.get("label") or "").strip().lower() for row in metadata_rows}
+        for row in _observed_detail_fields(original_record):
+            if str(row.get("label") or "").strip().lower() not in existing_labels:
+                metadata_rows.append(row)
+                existing_labels.add(str(row.get("label") or "").strip().lower())
+        base_summary = " | ".join(f"{item['label']}: {item['value']}" for item in metadata_rows) if metadata_rows else "No details available."
+        # Keep the source record intact in the case snapshot and attach a stable,
+        # verifiable evidence manifest to every report tile.  We fingerprint the
+        # canonical JSON rather than a rendered summary, so cosmetic report changes
+        # do not change what was originally collected.
+        original_content = json.dumps(original_record or {}, sort_keys=True, ensure_ascii=False, default=str)
+        content_sha256 = hashlib.sha256(original_content.encode("utf-8")).hexdigest()
+        media_reference_sha256 = hashlib.sha256(clean_image_url.encode("utf-8")).hexdigest() if clean_image_url else ""
+        if include_evidence_metadata:
+            evidence_metadata = [
+                _field("Source URL", clean_profile_url or "Not recorded"),
+                _field("Captured (UTC)", snapshot_captured_at or "Not recorded"),
+                _field("Collection Method", collection_method or "Not recorded"),
+                _field("Content SHA-256", content_sha256),
+                _field("Media URL", clean_image_url or "Not recorded"),
+                _field("Media Reference SHA-256", media_reference_sha256),
+            ]
+            for row in evidence_metadata:
+                if row:
+                    metadata_rows.append(row)
         summary = " | ".join(f"{item['label']}: {item['value']}" for item in metadata_rows) if metadata_rows else "No details available."
         entry_key = _footprint_entry_key(
             clean_source,
             clean_selector_type,
             clean_selector_value,
-            " | ".join(part for part in (clean_site_label, clean_profile_url, clean_image_url, summary) if part),
+            " | ".join(part for part in (clean_site_label, clean_profile_url, clean_image_url, base_summary) if part),
         )
-        legacy_key = _footprint_entry_key(clean_source, clean_selector_type, clean_selector_value, summary)
+        legacy_key = _footprint_entry_key(clean_source, clean_selector_type, clean_selector_value, base_summary)
         aliases = {
             str(item or "").strip().lower()
             for item in (exclusion_aliases or [])
@@ -535,6 +655,11 @@ def _build_digital_footprint_back_matter(notes: dict) -> list[dict[str, str]]:
             "favicon_url": _site_favicon_url(clean_site_label, clean_profile_url),
             "summary": summary,
             "metadata": metadata_rows,
+            "captured_at": snapshot_captured_at,
+            "collection_method": collection_method,
+            "original_content": original_content,
+            "content_sha256": content_sha256,
+            "media_reference_sha256": media_reference_sha256,
         }
         entries.append(entry)
 
@@ -574,6 +699,8 @@ def _build_digital_footprint_back_matter(notes: dict) -> list[dict[str, str]]:
                     ),
                 )
             ],
+            original_record=item,
+            collection_method=f"Recon provider: {source}",
         )
 
     for item in payload.get("osint_profiles", []) if isinstance(payload.get("osint_profiles"), list) else []:
@@ -598,6 +725,8 @@ def _build_digital_footprint_back_matter(notes: dict) -> list[dict[str, str]]:
                 _field("Email", email),
                 _field("Phone", phone),
             ] if row],
+            original_record=item,
+            collection_method=f"OSINT Industries module: {module}",
         )
 
     for item in payload.get("numverify_profiles", []) if isinstance(payload.get("numverify_profiles"), list) else []:
@@ -620,6 +749,8 @@ def _build_digital_footprint_back_matter(notes: dict) -> list[dict[str, str]]:
                 _field("Carrier", carrier),
                 _field("Line Type", line_type),
             ] if row],
+            original_record=item,
+            collection_method="Numverify phone intelligence lookup",
         )
 
     for item in payload.get("person_data_profiles", []) if isinstance(payload.get("person_data_profiles"), list) else []:
@@ -646,6 +777,33 @@ def _build_digital_footprint_back_matter(notes: dict) -> list[dict[str, str]]:
                 _field("Work Email", work_email),
                 _field("Mobile", mobile),
             ] if row],
+            original_record=item,
+            collection_method="People Data Labs enrichment lookup",
+        )
+
+    # Major profiles are analyst-curated evidence, not merely a report summary.
+    # Include them in the same appendix format so their URLs, media, and observed
+    # identity fields carry the same provenance record as discovered findings.
+    known_profiles = notes.get("known_profiles") if isinstance(notes.get("known_profiles"), list) else []
+    for item in _major_profiles(known_profiles):
+        if not isinstance(item, dict):
+            continue
+        site = str(item.get("site") or "Major Profile").strip() or "Major Profile"
+        profile_url = str(item.get("url") or item.get("profile_url") or "").strip()
+        image_url = str(item.get("image_url") or item.get("screenshot_url") or "").strip()
+        add_item(
+            source="Case Profile Record",
+            selector_type="profile",
+            selector_value=profile_url or site,
+            site_label=site,
+            profile_url=profile_url,
+            image_url=image_url,
+            # Render the actual attributes supplied on the profile record.
+            # The site, URL, image, collection state, and application
+            # provenance are structural/UI fields, not profile metadata.
+            metadata=[],
+            original_record=item,
+            include_evidence_metadata=False,
         )
 
     return sorted(
@@ -657,6 +815,71 @@ def _build_digital_footprint_back_matter(notes: dict) -> list[dict[str, str]]:
             str(item.get("profile_url") or "").strip().lower(),
         ),
     )
+
+
+def _build_evidence_capture(notes: dict) -> list[dict[str, str]]:
+    """Normalize analyst-pinned posts/images for the report's evidence backmatter."""
+    raw_entries = notes.get("evidence_capture") if isinstance(notes.get("evidence_capture"), list) else []
+    entries: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for raw in raw_entries:
+        if not isinstance(raw, dict):
+            continue
+        source_url = str(raw.get("source_url") or "").strip()
+        post_text = str(raw.get("post_text") or raw.get("content") or "").strip()
+        author_name = str(raw.get("author_name") or raw.get("author_handle") or "Unknown author").strip() or "Unknown author"
+        author_handle = str(raw.get("author_handle") or raw.get("username") or "").strip()
+        timestamp = str(raw.get("timestamp") or "").strip()
+        platform = str(raw.get("platform") or "").strip()
+        profile_image_url = _image_source_to_data_uri(str(raw.get("profile_image_url") or "").strip())
+        media_url = _image_source_to_data_uri(str(raw.get("media_url") or "").strip())
+        key = str(raw.get("key") or f"{source_url}|{media_url}|{post_text}|{author_name}").strip().lower()
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        entries.append({
+            "source_url": source_url,
+            "post_text": post_text,
+            "author_name": author_name,
+            "author_handle": author_handle,
+            "timestamp": timestamp,
+            "platform": platform,
+            "profile_image_url": profile_image_url,
+            "media_url": media_url,
+            "media_type": str(raw.get("media_type") or "").strip(),
+            "captured_at": str(raw.get("captured_at") or "").strip(),
+        })
+    return entries
+
+
+def _build_pattern_of_life_evidence(notes: dict) -> list[dict[str, str]]:
+    """Normalize the two live Pattern of Life map figures supplied by the UI."""
+    raw_entries = notes.get("pattern_of_life_evidence") if isinstance(notes.get("pattern_of_life_evidence"), list) else []
+    entries: list[dict[str, str]] = []
+    allowed = {"pattern-life-overview", "pattern-life-focus"}
+    excluded_keys = _normalize_case_notes_report_preferences(notes).get("excluded_pattern_life_evidence_keys", set())
+    seen: set[str] = set()
+    for raw in raw_entries:
+        if not isinstance(raw, dict):
+            continue
+        key = str(raw.get("key") or "").strip().lower()
+        primary_image_url = _image_source_to_data_uri(str(raw.get("image_url") or "").strip())
+        fallback_image_url = _image_source_to_data_uri(str(raw.get("fallback_image_url") or "").strip())
+        # Raster snapshots are self-contained and print reliably.  Legacy
+        # captures used remote map URLs, so prefer their retained fallback.
+        image_url = primary_image_url if primary_image_url.startswith("data:image/png") else (fallback_image_url or primary_image_url)
+        if key not in allowed or key in seen or key in excluded_keys or not image_url:
+            continue
+        seen.add(key)
+        entries.append({
+            "key": key,
+            "title": str(raw.get("title") or "Pattern of Life map").strip() or "Pattern of Life map",
+            "description": str(raw.get("description") or "").strip(),
+            "image_url": image_url,
+            "fallback_image_url": fallback_image_url,
+            "captured_at": str(raw.get("captured_at") or "").strip(),
+        })
+    return entries
 
 
 def _extract_pdf_text(raw_pdf: bytes) -> str:
@@ -740,11 +963,16 @@ def _build_case_notes_pdf_stylized(case_row: dict, posts: list[dict]) -> bytes:
     selector_emails = str(notes.get("selector_emails") or "").strip() or "None"
     selector_phones = str(notes.get("selector_phone_numbers") or "").strip() or "None"
     selector_usernames = str(notes.get("selector_usernames") or "").strip() or "None"
+    selector_corroboration = notes.get("selector_corroboration") if isinstance(notes.get("selector_corroboration"), dict) else {}
     report_preferences = _normalize_case_notes_report_preferences(notes)
     excluded_sections = report_preferences.get("excluded_sections", set())
     footprint_groups = _build_digital_footprint_back_matter(notes)
+    evidence_captures = _build_evidence_capture(notes)
+    pattern_of_life_evidence = _build_pattern_of_life_evidence(notes)
     subject_image = _image_source_to_data_uri(str(notes.get("subject_image_url") or case_row.get("poi_image_url") or "").strip())
-    report_ref = str(case_row.get("id") or case_row.get("case_id") or case_row.get("case_name") or "UNASSIGNED").strip() or "UNASSIGNED"
+    report_ref = str(case_row.get("case_file_number") or case_row.get("id") or case_row.get("case_id") or case_row.get("case_name") or "UNASSIGNED").strip() or "UNASSIGNED"
+    if report_ref.startswith("SIG-"):
+        report_ref = f"CASE // {report_ref}"
     generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     profiles_raw = notes.get("known_profiles") if isinstance(notes.get("known_profiles"), list) else []
     profiles = _major_profiles(profiles_raw) if profiles_raw else _major_profiles(_discover_profiles_from_posts(posts))
@@ -753,10 +981,18 @@ def _build_case_notes_pdf_stylized(case_row: dict, posts: list[dict]) -> bytes:
     selector_username_items = [item.strip() for item in selector_usernames.split(",") if item.strip()] if selector_usernames and selector_usernames != "None" else []
     selector_total = len(selector_email_items) + len(selector_phone_items) + len(selector_username_items)
 
-    def selector_chips(values: list[str], empty_label: str = "None") -> str:
+    def selector_items(values: list[str], empty_label: str = "None") -> str:
         if not values:
-            return f'<span class="selector-chip selector-chip-empty">{_html_escape(empty_label)}</span>'
-        return "".join(f'<span class="selector-chip">{_html_escape(value)}</span>' for value in values)
+            return f'<div class="selector-item selector-item-empty">{_html_escape(empty_label)}</div>'
+        return "".join(f'<div class="selector-item">{_html_escape(value)}</div>' for value in values)
+
+    def selector_corroboration_note(selector_type: str) -> str:
+        row = selector_corroboration.get(selector_type) if isinstance(selector_corroboration.get(selector_type), dict) else {}
+        sources = max(0, int(row.get("source_count") or 0))
+        searched = max(0, int(row.get("searched_selector_count") or 0))
+        if not sources and not searched:
+            return '<div class="selector-corroboration">No corroboration recorded.</div>'
+        return f'<div class="selector-corroboration">Corroborated by {sources} source{("" if sources == 1 else "s")} across {searched} searched selector{("" if searched == 1 else "s")}.</div>'
 
     def profile_cards() -> str:
         if not profiles:
@@ -786,39 +1022,102 @@ def _build_case_notes_pdf_stylized(case_row: dict, posts: list[dict]) -> bytes:
             )
         return "".join(cards)
 
+    def evidence_capture_cards() -> str:
+        if not evidence_captures and not pattern_of_life_evidence:
+            return '<p class="footprint-empty">No posts or images have been pinned to this report.</p>'
+        cards: list[str] = []
+        for figure_number, item in enumerate(evidence_captures, start=1):
+            author = str(item.get("author_name") or "Unknown author")
+            handle = str(item.get("author_handle") or "")
+            platform = str(item.get("platform") or "")
+            timestamp = str(item.get("timestamp") or "")
+            captured_at = str(item.get("captured_at") or "")
+            source_url = str(item.get("source_url") or "")
+            post_text = str(item.get("post_text") or "")
+            profile_image = str(item.get("profile_image_url") or "")
+            media_url = str(item.get("media_url") or "")
+            cards.append(
+                f'''<article class="evidence-capture-card">
+                  <div class="evidence-capture-card-head">
+                    <div id="figure-{figure_number}" class="evidence-capture-figure">Figure {figure_number}</div>
+                    <div class="evidence-capture-kind">Cited post</div>
+                  </div>
+                  <div class="evidence-capture-author">
+                    {f'<img src="{profile_image}" alt="Author profile image" />' if profile_image else '<div class="evidence-capture-avatar-empty">No profile image</div>'}
+                    <div><strong>{_html_escape(author)}</strong>{f'<span>{_html_escape(handle)}</span>' if handle else ''}</div>
+                  </div>
+                  <div class="evidence-capture-dates"><span><b>Platform</b>{_html_escape(platform or 'Not recorded')}</span><span><b>Post date</b>{_html_escape(timestamp or 'Not recorded')}</span><span><b>Collection date</b>{_html_escape(captured_at or 'Not recorded')}</span></div>
+                  {f'<p class="evidence-capture-text">{_html_escape(post_text)}</p>' if post_text else '<p class="evidence-capture-text na">No post text captured.</p>'}
+                  {f'<div class="evidence-capture-url">{_html_escape(source_url)}</div>' if source_url else '<div class="evidence-capture-url na">Source URL not recorded</div>'}
+                  {f'<img class="evidence-capture-media" src="{media_url}" alt="Captured post media" />' if media_url else ''}
+                </article>'''
+            )
+        for map_offset, item in enumerate(pattern_of_life_evidence, start=1):
+            figure_number = len(evidence_captures) + map_offset
+            title = str(item.get("title") or "Pattern of Life map")
+            description = str(item.get("description") or "")
+            captured_at = str(item.get("captured_at") or "")
+            image_url = str(item.get("image_url") or "")
+            fallback_image_url = str(item.get("fallback_image_url") or "")
+            fallback_attribute = f' onerror="this.onerror=null;this.src=\'{_html_escape(fallback_image_url)}\';"' if fallback_image_url else ""
+            cards.append(
+                f'''<article class="evidence-capture-card pattern-life-evidence-card">
+                  <div class="evidence-capture-card-head">
+                    <div id="figure-{figure_number}" class="evidence-capture-figure">Figure {figure_number}</div>
+                    <div class="evidence-capture-kind">Pattern of Life map</div>
+                  </div>
+                  <div class="pattern-life-evidence-title">{_html_escape(title)}</div>
+                  {f'<p class="evidence-capture-text">{_html_escape(description)}</p>' if description else ''}
+                  <img class="pattern-life-evidence-map" src="{image_url}" alt="{_html_escape(title)}"{fallback_attribute} />
+                  {f'<div class="evidence-capture-dates"><span><b>Generated</b>{_html_escape(captured_at)}</span></div>' if captured_at else ''}
+                </article>'''
+            )
+        return "".join(cards)
+
     def footprint_cards() -> str:
         entries = footprint_groups
         if not entries:
             return '<p class="footprint-empty">No associated results.</p>'
         output: list[str] = []
-        for item in entries:
+        figure_offset = len(evidence_captures) + len(pattern_of_life_evidence)
+        for evidence_number, item in enumerate(entries, start=figure_offset + 1):
             metadata = item.get("metadata") if isinstance(item.get("metadata"), list) else []
+            is_case_profile = str(item.get("source") or "").strip().lower() == "case profile record"
             selector_provenance = str(item.get("selector_provenance") or "").strip()
             selector_label = str(item.get("selector_label") or "").strip()
-            metadata_markup = "".join(
+            provenance_labels = {"source url", "captured (utc)", "collection method", "content sha-256", "media url", "media reference sha-256"}
+            observed_metadata = [row for row in metadata if isinstance(row, dict) and str(row.get("label") or "").strip().lower() not in provenance_labels]
+            provenance_metadata = [row for row in metadata if isinstance(row, dict) and str(row.get("label") or "").strip().lower() in provenance_labels]
+            def metadata_markup(rows: list[dict[str, str]]) -> str:
+                return "".join(
                 f"""
                 <div class="footprint-meta-item">
                   <div class="footprint-meta-label">{_html_escape(str(row.get("label") or ""))}</div>
                   <div class="footprint-meta-value">{_html_escape(str(row.get("value") or ""))}</div>
                 </div>
                 """
-                for row in metadata
+                for row in rows
                 if isinstance(row, dict) and str(row.get("label") or "").strip() and str(row.get("value") or "").strip()
-            ) or """
+                )
+            observed_markup = metadata_markup(observed_metadata) or """
                 <div class="footprint-meta-item footprint-meta-item-empty">
-                  <div class="footprint-meta-label">Details</div>
-                  <div class="footprint-meta-value na">No associated metadata captured.</div>
+                  <div class="footprint-meta-label">Observed details</div>
+                  <div class="footprint-meta-value na">No provider attributes were returned.</div>
                 </div>
             """
+            if is_case_profile and not observed_metadata:
+                observed_markup = ""
+            provenance_markup = metadata_markup(provenance_metadata)
             image_url = str(item.get("image_url") or "").strip()
             profile_url = str(item.get("profile_url") or "").strip()
             site_label = str(item.get("site_label") or item.get("source") or "Digital Footprint").strip() or "Digital Footprint"
             output.append(
                 f"""
-                <article class="footprint-card">
-                  <div class="footprint-card-media">
+                <article class="footprint-card evidence-record">
+                  <div id="figure-{evidence_number}" class="evidence-record-banner">Figure {evidence_number}</div>
+                  {f'''<div class="footprint-card-media">
                     {f'<img class="footprint-card-avatar" src="{_html_escape(image_url)}" alt="Profile image" />' if image_url else '<div class="footprint-card-avatar footprint-card-avatar-placeholder">No image</div>'}
-                  </div>
+                  </div>''' if image_url or not is_case_profile else ''}
                   <div class="footprint-card-body">
                     <div class="footprint-card-head">
                       <div class="footprint-card-site">
@@ -828,7 +1127,8 @@ def _build_case_notes_pdf_stylized(case_row: dict, posts: list[dict]) -> bytes:
                         </div>
                       </div>
                     </div>
-                    <div class="footprint-card-evidence">
+                    {f'''<div class="footprint-card-url">{_html_escape(profile_url)}</div>''' if is_case_profile and profile_url else ''}
+                    {"" if is_case_profile else f'''<div class="footprint-card-evidence">
                       <div class="footprint-evidence-item">
                         <div class="footprint-evidence-label">Profile URL</div>
                         <div class="footprint-evidence-value footprint-card-url">{_html_escape(profile_url or 'No profile URL captured')}</div>
@@ -841,8 +1141,12 @@ def _build_case_notes_pdf_stylized(case_row: dict, posts: list[dict]) -> bytes:
                         <div class="footprint-evidence-label">Evidence Type</div>
                         <div class="footprint-evidence-value">{_html_escape(selector_label or 'Digital Footprint')}</div>
                       </div>
-                    </div>
-                    <div class="footprint-meta-grid">{metadata_markup}</div>
+                    </div>'''}
+                    {f'''<div class="evidence-record-section-title">Profile metadata</div>
+                    <div class="footprint-meta-grid">{observed_markup}</div>''' if is_case_profile and observed_markup else f'''<div class="evidence-record-section-title">Observed details</div>
+                    <div class="footprint-meta-grid">{observed_markup}</div>'''}
+                    {"" if is_case_profile or not provenance_markup else f'''<div class="evidence-record-section-title">Provenance and integrity</div>
+                    <div class="footprint-meta-grid evidence-provenance-grid">{provenance_markup}</div>'''}
                   </div>
                 </article>
                 """
@@ -869,7 +1173,7 @@ def _build_case_notes_pdf_stylized(case_row: dict, posts: list[dict]) -> bytes:
         f"""
           <section class="report-section">
             <h2>Threat / Risk Assessment</h2>
-            <p>{_html_escape(threat)}</p>
+            <p>{_html_escape_with_figure_links(threat)}</p>
             <div class="section-callout">
               <span class="section-callout-label">Underlying Themes</span>
               <span class="section-callout-value">{_html_escape(', '.join(underlying_themes) if underlying_themes else 'None')}</span>
@@ -896,15 +1200,18 @@ def _build_case_notes_pdf_stylized(case_row: dict, posts: list[dict]) -> bytes:
             <div class="selector-groups">
               <div class="selector-group">
                 <div class="selector-group-label">Emails</div>
-                <div class="selector-chip-row">{selector_chips(selector_email_items)}</div>
+                <div class="selector-item-list">{selector_items(selector_email_items)}</div>
+                {selector_corroboration_note("email")}
               </div>
               <div class="selector-group">
                 <div class="selector-group-label">Phone Numbers</div>
-                <div class="selector-chip-row">{selector_chips(selector_phone_items)}</div>
+                <div class="selector-item-list">{selector_items(selector_phone_items)}</div>
+                {selector_corroboration_note("phone")}
               </div>
               <div class="selector-group">
                 <div class="selector-group-label">User Names</div>
-                <div class="selector-chip-row">{selector_chips(selector_username_items)}</div>
+                <div class="selector-item-list">{selector_items(selector_username_items)}</div>
+                {selector_corroboration_note("username")}
               </div>
             </div>
           </section>
@@ -912,23 +1219,24 @@ def _build_case_notes_pdf_stylized(case_row: dict, posts: list[dict]) -> bytes:
         if show_selectors
         else ""
     )
-    known_profiles_section = (
-        f"""
-          <section class="report-section">
-            <h2>Major Profiles</h2>
-            <div class="profile-grid">{profile_cards()}</div>
+    # Profile records are deliberately not rendered as a separate dashboard-like
+    # section.  Curated profiles and discovered footprint findings share one
+    # evidence schedule in the appendix, ordered with curated profiles first.
+    known_profiles_section = ""
+    evidence_capture_section = f"""
+          <section class="report-section evidence-capture-section">
+            <h2>Evidence Capture</h2>
+            <p class="backmatter-intro">Posts and images pinned during review, retained with the captured author, source, timestamp, and media details.</p>
+            <div class="evidence-capture-cards">{evidence_capture_cards()}</div>
           </section>
         """
-        if show_known_profiles
-        else ""
-    )
     footprint_section = ""
     if show_footprint_section:
         footprint_section = f"""
           <section class="backmatter">
             <div class="backmatter-kicker">Appendix A</div>
-            <h2>Digital Footprint Evidence</h2>
-            <p class="backmatter-intro">The following digital footprint material is attached as evidentiary backmatter supporting the principal case narrative.</p>
+            <h2>Profiles</h2>
+            <p class="backmatter-intro">This evidence schedule combines curated case profiles and discovered footprint findings. Each record retains observed details, identification method, collection time, source URL, media reference, and integrity fingerprints.</p>
             <div class="footprint-group">
               <h3>Results <span>{len(footprint_groups)}</span></h3>
               <div class="footprint-cards">{footprint_cards()}</div>
@@ -952,9 +1260,9 @@ def _build_case_notes_pdf_stylized(case_row: dict, posts: list[dict]) -> bytes:
             }}
           }}
           body {{ font-family: "Helvetica Neue", Arial, sans-serif; color: #111827; margin: 0; background: #eef2f7; }}
-          .report {{ border: 1px solid #1f2937; padding: 14px; background: #ffffff; }}
-          .header {{ margin-bottom: 14px; border: 1px solid #cbd5e1; background: linear-gradient(135deg, #0f172a 0%, #1e293b 58%, #334155 100%); color: #f8fafc; overflow: hidden; }}
-          .header-shell {{ display: grid; grid-template-columns: minmax(0, 1fr) 132px; gap: 16px; padding: 16px; align-items: start; }}
+          .report {{ border: 1px solid #1f2937; padding: 18px; background: #ffffff; }}
+          .header {{ margin-bottom: 22px; border: 1px solid #cbd5e1; background: linear-gradient(135deg, #0f172a 0%, #1e293b 58%, #334155 100%); color: #f8fafc; overflow: hidden; }}
+          .header-shell {{ display: grid; grid-template-columns: minmax(0, 1fr) 144px; gap: 20px; padding: 18px; align-items: start; }}
           .header-kicker {{ font-size: 10px; text-transform: uppercase; letter-spacing: .18em; color: rgba(226, 232, 240, .82); margin-bottom: 8px; }}
           .header h1 {{ margin: 0; font-size: 24px; letter-spacing: .08em; }}
           .header .sub {{ margin-top: 6px; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: rgba(226, 232, 240, .9); }}
@@ -964,9 +1272,9 @@ def _build_case_notes_pdf_stylized(case_row: dict, posts: list[dict]) -> bytes:
           .header-band-item {{ background: rgba(248, 250, 252, .08); padding: 10px 16px 12px; }}
           .header-band-label {{ font-size: 8.5px; text-transform: uppercase; letter-spacing: .14em; color: rgba(226, 232, 240, .72); margin-bottom: 4px; }}
           .header-band-value {{ font-size: 13px; font-weight: 700; color: #f8fafc; }}
-          .subject-image-frame {{ width: 132px; height: 132px; padding: 6px; border: 1px solid rgba(148, 163, 184, .45); background: rgba(15, 23, 42, .42); }}
+          .subject-image-frame {{ width: 132px; height: 132px; padding: 6px; border: 1px solid rgba(148, 163, 184, .45); background: rgba(15, 23, 42, .42); box-shadow: 0 8px 22px rgba(0, 0, 0, .2); }}
           .subject-image {{ width: 100%; height: 100%; border: 1px solid rgba(248, 250, 252, .16); object-fit: cover; background: rgba(248, 250, 252, .08); }}
-          .summary-grid {{ display: grid; grid-template-columns: 1.2fr .8fr; gap: 12px; margin: 0 0 14px; }}
+          .summary-grid {{ display: grid; grid-template-columns: 1.2fr .8fr; gap: 14px; margin: 0 0 22px; }}
           .summary-panel {{ border: 1px solid #cbd5e1; background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%); padding: 12px; }}
           .summary-panel-title {{ font-size: 10px; text-transform: uppercase; letter-spacing: .14em; color: #475569; margin-bottom: 8px; }}
           .summary-stats {{ display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }}
@@ -974,22 +1282,25 @@ def _build_case_notes_pdf_stylized(case_row: dict, posts: list[dict]) -> bytes:
           .summary-stat-value {{ font-size: 20px; font-weight: 800; color: #0f172a; line-height: 1; }}
           .summary-stat-label {{ margin-top: 5px; font-size: 9px; text-transform: uppercase; letter-spacing: .1em; color: #64748b; }}
           .summary-text {{ font-size: 11px; color: #334155; line-height: 1.55; }}
-          .grid {{ display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 10px 0 14px; }}
+          .grid {{ display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 12px 0 22px; }}
           .cell {{ border: 1px solid #cbd5e1; padding: 8px 10px; min-height: 44px; background: #f8fafc; }}
           .label {{ font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: #4b5563; margin-bottom: 4px; }}
           .value {{ font-size: 13px; font-weight: 600; }}
-          .report-section {{ margin-bottom: 14px; padding: 0 0 2px; }}
-          h2 {{ margin: 14px 0 6px; font-size: 13px; text-transform: uppercase; letter-spacing: .08em; border-bottom: 1px solid #94a3b8; padding-bottom: 4px; }}
+          .report-section {{ margin: 0 0 24px; padding: 0 0 4px; break-inside: avoid-page; }}
+          h2 {{ display: flex; align-items: center; gap: 8px; margin: 0 0 10px; font-size: 13px; text-transform: uppercase; letter-spacing: .1em; border-bottom: 1px solid #94a3b8; padding: 0 0 7px; }}
+          h2::before {{ content: ""; width: 4px; height: 15px; background: #0f172a; flex: 0 0 auto; }}
           p {{ margin: 0; font-size: 11.5px; line-height: 1.48; white-space: pre-wrap; }}
-          .section-callout {{ margin-top: 8px; padding: 8px 10px; border-left: 3px solid #0f172a; background: #f8fafc; }}
+          .figure-citation-link {{ color: #1d4ed8; font-weight: 700; text-decoration: underline; }}
+          .section-callout {{ margin-top: 12px; padding: 10px 12px; border-left: 3px solid #0f172a; background: #f8fafc; }}
           .section-callout-label {{ display: block; font-size: 8.5px; text-transform: uppercase; letter-spacing: .1em; color: #64748b; margin-bottom: 3px; }}
           .section-callout-value {{ font-size: 10.5px; font-weight: 600; color: #0f172a; }}
           .selector-groups {{ display: grid; gap: 8px; }}
-          .selector-group {{ border: 1px solid #dbe4ee; background: #f8fafc; padding: 8px 9px; }}
-          .selector-group-label {{ font-size: 9px; text-transform: uppercase; letter-spacing: .1em; color: #64748b; margin-bottom: 6px; }}
-          .selector-chip-row {{ display: flex; flex-wrap: wrap; gap: 6px; }}
-          .selector-chip {{ display: inline-flex; align-items: center; padding: 4px 8px; border: 1px solid #cbd5e1; background: #fff; font-size: 9.5px; color: #0f172a; border-radius: 999px; word-break: break-word; }}
-          .selector-chip-empty {{ color: #64748b; background: #f8fafc; }}
+          .selector-group {{ border: 1px solid #dbe4ee; background: #f8fafc; padding: 10px; page-break-inside: avoid; }}
+          .selector-group-label {{ font-size: 9px; text-transform: uppercase; letter-spacing: .1em; color: #64748b; margin-bottom: 7px; }}
+          .selector-item-list {{ display: grid; gap: 7px; }}
+          .selector-item {{ padding: 7px 9px; border: 1px solid #cbd5e1; background: #fff; font-size: 10px; line-height: 1.35; color: #0f172a; word-break: break-word; }}
+          .selector-item-empty {{ color: #64748b; background: #f8fafc; }}
+          .selector-corroboration {{ margin-top: 6px; font-size: 8.5px; line-height: 1.35; color: #64748b; }}
           .profile-grid {{ display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 8px; }}
           .profile-card {{ border: 1px solid #cbd5e1; background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%); padding: 10px; page-break-inside: avoid; }}
           .profile-card-title {{ font-size: 13px; font-weight: 700; color: #0f172a; }}
@@ -998,6 +1309,21 @@ def _build_case_notes_pdf_stylized(case_row: dict, posts: list[dict]) -> bytes:
           .profile-card-shot {{ margin-top: 8px; }}
           .profile-card-shot img {{ width: 100%; max-height: 120px; object-fit: cover; display: block; border: 1px solid #d1d5db; }}
           .profile-card-shot-empty {{ min-height: 72px; display: flex; align-items: center; justify-content: center; border: 1px dashed #cbd5e1; background: #fff; font-size: 9px; text-transform: uppercase; letter-spacing: .08em; color: #64748b; }}
+          .evidence-capture-section {{ border-top: 2px solid #0f172a; padding-top: 12px; }}
+          .evidence-capture-cards {{ display: grid; gap: 14px; margin-top: 12px; }}
+          .evidence-capture-card {{ border: 1px solid #94a3b8; border-top: 3px solid #334155; padding: 13px; background: #fff; page-break-inside: avoid; }}
+          .evidence-capture-card-head {{ display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }}
+          .evidence-capture-figure {{ display: inline-block; padding: 4px 8px; background: #0f172a; color: #fff; font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; }}
+          .evidence-capture-kind {{ font-size: 8.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: #64748b; }}
+          .evidence-capture-author {{ display: flex; align-items: center; gap: 8px; }}
+          .evidence-capture-author img, .evidence-capture-avatar-empty {{ width: 34px; height: 34px; border-radius: 50%; object-fit: cover; border: 1px solid #cbd5e1; }}
+          .evidence-capture-avatar-empty {{ display: flex; align-items: center; justify-content: center; font-size: 7px; text-align: center; color: #64748b; }}
+          .evidence-capture-author strong {{ display: block; font-size: 11px; }} .evidence-capture-author span {{ font-size: 9px; color: #64748b; }}
+          .evidence-capture-dates {{ display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; margin: 7px 0; }} .evidence-capture-dates span {{ border: 1px solid #dbe4ee; padding: 5px; font-size: 9px; word-break: break-word; }} .evidence-capture-dates b {{ display: block; margin-bottom: 2px; font-size: 7.5px; text-transform: uppercase; letter-spacing: .07em; color: #64748b; }}
+          .evidence-capture-text {{ font-size: 10.5px; }} .evidence-capture-url {{ margin-top: 7px; font-size: 9px; color: #1d4ed8; word-break: break-all; }}
+          .evidence-capture-media {{ display: block; margin-top: 8px; max-width: 100%; max-height: 250px; object-fit: contain; border: 1px solid #d1d5db; }}
+          .pattern-life-evidence-title {{ margin: 2px 0 7px; font-size: 12px; font-weight: 700; color: #0f172a; }}
+          .pattern-life-evidence-map {{ display: block; width: 100%; margin-top: 8px; border: 1px solid #94a3b8; }}
           table {{ width: 100%; border-collapse: collapse; margin-top: 8px; }}
           th, td {{ border: 1px solid #cbd5e1; padding: 6px 7px; font-size: 10.5px; vertical-align: top; text-align: left; }}
           th {{ background: #e2e8f0; text-transform: uppercase; letter-spacing: .05em; font-size: 9.5px; }}
@@ -1007,8 +1333,9 @@ def _build_case_notes_pdf_stylized(case_row: dict, posts: list[dict]) -> bytes:
           td img {{ width: 180px; max-height: 110px; object-fit: cover; display: block; border: 1px solid #d1d5db; }}
           .na {{ color: #6b7280; }}
           .footprint-group + .footprint-group {{ margin-top: 12px; }}
-          .footprint-cards {{ display: grid; gap: 12px; }}
-          .footprint-card {{ border: 1px solid #cbd5e1; padding: 12px; display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 12px; background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%); page-break-inside: avoid; box-shadow: inset 0 1px 0 rgba(255,255,255,.65); }}
+          .footprint-cards {{ display: grid; gap: 16px; }}
+          .footprint-card {{ border: 1px solid #94a3b8; border-top: 3px solid #334155; padding: 14px; display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 14px; background: #fff; page-break-inside: avoid; }}
+          .evidence-record-banner {{ grid-column: 1 / -1; justify-self: start; padding: 3px 7px; background: #0f172a; color: #fff; font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; }}
           .footprint-card-media {{ display: flex; }}
           .footprint-card-avatar {{ width: 92px; height: 92px; object-fit: cover; border: 1px solid #cbd5e1; background: #e5e7eb; }}
           .footprint-card-avatar-placeholder {{ display: flex; align-items: center; justify-content: center; font-size: 9px; text-transform: uppercase; letter-spacing: .06em; color: #6b7280; background: #f1f5f9; }}
@@ -1016,19 +1343,21 @@ def _build_case_notes_pdf_stylized(case_row: dict, posts: list[dict]) -> bytes:
           .footprint-card-head {{ display: flex; align-items: start; gap: 8px; }}
           .footprint-card-site {{ display: flex; align-items: center; gap: 8px; min-width: 0; }}
           .footprint-card-site-name {{ font-size: 14px; font-weight: 700; }}
-          .footprint-card-source {{ font-size: 9px; text-transform: uppercase; letter-spacing: .08em; color: #64748b; }}
+          .footprint-card-source {{ font-size: 9px; text-transform: uppercase; letter-spacing: .08em; color: #475569; }}
           .footprint-card-evidence {{ display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }}
           .footprint-evidence-item {{ border: 1px solid #dbe4ee; background: #fff; padding: 7px 8px; min-width: 0; }}
           .footprint-evidence-label {{ font-size: 8.5px; text-transform: uppercase; letter-spacing: .08em; color: #6b7280; margin-bottom: 4px; }}
           .footprint-evidence-value {{ font-size: 10px; font-weight: 600; color: #0f172a; line-height: 1.35; word-break: break-word; }}
           .footprint-card-url {{ color: #1d4ed8; }}
-          .footprint-meta-grid {{ display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }}
-          .footprint-meta-item {{ border: 1px solid #dbe4ee; padding: 7px 8px; background: #fff; }}
+          .evidence-record-section-title {{ margin-top: 3px; padding-top: 8px; border-top: 1px solid #cbd5e1; font-size: 8.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .12em; color: #334155; }}
+          .footprint-meta-grid {{ display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0; border-top: 1px solid #dbe4ee; border-left: 1px solid #dbe4ee; }}
+          .footprint-meta-item {{ border-right: 1px solid #dbe4ee; border-bottom: 1px solid #dbe4ee; padding: 7px 8px; background: #fff; }}
+          .evidence-provenance-grid .footprint-meta-item {{ background: #f8fafc; }}
           .footprint-meta-item-empty {{ grid-column: 1 / -1; }}
           .footprint-meta-label {{ font-size: 8.5px; text-transform: uppercase; letter-spacing: .08em; color: #6b7280; margin-bottom: 3px; }}
           .footprint-meta-value {{ font-size: 10px; line-height: 1.4; word-break: break-word; }}
           .footprint-empty {{ padding: 8px 10px; border: 1px dashed #94a3b8; color: #6b7280; font-size: 10px; background: #f8fafc; }}
-          .backmatter {{ margin-top: 18px; padding-top: 12px; border-top: 2px solid #0f172a; break-before: page; page-break-before: always; }}
+          .backmatter {{ margin-top: 28px; padding-top: 16px; border-top: 2px solid #0f172a; break-before: page; page-break-before: always; }}
           .backmatter-kicker {{ font-size: 10px; text-transform: uppercase; letter-spacing: .14em; color: #6b7280; margin-bottom: 6px; }}
           .backmatter-intro {{ margin-bottom: 10px; font-size: 10.5px; color: #374151; }}
           .footer {{ margin-top: 10px; font-size: 9px; color: #6b7280; text-align: right; }}
@@ -1070,18 +1399,18 @@ def _build_case_notes_pdf_stylized(case_row: dict, posts: list[dict]) -> bytes:
           <section class="summary-grid">
             <div class="summary-panel">
               <div class="summary-panel-title">Assessment Snapshot</div>
-              <div class="summary-text">This report consolidates the subject overview, key narrative notes, saved selectors, major profiles, and attached digital-footprint evidence into a single review document.</div>
+              <div class="summary-text">This report consolidates the subject overview, normalized case details, saved selectors, and one transparent profile-and-footprint evidence schedule into a single review document.</div>
             </div>
             <div class="summary-panel">
               <div class="summary-panel-title">Case Metrics</div>
               <div class="summary-stats">
                 <div class="summary-stat">
                   <div class="summary-stat-value">{len(profiles)}</div>
-                  <div class="summary-stat-label">Major Profiles</div>
+                  <div class="summary-stat-label">Curated Profiles</div>
                 </div>
                 <div class="summary-stat">
                   <div class="summary-stat-value">{len(footprint_groups)}</div>
-                  <div class="summary-stat-label">Evidence Tiles</div>
+                  <div class="summary-stat-label">Evidence Records</div>
                 </div>
                 <div class="summary-stat">
                   <div class="summary-stat-value">{selector_total}</div>
@@ -1100,6 +1429,7 @@ def _build_case_notes_pdf_stylized(case_row: dict, posts: list[dict]) -> bytes:
           {threat_section}
           {personal_section}
           {selectors_section}
+          {evidence_capture_section}
           {known_profiles_section}
           {footprint_section}
           <div class="footer">Generated by Orion</div>
@@ -1113,6 +1443,16 @@ def _build_case_notes_pdf_stylized(case_row: dict, posts: list[dict]) -> bytes:
         page = context.new_page()
         try:
             page.set_content(html, wait_until="domcontentloaded")
+            # Evidence snapshots are data URIs, but their decode is async. Wait
+            # for pixels before printing so the report cannot capture blanks.
+            try:
+                page.wait_for_function(
+                    "Array.from(document.images).every((image) => image.complete && image.naturalWidth > 0)",
+                    timeout=5000,
+                )
+            except Exception:
+                # Third-party profile/post images may fail; do not block export.
+                pass
             return page.pdf(format="A4", print_background=True)
         finally:
             context.close()
@@ -1132,9 +1472,13 @@ def _build_case_notes_pdf_fallback(case_row: dict, posts: list[dict]) -> bytes:
     selector_emails = str(notes.get("selector_emails") or "").strip()
     selector_phones = str(notes.get("selector_phone_numbers") or "").strip()
     selector_usernames = str(notes.get("selector_usernames") or "").strip()
+    selector_corroboration = notes.get("selector_corroboration") if isinstance(notes.get("selector_corroboration"), dict) else {}
     report_preferences = _normalize_case_notes_report_preferences(notes)
     excluded_sections = report_preferences.get("excluded_sections", set())
     footprint_groups = _build_digital_footprint_back_matter(notes)
+    evidence_captures = _build_evidence_capture(notes)
+    pattern_of_life_evidence = _build_pattern_of_life_evidence(notes)
+    subject_image = _image_source_to_data_uri(str(notes.get("subject_image_url") or case_row.get("poi_image_url") or "").strip())
     profiles = _major_profiles(notes.get("known_profiles") if isinstance(notes.get("known_profiles"), list) else [])
     if not profiles:
         profiles = _major_profiles(_discover_profiles_from_posts(posts))
@@ -1147,11 +1491,14 @@ def _build_case_notes_pdf_fallback(case_row: dict, posts: list[dict]) -> bytes:
     content_width = content_right - content_left
     top_y = page_height - 44
     bottom_y = 48
-    banner_height = 54
-    report_ref = str(case_row.get("id") or case_row.get("case_id") or case_row.get("case_name") or "UNASSIGNED").strip() or "UNASSIGNED"
+    banner_height = 72
+    report_ref = str(case_row.get("case_file_number") or case_row.get("id") or case_row.get("case_id") or case_row.get("case_name") or "UNASSIGNED").strip() or "UNASSIGNED"
+    if report_ref.startswith("SIG-"):
+        report_ref = f"CASE // {report_ref}"
     generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
 
     pages: list[list[str]] = []
+    embedded_images: list[tuple[str, int, int, bytes]] = []
     cursor_y = top_y
 
     def _chars_for_width(width: float, size: int) -> int:
@@ -1167,11 +1514,12 @@ def _build_case_notes_pdf_fallback(case_row: dict, posts: list[dict]) -> bytes:
         page.append(f"q 0.15 g 0.15 G {outer_margin} {banner_y} {page_width - (outer_margin * 2)} {banner_height} re B Q")
         page.append(f"BT 1 g /F2 19 Tf 1 0 0 1 {content_left} {top_y - 12} Tm (PERSON OF INTEREST REPORT) Tj ET")
         page.append(f"BT 1 g /F1 9 Tf 1 0 0 1 {content_left} {top_y - 28} Tm (Case Intelligence Summary) Tj ET")
-        page.append(f"BT 1 g /F2 8 Tf 1 0 0 1 {content_right - 124} {top_y - 14} Tm (Report Ref.) Tj ET")
-        page.append(f"BT 1 g /F1 8 Tf 1 0 0 1 {content_right - 124} {top_y - 26} Tm ({_pdf_escape(report_ref[:24])}) Tj ET")
+        page.append(f"BT 1 g /F2 8 Tf 1 0 0 1 {content_right - 152} {top_y - 14} Tm (Report Ref.) Tj ET")
+        page.append(f"BT 1 g /F1 8 Tf 1 0 0 1 {content_right - 152} {top_y - 26} Tm ({_pdf_escape(report_ref[:24])}) Tj ET")
+        add_header_subject_image()
         page.append(f"BT 0 g /F1 8 Tf 1 0 0 1 {content_left} {outer_margin + 10} Tm (Generated by Orion | { _pdf_escape(generated_at) }) Tj ET")
         page.append(f"BT 0 g /F1 8 Tf 1 0 0 1 {content_right - 175} {outer_margin + 10} Tm (Report Ref: { _pdf_escape(report_ref[:36]) }) Tj ET")
-        cursor_y = top_y - banner_height - 10
+        cursor_y = top_y - banner_height - 14
 
     def ensure_room(required_height: int) -> None:
         nonlocal cursor_y
@@ -1219,10 +1567,10 @@ def _build_case_notes_pdf_fallback(case_row: dict, posts: list[dict]) -> bytes:
         ensure_room(56)
         add_text(content_left, cursor_y, "APPENDIX A", bold=True, size=10, gray=0.35)
         cursor_y -= 16
-        add_text(content_left, cursor_y, "Digital Footprint Evidence", bold=True, size=16, gray=0.0)
+        add_text(content_left, cursor_y, "Profiles", bold=True, size=16, gray=0.0)
         cursor_y -= 18
         add_wrapped_block(
-            "The following digital footprint material is attached as evidentiary backmatter supporting the principal case narrative.",
+            "This evidence schedule combines curated case profiles and discovered footprint findings with observed details and collection provenance.",
             x=content_left,
             size=9,
             width_chars=_chars_for_width(content_width, 9),
@@ -1265,6 +1613,61 @@ def _build_case_notes_pdf_fallback(case_row: dict, posts: list[dict]) -> bytes:
         add_wrapped_block(text or "None", x=content_left + 6, size=10, width_chars=_chars_for_width(content_width - 12, 10), gap=14)
         cursor_y -= 4
 
+    def add_pattern_life_snapshot(image_source: str) -> None:
+        """Embed a retained PNG snapshot when the HTML/PDF renderer is unavailable."""
+        nonlocal cursor_y
+        source = str(image_source or "").strip()
+        if not source.startswith("data:image/png") or "," not in source:
+            return
+        try:
+            from PIL import Image  # type: ignore
+
+            raw = base64.b64decode(source.split(",", 1)[1], validate=True)
+            with Image.open(io.BytesIO(raw)) as image:
+                rgb = image.convert("RGB")
+                width, height = rgb.size
+                if width < 2 or height < 2:
+                    return
+                compressed = io.BytesIO()
+                rgb.save(compressed, format="JPEG", quality=86, optimize=True)
+            image_name = f"Im{len(embedded_images) + 1}"
+            embedded_images.append((image_name, width, height, compressed.getvalue()))
+        except Exception:
+            return
+        draw_width = content_width - 36
+        draw_height = min(260, draw_width * height / width)
+        ensure_room(int(draw_height) + 18)
+        pages[-1].append(
+            f"q {draw_width:.2f} 0 0 {draw_height:.2f} {content_left + 18:.2f} {cursor_y - draw_height:.2f} cm /{image_name} Do Q"
+        )
+        cursor_y -= draw_height + 12
+
+    def add_header_subject_image() -> None:
+        """Render the case subject image in the upper-right report header."""
+        source = str(subject_image or "").strip()
+        if not source.startswith("data:image/") or "," not in source:
+            return
+        try:
+            from PIL import Image  # type: ignore
+
+            raw = base64.b64decode(source.split(",", 1)[1], validate=True)
+            with Image.open(io.BytesIO(raw)) as image:
+                rgb = image.convert("RGB")
+                width, height = rgb.size
+                if width < 2 or height < 2:
+                    return
+                compressed = io.BytesIO()
+                rgb.save(compressed, format="JPEG", quality=88, optimize=True)
+            image_name = f"Im{len(embedded_images) + 1}"
+            embedded_images.append((image_name, width, height, compressed.getvalue()))
+            frame_size = 52
+            image_x = content_right - frame_size
+            image_y = top_y - 59
+            pages[-1].append(f"q 1 g 1 G {image_x - 2:.2f} {image_y - 2:.2f} {frame_size + 4} {frame_size + 4} re B Q")
+            pages[-1].append(f"q {frame_size:.2f} 0 0 {frame_size:.2f} {image_x:.2f} {image_y:.2f} cm /{image_name} Do Q")
+        except Exception:
+            return
+
     new_page()
     add_identity_panel()
 
@@ -1288,41 +1691,56 @@ def _build_case_notes_pdf_fallback(case_row: dict, posts: list[dict]) -> bytes:
         add_body_paragraph(personal or "None")
     if "selectors" not in excluded_sections:
         add_section_header("Selectors")
-        add_body_paragraph(f"Emails: {selector_emails or 'None'}")
-        add_body_paragraph(f"Phone Numbers: {selector_phones or 'None'}")
-        add_body_paragraph(f"User Names: {selector_usernames or 'None'}")
-    if "known_profiles" not in excluded_sections:
-        add_section_header("Major Profiles")
-        if not profiles:
-            add_body_paragraph("None")
-        else:
-            for item in profiles:
-                row = item if isinstance(item, dict) else {}
-                site = str(row.get("site") or "Profile").strip() or "Profile"
-                url = str(row.get("url") or "").strip()
-                screenshot_url = str(row.get("screenshot_url") or "").strip()
-                add_wrapped_block(
-                    f"[{site}] {url or 'N/A'}",
-                    x=content_left + 6,
-                    size=10,
-                    width_chars=_chars_for_width(content_width - 12, 10),
-                    bold=True,
-                    gap=14,
-                )
-                if screenshot_url:
-                    add_wrapped_block(
-                        f"Screenshot: {screenshot_url}",
-                        x=content_left + 18,
-                        size=9,
-                        width_chars=_chars_for_width(content_width - 24, 9),
-                        gray=0.18,
-                        gap=13,
-                    )
-                cursor_y -= 3
-        cursor_y -= 3
+        for label, value, selector_type in (("Emails", selector_emails, "email"), ("Phone Numbers", selector_phones, "phone"), ("User Names", selector_usernames, "username")):
+            row = selector_corroboration.get(selector_type) if isinstance(selector_corroboration.get(selector_type), dict) else {}
+            sources = max(0, int(row.get("source_count") or 0))
+            searched = max(0, int(row.get("searched_selector_count") or 0))
+            note = f"Corroborated by {sources} source{'' if sources == 1 else 's'} across {searched} searched selector{'' if searched == 1 else 's'}." if sources or searched else "No corroboration recorded."
+            add_body_paragraph(f"{label}: {value or 'None'}")
+            add_wrapped_block(note, x=content_left + 18, size=8, width_chars=_chars_for_width(content_width - 24, 8), gray=0.35, gap=11)
+    add_section_header("Evidence Capture")
+    if not evidence_captures and not pattern_of_life_evidence:
+        add_body_paragraph("No posts or images have been pinned to this report.")
+    else:
+        for figure_number, item in enumerate(evidence_captures, start=1):
+            author = str(item.get("author_name") or "Unknown author").strip() or "Unknown author"
+            handle = str(item.get("author_handle") or "").strip()
+            platform = str(item.get("platform") or "").strip()
+            timestamp = str(item.get("timestamp") or "").strip()
+            captured_at = str(item.get("captured_at") or "").strip()
+            source_url = str(item.get("source_url") or "").strip()
+            post_text = str(item.get("post_text") or "").strip()
+            media_url = str(item.get("media_url") or "").strip()
+            add_wrapped_block(
+                f"Figure {figure_number}: {author}{(' (' + handle + ')') if handle else ''}",
+                x=content_left + 6, size=10, width_chars=_chars_for_width(content_width - 12, 10), bold=True, gap=14,
+            )
+            add_wrapped_block(
+                f"Platform: {platform or 'Not recorded'} | Post date: {timestamp or 'Not recorded'} | Collection date: {captured_at or 'Not recorded'}",
+                x=content_left + 18, size=9, width_chars=_chars_for_width(content_width - 24, 9), gray=0.18, gap=13,
+            )
+            if source_url:
+                add_wrapped_block(f"URL: {source_url}", x=content_left + 18, size=9, width_chars=_chars_for_width(content_width - 24, 9), gray=0.18, gap=13)
+            if post_text:
+                add_wrapped_block(post_text, x=content_left + 18, size=10, width_chars=_chars_for_width(content_width - 24, 10), gap=14)
+            if media_url:
+                add_wrapped_block(f"Media: {media_url}", x=content_left + 18, size=9, width_chars=_chars_for_width(content_width - 24, 9), gray=0.18, gap=13)
+            cursor_y -= 3
+        for map_offset, item in enumerate(pattern_of_life_evidence, start=1):
+            figure_number = len(evidence_captures) + map_offset
+            add_wrapped_block(
+                f"Figure {figure_number}: {str(item.get('title') or 'Pattern of Life map')}",
+                x=content_left + 6, size=10, width_chars=_chars_for_width(content_width - 12, 10), bold=True, gap=14,
+            )
+            add_wrapped_block(
+                str(item.get("description") or "Current mapped activity evidence."),
+                x=content_left + 18, size=9, width_chars=_chars_for_width(content_width - 24, 9), gray=0.18, gap=13,
+            )
+            add_pattern_life_snapshot(str(item.get("image_url") or ""))
+            cursor_y -= 3
     if "digital_footprint" not in excluded_sections:
         start_backmatter()
-        add_section_header("Digital Footprint Evidence")
+        add_section_header("Profiles")
         add_wrapped_block(
             f"Results ({len(footprint_groups)})",
             x=content_left + 6,
@@ -1333,8 +1751,11 @@ def _build_case_notes_pdf_fallback(case_row: dict, posts: list[dict]) -> bytes:
         )
         if not footprint_groups:
             add_body_paragraph("None")
+        figure_number = len(evidence_captures) + len(pattern_of_life_evidence)
         for item in footprint_groups:
+            figure_number += 1
             source = str(item.get("source") or "Digital Footprint").strip() or "Digital Footprint"
+            is_case_profile = source.lower() == "case profile record"
             site_label = str(item.get("site_label") or source).strip() or source
             profile_url = str(item.get("profile_url") or "").strip()
             image_url = str(item.get("image_url") or "").strip()
@@ -1342,7 +1763,7 @@ def _build_case_notes_pdf_fallback(case_row: dict, posts: list[dict]) -> bytes:
             selector_label = str(item.get("selector_label") or "Digital Footprint").strip() or "Digital Footprint"
             metadata = item.get("metadata") if isinstance(item.get("metadata"), list) else []
             add_wrapped_block(
-                f"[{source}] {site_label}",
+                f"Figure {figure_number}: [{source}] {site_label}",
                 x=content_left + 18,
                 size=9,
                 width_chars=_chars_for_width(content_width - 24, 9),
@@ -1358,7 +1779,7 @@ def _build_case_notes_pdf_fallback(case_row: dict, posts: list[dict]) -> bytes:
                     gray=0.18,
                     gap=13,
                 )
-            if image_url:
+            if image_url and not is_case_profile:
                 add_wrapped_block(
                     f"Profile Image: {image_url}",
                     x=content_left + 30,
@@ -1367,21 +1788,22 @@ def _build_case_notes_pdf_fallback(case_row: dict, posts: list[dict]) -> bytes:
                     gray=0.18,
                     gap=13,
                 )
-            add_wrapped_block(
-                f"Evidence Type: {selector_label}",
-                x=content_left + 30,
-                size=9,
-                width_chars=_chars_for_width(content_width - 36, 9),
-                gap=13,
-            )
-            add_wrapped_block(
-                f"Identified Via: {selector}",
-                x=content_left + 30,
-                size=9,
-                width_chars=_chars_for_width(content_width - 36, 9),
-                bold=True,
-                gap=13,
-            )
+            if not is_case_profile:
+                add_wrapped_block(
+                    f"Evidence Type: {selector_label}",
+                    x=content_left + 30,
+                    size=9,
+                    width_chars=_chars_for_width(content_width - 36, 9),
+                    gap=13,
+                )
+                add_wrapped_block(
+                    f"Identified Via: {selector}",
+                    x=content_left + 30,
+                    size=9,
+                    width_chars=_chars_for_width(content_width - 36, 9),
+                    bold=True,
+                    gap=13,
+                )
             if metadata:
                 for row in metadata:
                     if not isinstance(row, dict):
@@ -1397,7 +1819,7 @@ def _build_case_notes_pdf_fallback(case_row: dict, posts: list[dict]) -> bytes:
                         width_chars=_chars_for_width(content_width - 48, 9),
                         gap=13,
                     )
-            else:
+            elif not is_case_profile:
                 add_wrapped_block(
                     "No associated metadata captured.",
                     x=content_left + 42,
@@ -1420,6 +1842,7 @@ def _build_case_notes_pdf_fallback(case_row: dict, posts: list[dict]) -> bytes:
     pages_id = alloc_id()
     font_regular_id = alloc_id()
     font_bold_id = alloc_id()
+    image_object_ids = {name: alloc_id() for name, _width, _height, _data in embedded_images}
 
     page_entries: list[tuple[int, int]] = []
     total_pages = len(pages)
@@ -1435,11 +1858,20 @@ def _build_case_notes_pdf_fallback(case_row: dict, posts: list[dict]) -> bytes:
 
     objects[font_regular_id] = b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"
     objects[font_bold_id] = b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>"
+    for image_name, width, height, image_data in embedded_images:
+        image_id = image_object_ids[image_name]
+        objects[image_id] = (
+            f"<< /Type /XObject /Subtype /Image /Width {width} /Height {height} /ColorSpace /DeviceRGB "
+            f"/BitsPerComponent 8 /Filter /DCTDecode /Length {len(image_data)} >>\nstream\n"
+        ).encode("ascii") + image_data + b"\nendstream"
+
+    image_resources = " ".join(f"/{name} {object_id} 0 R" for name, object_id in image_object_ids.items())
+    xobject_resource = f" /XObject << {image_resources} >>" if image_resources else ""
 
     for page_id, content_id in page_entries:
         objects[page_id] = (
             f"<< /Type /Page /Parent {pages_id} 0 R /MediaBox [0 0 {page_width} {page_height}] "
-            f"/Resources << /Font << /F1 {font_regular_id} 0 R /F2 {font_bold_id} 0 R >> >> "
+            f"/Resources << /Font << /F1 {font_regular_id} 0 R /F2 {font_bold_id} 0 R >>{xobject_resource} >> "
             f"/Contents {content_id} 0 R >>"
         ).encode("ascii")
 
@@ -1738,7 +2170,7 @@ class PostExplorerHandler(SimpleHTTPRequestHandler):
                 return
             case_name = str(body.get("case_name", "")).strip() or "Untitled Case"
             status = str(body.get("status", "Open")).strip()
-            threat_level = str(body.get("threat_level", "Low Threat")).strip()
+            threat_level = str(body.get("threat_level", "Unassessed")).strip()
             data_retention_period = str(body.get("data_retention_period", "3 months")).strip()
             known_location = str(body.get("known_location", "")).strip()
             poi_image_url = str(body.get("poi_image_url", "")).strip()
@@ -2095,6 +2527,24 @@ class PostExplorerHandler(SimpleHTTPRequestHandler):
             self._send_json(payload, status=201)
             return
 
+        if parsed.path.startswith("/api/cases/") and parsed.path.endswith("/watchlist-activity/read"):
+            case_id = parsed.path.split("/api/cases/", 1)[1].rsplit("/watchlist-activity/read", 1)[0].strip().strip("/")
+            if not case_id:
+                self._send_json(
+                    {"error": {"code": "invalid_request", "message": "case_id is required"}},
+                    status=400,
+                )
+                return
+            payload = acknowledge_watchlist_activity(case_id, db_path=str(DEFAULT_DB_PATH))
+            if payload is None:
+                self._send_json(
+                    {"error": {"code": "not_found", "message": "case not found"}},
+                    status=404,
+                )
+                return
+            self._send_json(payload)
+            return
+
         if parsed.path.startswith("/api/cases/"):
             case_id = parsed.path.split("/api/cases/", 1)[1].strip().strip("/")
             method = str(getattr(self, "command", "POST")).upper()
@@ -2263,6 +2713,11 @@ class PostExplorerHandler(SimpleHTTPRequestHandler):
                         continue
 
                     def _emit_scanner_result(item: dict[str, Any]) -> None:
+                        normalized_row = _recon_row_from_scanner_item(
+                            selector_type=selector_type,
+                            selector_value=selector_value,
+                            item=item,
+                        )
                         self._stream_json_line(
                             {
                                 "event": "chunk",
@@ -2273,7 +2728,7 @@ class PostExplorerHandler(SimpleHTTPRequestHandler):
                                 "selector_value": selector_value,
                                 "payload": {
                                     "selectors": [selector],
-                                    "results": [],
+                                    "results": [normalized_row],
                                     "scanner_results": [{"selector_type": selector_type, "selector": selector_value, **item}],
                                     "checked": 0,
                                     "present_count": 1,

@@ -10,6 +10,7 @@ from unittest.mock import patch
 
 from frontend.server import (
     PostExplorerHandler,
+    _build_digital_footprint_back_matter,
     _build_case_notes_pdf_fallback,
     _build_case_notes_pdf_stylized,
     _extract_mermaid_block,
@@ -20,7 +21,7 @@ from frontend.server import (
 )
 from panopto.errors import UsernameNotFoundError
 from panopto.post_query import parse_day
-from panopto.storage.posts import create_case
+from panopto.storage.posts import create_case, update_case
 
 
 def _seed_db(db_path):
@@ -1000,7 +1001,7 @@ def test_case_notes_pdf_fallback_ignores_invalid_profile_rows():
     assert re.search(rb"Pg 1 of \d+", pdf_bytes)
 
 
-def test_case_notes_pdf_fallback_only_includes_major_profiles():
+def test_case_notes_pdf_fallback_includes_major_profiles_in_unified_evidence_schedule():
     case_row = {
         "case_name": "Case Alpha",
         "case_notes": {
@@ -1014,10 +1015,37 @@ def test_case_notes_pdf_fallback_only_includes_major_profiles():
 
     pdf_bytes = _build_case_notes_pdf_fallback(case_row, posts=[])
 
-    assert b"Major Profiles" in pdf_bytes
+    assert b"Profiles" in pdf_bytes
     assert b"https://x.com/alpha" not in pdf_bytes
     assert b"https://www.instagram.com/alpha/" in pdf_bytes
     assert b"https://www.tiktok.com/@alpha" in pdf_bytes
+
+
+def test_case_notes_pdf_fallback_uses_only_profile_attributes_for_curated_profiles():
+    case_row = {
+        "case_name": "Case Alpha",
+        "case_notes": {
+            "known_profiles": [{
+                "site": "Instagram",
+                "url": "https://www.instagram.com/alpha/",
+                "name": "Alpha Person",
+                "username": "alpha",
+                "location": "Boston",
+                "collection_ready": False,
+                "identification_method": "Analyst-curated case profile",
+            }],
+        },
+    }
+
+    pdf_bytes = _build_case_notes_pdf_fallback(case_row, posts=[])
+
+    assert b"Alpha Person" in pdf_bytes
+    assert b"Username: alpha" in pdf_bytes
+    assert b"Location: Boston" in pdf_bytes
+    assert b"Collection Ready" not in pdf_bytes
+    assert b"Identified Via" not in pdf_bytes
+    assert b"Collection Method" not in pdf_bytes
+    assert b"Not recorded" not in pdf_bytes
 
 
 def test_case_notes_pdf_fallback_appends_digital_footprint_section():
@@ -1060,7 +1088,7 @@ def test_case_notes_pdf_fallback_appends_digital_footprint_section():
     pdf_bytes = _build_case_notes_pdf_fallback(case_row, posts=[])
 
     assert pdf_bytes.startswith(b"%PDF-1.4")
-    assert b"Digital Footprint Evidence" in pdf_bytes
+    assert b"Profiles" in pdf_bytes
     assert b"APPENDIX A" in pdf_bytes
     assert b"Results" in pdf_bytes
     assert b"High Confidence" not in pdf_bytes
@@ -1113,8 +1141,77 @@ def test_case_notes_pdf_fallback_respects_report_only_exclusions():
     assert b"Low Confidence" not in pdf_bytes
     assert b"High Confidence" not in pdf_bytes
     assert b"alpha@example.com" not in pdf_bytes
-    assert b"Digital Footprint Evidence" in pdf_bytes
+    assert b"Profiles" in pdf_bytes
     assert b"Results" in pdf_bytes
+
+
+def test_digital_footprint_evidence_manifest_retains_provenance_and_fingerprints():
+    notes = {
+        "recon_snapshot": {
+            "saved_at": "2026-08-07T12:34:56.000Z",
+            "payload": {
+                "results": [{
+                    "selector_type": "username",
+                    "selector": "alpha",
+                    "site": "twitter",
+                    "status": "present",
+                    "profile_url": "https://x.com/alpha",
+                    "profile_image_url": "https://images.example/alpha.jpg",
+                    "source": "scanner",
+                    "full_name": "Alpha Person",
+                    "username": "alpha",
+                    "location": {"city": "Boston", "country": "United States"},
+                }],
+            },
+        },
+    }
+
+    entries = _build_digital_footprint_back_matter(notes)
+
+    assert len(entries) == 1
+    entry = entries[0]
+    metadata = {row["label"]: row["value"] for row in entry["metadata"]}
+    assert metadata["Source URL"] == "https://x.com/alpha"
+    assert metadata["Captured (UTC)"] == "2026-08-07T12:34:56.000Z"
+    assert metadata["Collection Method"] == "Recon provider: scanner"
+    assert metadata["Media URL"] == "https://images.example/alpha.jpg"
+    assert metadata["Full Name"] == "Alpha Person"
+    assert metadata["Username"] == "alpha"
+    assert metadata["Location / City"] == "Boston"
+    assert metadata["Location / Country"] == "United States"
+    assert len(metadata["Content SHA-256"]) == 64
+    assert len(metadata["Media Reference SHA-256"]) == 64
+    assert '"profile_url": "https://x.com/alpha"' in entry["original_content"]
+
+    notes["report_preferences"] = {"excluded_footprint_result_keys": [entry["key"]]}
+    assert _build_digital_footprint_back_matter(notes) == []
+
+
+def test_major_profiles_are_emitted_as_case_profile_evidence_records():
+    entries = _build_digital_footprint_back_matter({
+        "recon_snapshot": {"saved_at": "2026-08-07T12:34:56.000Z", "payload": {}},
+        "known_profiles": [{
+            "name": "Alpha Person",
+            "username": "alpha",
+            "site": "Instagram",
+            "url": "https://www.instagram.com/alpha/",
+            "image_url": "https://images.example/alpha.jpg",
+            "location": "Boston",
+            "collection_ready": True,
+        }],
+    })
+
+    assert len(entries) == 1
+    entry = entries[0]
+    metadata = {row["label"]: row["value"] for row in entry["metadata"]}
+    assert entry["source"] == "Case Profile Record"
+    assert metadata["Name"] == "Alpha Person"
+    assert metadata["Username"] == "alpha"
+    assert metadata["Location"] == "Boston"
+    assert metadata["Site"] == "Instagram"
+    assert "Collection Ready" not in metadata
+    assert "Collection Method" not in metadata
+    assert "Source URL" not in metadata
 
 
 def test_case_notes_pdf_fallback_includes_selectors_section():
@@ -1209,7 +1306,7 @@ def test_case_notes_pdf_stylized_interpolates_dynamic_sections():
     assert "Personal details summary." in html
     assert "https://x.com/alpha" in html
     assert "alpha@example.com" in html
-    assert "Digital Footprint Evidence" in html
+    assert ">Profiles<" in html
     assert "Appendix A" in html
     assert "{_html_escape(context)}" not in html
 
@@ -1622,6 +1719,23 @@ def test_cases_api_create_list_delete(tmp_path):
         delete_handler.end_headers = lambda *args, **kwargs: None
         delete_handler.do_DELETE()
         assert delete_codes and delete_codes[0] == 200
+
+
+def test_create_case_defaults_to_unassessed_threat_level(tmp_path):
+    case = create_case(case_name="Unassessed case", db_path=str(tmp_path / "osint_data.db"))
+
+    assert case["threat_level"] == "Unassessed"
+
+
+def test_moving_a_case_to_watchlist_starts_a_new_activity_window(tmp_path):
+    db_path = str(tmp_path / "osint_data.db")
+    case = create_case(case_name="Existing case", db_path=db_path)
+
+    updated = update_case(case["case_id"], status="Watchlist", db_path=db_path)
+
+    assert updated is not None
+    assert updated["status"] == "Watchlist"
+    assert updated["case_notes"]["watchlist_last_reviewed_at"]
 
 
 def test_cases_demo_endpoint_creates_case_and_posts(tmp_path):

@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="Vaporwave skull icon">
+  <defs>
+    <linearGradient id="bgx" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#ff38c8"/>
+      <stop offset=".48" stop-color="#6d28d9"/>
+      <stop offset="1" stop-color="#00e5ff"/>
+    </linearGradient>
+  </defs>
+  <rect width="256" height="256" rx="42" fill="url(#bgx)"/>
+  <path d="M16 222h224M42 198h172M70 174h116M28 222l100-86 100 86M80 222l48-86 48 86" stroke="#101827" stroke-width="5" opacity=".7"/>
+  <path d="M61 92c0-39 28-69 67-69s67 30 67 69c0 28-14 49-35 61v34c0 9-7 16-16 16h-32c-9 0-16-7-16-16v-34c-21-12-35-33-35-61z" fill="#f8fafc" stroke="#0f172a" stroke-width="8"/>
+  <path d="M82 86c9-11 25-11 34 0l-17 25zM140 86c9-11 25-11 34 0l-17 25z" fill="#0f172a"/>
+  <path d="M128 111l-15 35h30z" fill="#0f172a"/>
+  <path d="M98 166h60M108 150v42M124 150v42M140 150v42" stroke="#0f172a" stroke-width="8" stroke-linecap="round"/>
+  <path d="M74 63h108M68 78h120M64 121h128" stroke="#22d3ee" stroke-width="5" opacity=".8"/>
+  <path d="M92 42l-28-21M164 42l28-21" stroke="#facc15" stroke-width="8" stroke-linecap="round"/>
+</svg>

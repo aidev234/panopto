@@ -219,6 +219,7 @@ def test_iter_pages_tries_profile_url_variants():
 
 
 def test_collect_tiktok_posts_uses_apify_actor_and_maps_rich_video_fields():
+    now = datetime(2026, 2, 25, tzinfo=timezone.utc)
     dataset = [
         {
             "id": "7361111111111111111",
@@ -246,7 +247,7 @@ def test_collect_tiktok_posts_uses_apify_actor_and_maps_rich_video_fields():
         }
     ]
     with patch("panopto.collectors.tiktok.run_actor_sync_get_items", return_value=dataset):
-        rows = tiktok_collection.collect_tiktok_posts("aoc", "30 days", browser_fallback=False)
+        rows = tiktok_collection.collect_tiktok_posts("aoc", "30 days", browser_fallback=False, now_utc=now)
 
     assert len(rows) == 1
     row = rows[0]
@@ -289,6 +290,7 @@ def test_collect_tiktok_posts_raises_unavailable_when_apify_fails():
 
 
 def test_collect_tiktok_posts_maps_apify_profile_with_nested_videos():
+    now = datetime(2026, 2, 25, tzinfo=timezone.utc)
     dataset = [
         {
             "authorMeta.name": "aoc",
@@ -313,7 +315,7 @@ def test_collect_tiktok_posts_maps_apify_profile_with_nested_videos():
         }
     ]
     with patch("panopto.collectors.tiktok.run_actor_sync_get_items", return_value=dataset):
-        rows = tiktok_collection.collect_tiktok_posts("aoc", "30 days", browser_fallback=False)
+        rows = tiktok_collection.collect_tiktok_posts("aoc", "30 days", browser_fallback=False, now_utc=now)
 
     assert len(rows) == 1
     assert rows[0]["post_id"] == "7362222222222222222"
