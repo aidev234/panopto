@@ -1,5 +1,4 @@
 import httpx
-
 from user_scanner.core.result import Result
 
 
@@ -17,27 +16,38 @@ async def _check(email: str) -> Result:
     }
 
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.post(url, headers=headers, data={"email": email})
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            response = await client.post(
+                url,
+                headers=headers,
+                data={"email": email}
+            )
 
         if response.status_code == 403:
             return Result.error("Caught by WAF or IP Block (403)")
+
         if response.status_code == 429:
             return Result.error("Rate limited (429)")
+
         if response.status_code != 200:
             return Result.error(f"HTTP Error: {response.status_code}")
 
         text = response.text.strip()
+
         if text == "True":
             return Result.taken(url=show_url)
+
         if text == "False":
             return Result.available(url=show_url)
+
         return Result.error("Unexpected response body structure")
 
     except httpx.ConnectTimeout:
         return Result.error("Connection timed out")
+
     except httpx.ReadTimeout:
         return Result.error("Server took too long to respond")
+
     except Exception as e:
         return Result.error(e)
 

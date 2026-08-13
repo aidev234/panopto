@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Orion Mantine Concepts</title>
+    <style>
+      :root {
+        --bg: #08101b;
+        --panel: #10192e;
+        --border: rgba(151, 164, 195, 0.16);
+        --text: #eef3ff;
+        --muted: #97a3c4;
+        --accent: #67e3ff;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: Inter, "Segoe UI", sans-serif;
+        color: var(--text);
+        background:
+          radial-gradient(circle at top left, rgba(79, 216, 255, 0.14), transparent 24%),
+          linear-gradient(180deg, #08101b 0%, #0d1527 100%);
+      }
+      .shell {
+        max-width: 1440px;
+        margin: 0 auto;
+        padding: 32px 20px 48px;
+      }
+      .hero {
+        margin-bottom: 24px;
+        padding: 24px;
+        border: 1px solid var(--border);
+        border-radius: 24px;
+        background: rgba(16, 25, 46, 0.88);
+      }
+      .eyebrow {
+        margin: 0 0 10px;
+        color: var(--accent);
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        font-size: 12px;
+        font-weight: 800;
+      }
+      h1, h2, p { margin: 0; }
+      h1 {
+        font-size: clamp(30px, 4vw, 48px);
+        letter-spacing: -0.04em;
+      }
+      .subtle {
+        margin-top: 12px;
+        color: var(--muted);
+        line-height: 1.6;
+        max-width: 900px;
+      }
+      .grid {
+        display: grid;
+        gap: 20px;
+      }
+      .card {
+        padding: 18px;
+        border: 1px solid var(--border);
+        border-radius: 22px;
+        background: rgba(16, 25, 46, 0.88);
+      }
+      .frame {
+        display: block;
+        width: 100%;
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        overflow: hidden;
+        background: #0c1324;
+      }
+      .meta {
+        margin-top: 12px;
+        color: var(--muted);
+        line-height: 1.5;
+      }
+      .links {
+        margin-top: 8px;
+      }
+      .links a {
+        color: var(--accent);
+        text-decoration: none;
+        margin-right: 16px;
+      }
+      @media (max-width: 900px) {
+        .shell { padding: 20px 14px 36px; }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <section class="hero">
+        <p class="eyebrow">Static Concept Set</p>
+        <h1>Orion frontend concepts for a `Next.js + TypeScript + Mantine` rebuild</h1>
+        <p class="subtle">
+          These are generated as SVG concept boards to stand in for screenshots. The goal is close structural parity with the current Orion UI:
+          dark operational tone, dense dashboards, cyan accents, case management first, and cleaner Mantine-style surfaces.
+        </p>
+      </section>
+
+      <section class="grid">
+        <article class="card">
+          <p class="eyebrow">Concept 01</p>
+          <h2>Case Workspace</h2>
+          <p class="meta">Mantine-flavored case list, summary cards, filters, and analyst feed. This is the highest-value landing view to port first.</p>
+          <div class="links">
+            <a href="/concepts/mantine-case-workspace.svg">Open SVG</a>
+          </div>
+          <img class="frame" src="/concepts/mantine-case-workspace.svg" alt="Mantine case workspace concept" />
+        </article>
+
+        <article class="card">
+          <p class="eyebrow">Concept 02</p>
+          <h2>Active Case Dashboard</h2>
+          <p class="meta">Feed-centric dashboard with tabs, dense activity cards, quick insights, and a data panel layout suited to Mantine `AppShell` and `Tabs`.</p>
+          <div class="links">
+            <a href="/concepts/mantine-active-case-dashboard.svg">Open SVG</a>
+          </div>
+          <img class="frame" src="/concepts/mantine-active-case-dashboard.svg" alt="Mantine active case dashboard concept" />
+        </article>
+
+        <article class="card">
+          <p class="eyebrow">Concept 03</p>
+          <h2>Case Notes and Settings</h2>
+          <p class="meta">A concept for the form-heavy parts of the app using drawers, modals, and settings cards without losing Orion’s current operational density.</p>
+          <div class="links">
+            <a href="/concepts/mantine-case-notes-settings.svg">Open SVG</a>
+          </div>
+          <img class="frame" src="/concepts/mantine-case-notes-settings.svg" alt="Mantine case notes and settings concept" />
+        </article>
+      </section>
+    </main>
+  </body>
+</html>

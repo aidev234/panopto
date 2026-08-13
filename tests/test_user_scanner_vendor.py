@@ -16,6 +16,7 @@ from user_scanner.core import engine  # noqa: E402
 from user_scanner.user_scan.email import protonmail  # noqa: E402
 from user_scanner.user_scan.dev import boot_dev  # noqa: E402
 from user_scanner.core.result import Result  # noqa: E402
+from panopto.recon import _profile_record_from_scanner_row  # noqa: E402
 
 
 def test_proxy_manager_preserves_explicit_proxy_scheme(tmp_path):
@@ -38,7 +39,7 @@ def test_load_categories_includes_new_username_email_category():
 
 def test_new_modules_expose_expected_validate_functions():
     assert hasattr(protonmail, "validate_protonmail")
-    assert hasattr(boot_dev, "validate_boot_dev")
+    assert hasattr(boot_dev, "validate_boot")
 
 
 def test_engine_can_resolve_new_module_category():
@@ -61,3 +62,21 @@ def test_engine_stream_yields_each_completed_site_result():
                 results = asyncio.run(collect())
 
     assert [item.site_name for item in results] == ["fast", "slow"]
+
+
+def test_result_and_profile_record_preserve_all_module_fields():
+    result = Result.taken(
+        extra={"display name": "Matt Campbell", "followers": 42},
+        media={"avatar": "https://example.test/avatar.jpg"},
+    ).update(site_name="Example", username="mattcampbellca")
+
+    row = result.as_dict()
+    profile = _profile_record_from_scanner_row(row, enrichment_status="complete")
+
+    assert row["extra"] == {"display_name": "Matt Campbell", "followers": 42}
+    assert row["media"] == {"avatar": "https://example.test/avatar.jpg"}
+    assert profile["profile_record"]["fields"] == {
+        "extra.display_name": "Matt Campbell",
+        "extra.followers": 42,
+        "media.avatar": "https://example.test/avatar.jpg",
+    }

@@ -51,6 +51,7 @@ const caseEditCadenceSelect = document.getElementById('caseEditCadenceSelect');
 const caseEditThreatSelect = document.getElementById('caseEditThreatSelect');
 const caseEditRetentionSelect = document.getElementById('caseEditRetentionSelect');
 const caseEditLocationSelect = document.getElementById('caseEditLocationSelect');
+const caseEditImageUrlInput = document.getElementById('caseEditImageUrlInput');
 const caseEditCancelBtn = document.getElementById('caseEditCancelBtn');
 const caseEditCloseBtn = document.getElementById('caseEditCloseBtn');
 const caseEditSaveBtn = document.getElementById('caseEditSaveBtn');
@@ -74,6 +75,7 @@ const caseNotesLocationInput = document.getElementById('caseNotesLocationInput')
 const caseNotesAgeInput = document.getElementById('caseNotesAgeInput');
 const caseNotesAkasInput = document.getElementById('caseNotesAkasInput');
 const caseNotesSubjectImage = document.getElementById('caseNotesSubjectImage');
+const caseNotesImageSide = caseNotesSubjectImage?.closest('.case-notes-image-side') || null;
 const caseNotesSubjectImageSelect = document.getElementById('caseNotesSubjectImageSelect');
 const caseNotesSubjectUploadBtn = document.getElementById('caseNotesSubjectUploadBtn');
 const caseNotesSubjectUploadInput = document.getElementById('caseNotesSubjectUploadInput');
@@ -83,8 +85,20 @@ const caseNotesPersonalInput = document.getElementById('caseNotesPersonalInput')
 const caseNotesSelectorEmailsInput = document.getElementById('caseNotesSelectorEmailsInput');
 const caseNotesSelectorPhonesInput = document.getElementById('caseNotesSelectorPhonesInput');
 const caseNotesSelectorUsernamesInput = document.getElementById('caseNotesSelectorUsernamesInput');
+const caseNotesSelectorEmailsList = document.getElementById('caseNotesSelectorEmailsList');
+const caseNotesSelectorPhonesList = document.getElementById('caseNotesSelectorPhonesList');
+const caseNotesSelectorUsernamesList = document.getElementById('caseNotesSelectorUsernamesList');
+const caseNotesSelectorEmailsCorroboration = document.getElementById('caseNotesSelectorEmailsCorroboration');
+const caseNotesSelectorPhonesCorroboration = document.getElementById('caseNotesSelectorPhonesCorroboration');
+const caseNotesSelectorUsernamesCorroboration = document.getElementById('caseNotesSelectorUsernamesCorroboration');
 const caseNotesProfilesList = document.getElementById('caseNotesProfilesList');
 const caseNotesFootprintResults = document.getElementById('caseNotesFootprintResults');
+const caseNotesEvidenceCapture = document.getElementById('caseNotesEvidenceCapture');
+const caseNotesEvidenceSection = document.getElementById('caseNotesEvidenceSection');
+const caseNotesEvidenceRailActions = document.getElementById('caseNotesEvidenceRailActions');
+const caseNotesEvidencePopoutBtn = document.getElementById('caseNotesEvidencePopoutBtn');
+const caseNotesEvidenceSectionHome = caseNotesEvidenceSection?.parentElement || null;
+const caseNotesEvidenceSectionNextSibling = caseNotesEvidenceSection?.nextSibling || null;
 const caseNotesAddProfileBtn = document.getElementById('caseNotesAddProfileBtn');
 const caseNotesExportPdfBtn = document.getElementById('caseNotesExportPdfBtn');
 const caseNotesSaveBtn = document.getElementById('caseNotesSaveBtn');
@@ -95,12 +109,15 @@ const dashboardPanel = document.getElementById('dashboardPanel');
 const dashboardContent = document.getElementById('dashboardContent');
 const resultsColumn = document.getElementById('resultsColumn');
 const dashboardCaseTitle = document.getElementById('dashboardCaseTitle');
+const dashboardCaseFileNumber = document.getElementById('dashboardCaseFileNumber');
+const caseNotesCaseFileNumber = document.getElementById('caseNotesCaseFileNumber');
 const openCaseNotesTopBtn = document.getElementById('openCaseNotesTopBtn');
 const backToCasesBtn = document.getElementById('backToCasesBtn');
 const saveQuitCaseBtn = document.getElementById('saveQuitCaseBtn');
 const clearSearchBtn = document.getElementById('clearSearchBtn');
 const sortSelect = document.getElementById('sortSelect');
 const viewWorkflowBtn = document.getElementById('viewWorkflowBtn');
+const viewGuideBtn = document.getElementById('viewGuideBtn');
 const viewPostsBtn = document.getElementById('viewPostsBtn');
 const viewMediaBtn = document.getElementById('viewMediaBtn');
 const viewFootprintBtn = document.getElementById('viewFootprintBtn');
@@ -111,6 +128,11 @@ const filterMenu = document.getElementById('filterMenu');
 const statusEl = document.getElementById('status');
 const resultsEl = document.getElementById('results');
 const workflowView = document.getElementById('workflowView');
+const guideView = document.getElementById('guideView');
+const guideSteps = document.getElementById('guideSteps');
+const guideProgress = document.getElementById('guideProgress');
+const caseAuditRows = document.getElementById('caseAuditRows');
+const caseAuditCount = document.getElementById('caseAuditCount');
 const footprintView = document.getElementById('footprintView');
 const patternLifeView = document.getElementById('patternLifeView');
 const llmSandboxView = document.getElementById('llmSandboxView');
@@ -298,6 +320,12 @@ const postModal = document.getElementById('postModal');
 const postModalTitle = document.getElementById('postModalTitle');
 const postModalBody = document.getElementById('postModalBody');
 const postModalCloseBtn = document.getElementById('postModalCloseBtn');
+const evidenceCaptureModal = document.getElementById('evidenceCaptureModal');
+const evidenceCapturePreview = document.getElementById('evidenceCapturePreview');
+const evidenceCaptureCommentInput = document.getElementById('evidenceCaptureCommentInput');
+const evidenceCaptureSaveBtn = document.getElementById('evidenceCaptureSaveBtn');
+const evidenceCaptureCancelBtn = document.getElementById('evidenceCaptureCancelBtn');
+const evidenceCaptureCancelBtnBottom = document.getElementById('evidenceCaptureCancelBtnBottom');
 const notificationsEl = document.getElementById('notifications');
 
 let requestTimer;
@@ -306,19 +334,32 @@ let caseOpenLoadingTimer = null;
 let caseList = [];
 let activeCaseId = '';
 let activeCase = null;
+let activeCaseSession = 0;
 let activeCaseExplicitlySaved = false;
 let lastAutofilledCaseTitle = '';
+let lastAutofilledCaseLocation = '';
+let caseLocationAutofillInFlight = null;
 let editingCaseId = '';
 const caseWatchlistCadenceById = new Map();
 let caseSaveSelectedImageUrl = '';
 let caseSaveImageChoices = [];
 let caseNotesImageChoices = [];
+let lastAutofilledCaseNotesSubjectImage = '';
 let caseNotesKnownProfiles = [];
 let caseNotesFootprintEntries = [];
+const caseNotesEditingProfileIndexes = new Set();
+let evidenceCaptureSaveInFlight = null;
+let pendingEvidenceCapture = null;
 const caseNotesExcludedSections = new Set();
 const caseNotesExcludedFootprintResultKeys = new Set();
+const caseNotesExcludedPatternLifeEvidenceKeys = new Set();
 let caseNotesInitialDraft = '';
 let caseNotesSaveInFlight = null;
+let caseNotesEvidencePopoutOpen = false;
+// These figures are regenerated from the case's current posts whenever notes are
+// opened or exported.  They are deliberately not a historical cache: removing a
+// post must also remove its pin from the report.
+let caseNotesPatternLifeEvidence = [];
 let activeStartDate = '';
 let activeEndDate = '';
 let activeUsername = '';
@@ -376,6 +417,7 @@ const threatAssessmentSaveInFlight = new Set();
 const collectionSourceState = new Map();
 const collectionNoticeKeys = new Set();
 const collectionIssueKeys = new Set();
+const resultsViewAttention = { posts: 0, footprint: 0, pattern: 0 };
 const progressNotificationState = new Map();
 let reconPreviewTooltipEl = null;
 let activeReconPreviewAnchor = null;
@@ -529,6 +571,36 @@ function clearHiddenReconEntities() {
   hiddenPdlContactValueKeys.clear();
   hiddenPdlProfileUrlKeys.clear();
   hiddenKnownSelectorKeys.clear();
+}
+
+function clearCaseScopedEvidenceState() {
+  caseNotesKnownProfiles = [];
+  caseNotesFootprintEntries = [];
+  caseNotesImageChoices = [];
+  caseNotesAutoProfileKeys.clear();
+  caseNotesEditingProfileIndexes.clear();
+  caseNotesExcludedPatternLifeEvidenceKeys.clear();
+  caseNotesInitialDraft = '';
+  caseNotesSaveInFlight = null;
+  lastAutofilledCaseNotesName = '';
+  lastAutofilledCaseNotesLocation = '';
+  lastAutofilledCaseNotesSubjectImage = '';
+  reconSnapshotCache = null;
+  latestReconPayload = emptyReconPayload();
+  latestFetchedPosts = [];
+  latestPosts = [];
+  caseSaveImageChoices = [];
+  caseSaveSelectedImageUrl = '';
+  clearHiddenReconEntities();
+  if (caseNotesProfilesList) caseNotesProfilesList.innerHTML = '';
+  if (caseNotesFootprintResults) caseNotesFootprintResults.innerHTML = '';
+  if (caseNotesEvidenceCapture) caseNotesEvidenceCapture.innerHTML = '';
+  if (caseNotesSubjectImageSelect instanceof HTMLSelectElement) {
+    caseNotesSubjectImageSelect.innerHTML = `<option value="${escapeAttr(USER_PLACEHOLDER_AVATAR_URL)}">Placeholder</option>`;
+    caseNotesSubjectImageSelect.value = USER_PLACEHOLDER_AVATAR_URL;
+  }
+  renderCaseNotesSubjectImagePreview(USER_PLACEHOLDER_AVATAR_URL);
+  caseNotesPatternLifeEvidence = [];
 }
 
 function toDateInputValue(date) {
@@ -1377,6 +1449,7 @@ function renderWorkflowPanel() {
 }
 
 const THREAT_ORDER = {
+  Unassessed: 0,
   'Low Threat': 1,
   'Moderate Threat': 2,
   'Substantial Threat': 3,
@@ -1409,6 +1482,20 @@ function slugifyToken(value) {
 const USER_PLACEHOLDER_AVATAR_URL = `data:image/svg+xml,${encodeURIComponent(
   `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="32" fill="#0f172a"/><circle cx="32" cy="24" r="12" fill="#94a3b8"/><path d="M13 54c2-11 9-17 19-17s17 6 19 17" fill="#94a3b8"/></svg>`,
 )}`;
+
+function profileAvatarMarkup(className, imageUrl, alt) {
+  const source = normalizeProfileImageUrl(imageUrl) || USER_PLACEHOLDER_AVATAR_URL;
+  return `<img class="${escapeAttr(className)}" src="${escapeAttr(source)}" alt="${escapeAttr(alt)}" loading="lazy" referrerpolicy="no-referrer" data-profile-avatar />`;
+}
+
+function useProfileAvatarFallback(event) {
+  const image = event.target;
+  if (!(image instanceof HTMLImageElement) || !image.matches('[data-profile-avatar]')) return;
+  if (image.dataset.profileAvatarFallback === 'true') return;
+  image.dataset.profileAvatarFallback = 'true';
+  image.src = USER_PLACEHOLDER_AVATAR_URL;
+  image.alt = 'Default user avatar';
+}
 
 function normalizeProfileImageUrl(value) {
   const url = String(value || '').trim();
@@ -1453,6 +1540,8 @@ function showCaseWorkspace() {
 }
 
 function resetDashboardSession() {
+  activeCaseSession += 1;
+  clearCaseScopedEvidenceState();
   if (controller) {
     controller.abort();
     controller = null;
@@ -1465,8 +1554,11 @@ function resetDashboardSession() {
   pendingResultsLandingPreference = '';
   activeCaseId = '';
   activeCase = null;
+  dashboardCaseFileNumber?.classList.add('hidden');
+  caseNotesCaseFileNumber?.classList.add('hidden');
   activeCaseExplicitlySaved = false;
   lastAutofilledCaseTitle = '';
+  lastAutofilledCaseLocation = '';
   activeTargets = [];
   activeStartDate = '';
   activeEndDate = '';
@@ -1478,6 +1570,9 @@ function resetDashboardSession() {
   latestFaceRecognition = { available: false, reason: 'not_run' };
   dashboardBaseStatus = '';
   collectionProgressStatus = '';
+  clearResultsViewAttention('posts');
+  clearResultsViewAttention('footprint');
+  clearResultsViewAttention('pattern');
   if (searchInput instanceof HTMLInputElement) searchInput.value = '';
   collectionContext?.classList.add('hidden');
   updateStatusLine();
@@ -1492,6 +1587,11 @@ function setDashboardCaseTitle(title) {
   document.title = value === 'Orion' ? 'Orion' : `${value} | Orion`;
 }
 
+function displayCaseFileNumber(value) {
+  const raw = String(value || '').trim().replace(/^CASE\s*\/\/\s*/i, '');
+  return raw ? `CASE // ${raw}` : '';
+}
+
 function isPlaceholderCaseTitle(title) {
   const value = String(title || '').trim();
   if (!value) return true;
@@ -1501,8 +1601,31 @@ function isPlaceholderCaseTitle(title) {
   return false;
 }
 
+const MIN_AUTO_CASE_NAME_SOURCES = 3;
+
+function caseNameWasManuallySet(caseRow = activeCase) {
+  return Boolean(caseRow?.case_notes?.case_name_manually_set);
+}
+
+function caseLocationWasManuallySet(caseRow = activeCase) {
+  const notes = normalizeCaseNotesObject(caseRow?.case_notes || {});
+  if (Object.prototype.hasOwnProperty.call(notes, 'location_manually_set')) {
+    return notes.location_manually_set === true;
+  }
+  return Boolean(String(caseRow?.known_location || '').trim() && !/^(?:unknown|n\/a|none)$/i.test(String(caseRow?.known_location || '').trim()));
+}
+
 function syncDashboardCaseTitleFromActiveCase() {
   setDashboardCaseTitle(String(activeCase?.case_name || '').trim() || 'Orion');
+  const reference = displayCaseFileNumber(activeCase?.case_file_number);
+  if (dashboardCaseFileNumber instanceof HTMLElement) {
+    dashboardCaseFileNumber.textContent = reference;
+    dashboardCaseFileNumber.classList.toggle('hidden', !reference);
+  }
+  if (caseNotesCaseFileNumber instanceof HTMLElement) {
+    caseNotesCaseFileNumber.textContent = reference;
+    caseNotesCaseFileNumber.classList.toggle('hidden', !reference);
+  }
 }
 
 function syncCaseNameInputs(nextName) {
@@ -1511,12 +1634,61 @@ function syncCaseNameInputs(nextName) {
   if (caseEditTitleInput instanceof HTMLInputElement) caseEditTitleInput.value = value;
 }
 
+function syncCaseLocationInputs(nextLocation) {
+  const value = String(nextLocation || '').trim();
+  if (caseSaveLocationInput instanceof HTMLInputElement) caseSaveLocationInput.value = value;
+  if (caseEditLocationSelect instanceof HTMLInputElement) caseEditLocationSelect.value = value;
+  if (caseNotesLocationInput instanceof HTMLInputElement && (!(caseNotesModal instanceof HTMLElement) || !caseNotesModal.classList.contains('hidden'))) {
+    const current = String(caseNotesLocationInput.value || '').trim();
+    const previousAuto = String(lastAutofilledCaseNotesLocation || '').trim();
+    if (!current || (previousAuto && current.toLowerCase() === previousAuto.toLowerCase())) {
+      caseNotesLocationInput.value = value;
+      lastAutofilledCaseNotesLocation = value;
+      caseNotesLocationInput.classList.add('case-notes-autofill');
+    }
+  }
+}
+
+function updateLocalActiveCaseLocation(nextLocation, options = {}) {
+  const value = String(nextLocation || '').trim();
+  if (!value) return;
+  const autofilled = options?.autofilled === true;
+  if (activeCase && typeof activeCase === 'object') {
+    activeCase.known_location = value;
+    activeCase.case_notes = {
+      ...normalizeCaseNotesObject(activeCase.case_notes || {}),
+      location: value,
+      location_manually_set: options?.manuallySet === true ? true : (autofilled ? false : activeCase?.case_notes?.location_manually_set),
+    };
+  }
+  if (activeCaseId) {
+    const idx = caseList.findIndex((row) => String(row?.case_id || '').trim() === String(activeCaseId || '').trim());
+    if (idx >= 0 && caseList[idx] && typeof caseList[idx] === 'object') {
+      caseList[idx] = {
+        ...caseList[idx],
+        known_location: value,
+        case_notes: activeCase?.case_notes || caseList[idx].case_notes,
+      };
+    }
+  }
+  if (autofilled) lastAutofilledCaseLocation = value;
+  else if (String(lastAutofilledCaseLocation || '').trim().toLowerCase() !== value.toLowerCase()) lastAutofilledCaseLocation = '';
+  syncCaseLocationInputs(value);
+  renderCases();
+}
+
 function updateLocalActiveCaseName(nextName, options = {}) {
   const value = String(nextName || '').trim();
   if (!value) return;
   const autofilled = options?.autofilled === true;
   if (activeCase && typeof activeCase === 'object') {
     activeCase.case_name = value;
+    if (options?.manuallySet === true) {
+      activeCase.case_notes = {
+        ...normalizeCaseNotesObject(activeCase.case_notes || {}),
+        case_name_manually_set: true,
+      };
+    }
   }
   if (activeCaseId) {
     const idx = caseList.findIndex((row) => String(row?.case_id || '').trim() === String(activeCaseId || '').trim());
@@ -1612,44 +1784,43 @@ function caseRowMarkup(row) {
   const caseId = String(row?.case_id || '').trim();
   const caseName = String(row?.case_name || 'Untitled Case').trim() || 'Untitled Case';
   const status = String(row?.status || 'Open').trim() || 'Open';
-  const threatLevel = String(row?.threat_level || 'Low Threat').trim() || 'Low Threat';
+  const threatLevel = String(row?.threat_level || 'Unassessed').trim() || 'Unassessed';
   const knownLocation = String(row?.known_location || '').trim() || 'Unknown';
-  const openedAt = formatIsoDateTime(row?.opened_at);
-  const editedAt = formatIsoDateTime(row?.last_edited_at);
+  const caseFileNumber = displayCaseFileNumber(row?.case_file_number);
   const statusCls = `status-${slugifyToken(status)}`;
-  let threatCls = 'threat-low';
-  if (threatLevel === 'Moderate Threat') threatCls = 'threat-moderate';
+  let threatCls = 'threat-unassessed';
+  if (threatLevel === 'Low Threat') threatCls = 'threat-low';
+  else if (threatLevel === 'Moderate Threat') threatCls = 'threat-moderate';
   else if (threatLevel === 'Substantial Threat') threatCls = 'threat-substantial';
   else if (threatLevel === 'High Threat') threatCls = 'threat-high';
   else if (threatLevel === 'Very High Threat') threatCls = 'threat-very-high';
   const poiImageUrl = caseProfileImageUrl(row);
   const poiImageAlt = `${caseName} profile image`;
+  const newPostCount = status === 'Watchlist' ? Math.max(0, Number(row?.new_post_count) || 0) : 0;
+  const watchlistActivity = newPostCount > 0
+    ? `<span class="case-chip case-watchlist-activity" title="${escapeAttr(`${newPostCount} new watchlist post${newPostCount === 1 ? '' : 's'} ready to review`)}"><span aria-hidden="true"></span>${newPostCount} new post${newPostCount === 1 ? '' : 's'}</span>`
+    : '';
   return `
-    <article class="case-tile" data-case-id="${escapeAttr(caseId)}">
+    <article class="case-tile" data-case-id="${escapeAttr(caseId)}" role="button" tabindex="0" aria-label="Open case ${escapeAttr(caseName)}">
       <div class="case-tile-head">
         <div class="case-poi-avatar-wrap">
           <img class="case-poi-avatar" src="${escapeAttr(poiImageUrl)}" alt="${escapeAttr(poiImageAlt)}" loading="lazy" />
         </div>
         <div class="case-title-group">
+          ${caseFileNumber ? `<span class="case-file-number">${escapeHtml(caseFileNumber)}</span>` : ''}
           <div class="case-title-row">
             <h3>${escapeHtml(caseName)}</h3>
           </div>
           <div class="case-tags">
             <span class="case-chip case-badge case-status ${escapeAttr(statusCls)}">${escapeHtml(status)}</span>
+            ${watchlistActivity}
             <span class="case-chip case-badge threat ${escapeAttr(threatCls)}">${escapeHtml(threatLevel)}</span>
             <span class="case-chip case-tag case-tag-location">${escapeHtml(knownLocation)}</span>
           </div>
-          <div class="case-submeta">
-            <span>Last Edited ${escapeHtml(editedAt)}</span>
-          </div>
         </div>
         <div class="case-icon-actions">
-          <button class="case-open-btn" type="button" data-case-open="${escapeAttr(caseId)}">
-            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 4h8l4 4v12H6z"></path><path d="M14 4v4h4"></path></svg>
-            <span>Open</span>
-          </button>
-          <button class="icon-btn case-icon-btn case-edit-icon" type="button" title="Edit case details" aria-label="Edit case details" data-case-edit="${escapeAttr(caseId)}">
-            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 20l4.5-1 9.5-9.5-3.5-3.5L5 15.5z"></path><path d="M13.5 6l3.5 3.5"></path></svg>
+          <button class="icon-btn case-icon-btn case-edit-icon" type="button" title="Case settings" aria-label="Case settings" data-case-edit="${escapeAttr(caseId)}">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="3.2"></circle><path d="M19.4 13.8c.04-.3.06-.6.06-.9s-.02-.6-.07-.9l2-1.55-2-3.46-2.37.96a7.2 7.2 0 0 0-1.55-.9L15.1 4.5h-4l-.38 2.53a7.2 7.2 0 0 0-1.55.9L6.8 6.97l-2 3.46 2 1.55a7.4 7.4 0 0 0 0 1.82l-2 1.55 2 3.46 2.37-.96c.47.37.99.67 1.55.9l.38 2.53h4l.38-2.53c.56-.23 1.08-.53 1.55-.9l2.37.96 2-3.46-2-1.55Z"></path></svg>
           </button>
           <button class="icon-btn case-icon-btn case-delete-icon" type="button" title="Delete case" aria-label="Delete case" data-case-delete="${escapeAttr(caseId)}">
             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 7h16"></path><path d="M9 7V5h6v2"></path><path d="M8 10v8"></path><path d="M12 10v8"></path><path d="M16 10v8"></path></svg>
@@ -1658,6 +1829,17 @@ function caseRowMarkup(row) {
       </div>
     </article>
   `;
+}
+
+async function acknowledgeWatchlistActivity(caseRow) {
+  const caseId = String(caseRow?.case_id || '').trim();
+  if (!caseId || String(caseRow?.status || '') !== 'Watchlist' || !(Number(caseRow?.new_post_count) > 0)) return;
+  caseRow.new_post_count = 0;
+  try {
+    await fetch(`/api/cases/${encodeURIComponent(caseId)}/watchlist-activity/read`, { method: 'POST' });
+  } catch (_error) {
+    // Opening the case should not be blocked if the acknowledgement cannot be saved.
+  }
 }
 
 function filteredSortedCases() {
@@ -1669,9 +1851,11 @@ function filteredSortedCases() {
     .filter((row) => {
       const name = String(row?.case_name || '').toLowerCase();
       const location = String(row?.known_location || '').toLowerCase();
+      const caseNumber = String(row?.case_file_number || '').toLowerCase();
+      const displayedCaseNumber = displayCaseFileNumber(row?.case_file_number).toLowerCase();
       const tags = Array.isArray(row?.metadata_tags) ? row.metadata_tags.map((item) => String(item || '').toLowerCase()) : [];
       const tagHit = tags.some((tag) => tag.includes(query));
-      if (query && !name.includes(query) && !location.includes(query) && !tagHit) return false;
+      if (query && !name.includes(query) && !location.includes(query) && !caseNumber.includes(query) && !displayedCaseNumber.includes(query) && !tagHit) return false;
       if (statusFilter && String(row?.status || '') !== statusFilter) return false;
       if (threatFilter && String(row?.threat_level || '') !== threatFilter) return false;
       return true;
@@ -1716,7 +1900,7 @@ function syncActiveCaseFromList() {
   const found = caseList.find((row) => String(row?.case_id || '') === activeCaseId) || null;
   activeCase = found;
   if (found) {
-    dashboardBaseStatus = `Active case: ${found.case_name}`;
+    dashboardBaseStatus = '';
     updateStatusLine();
   }
   syncDashboardCaseTitleFromActiveCase();
@@ -1888,15 +2072,19 @@ function openCaseEditModal(caseId) {
     caseEditTitleInput.value = String(row.case_name || 'Untitled Case').trim() || 'Untitled Case';
   }
   if (caseEditStatusSelect) caseEditStatusSelect.value = String(row.status || 'Open');
-  if (caseEditThreatSelect) caseEditThreatSelect.value = String(row.threat_level || 'Low Threat');
+  if (caseEditThreatSelect) caseEditThreatSelect.value = String(row.threat_level || 'Unassessed');
   if (caseEditRetentionSelect) caseEditRetentionSelect.value = normalizeDataRetentionPeriod(row.data_retention_period);
   if (caseEditLocationSelect) {
     caseEditLocationSelect.value = String(row.known_location || 'Unknown').trim() || 'Unknown';
+  }
+  if (caseEditImageUrlInput instanceof HTMLInputElement) {
+    caseEditImageUrlInput.value = normalizeProfileImageUrl(row.poi_image_url);
   }
   if (caseEditCadenceSelect) {
     caseEditCadenceSelect.value = watchlistCadenceForCase(id, row.monitoring_refresh_cadence);
   }
   setWatchlistCadenceVisibility(caseEditStatusSelect, caseEditCadenceField, caseEditCadenceSelect, watchlistCadenceForCase(id, row.monitoring_refresh_cadence));
+  renderCaseAuditLog(row);
   setCaseEditModalOpen(true);
 }
 
@@ -1912,12 +2100,27 @@ async function submitCaseEdit(event) {
   event.preventDefault();
   const id = String(editingCaseId || '').trim();
   if (!id) return;
+  const editedCase = caseList.find((item) => String(item?.case_id || '').trim() === id) || activeCase || {};
   const nextName = String(caseEditTitleInput?.value || '').trim() || 'Untitled Case';
   const nextStatus = String(caseEditStatusSelect?.value || '').trim();
   const nextCadence = String(caseEditCadenceSelect?.value || '').trim();
   const nextThreat = String(caseEditThreatSelect?.value || '').trim();
   const nextRetention = normalizeDataRetentionPeriod(caseEditRetentionSelect?.value);
   const nextLocation = String(caseEditLocationSelect?.value || 'Unknown').trim() || 'Unknown';
+  const nextPoiImage = normalizeProfileImageUrl(caseEditImageUrlInput?.value);
+  if (String(caseEditImageUrlInput?.value || '').trim() && !nextPoiImage) {
+    showNotification('Case image must be an http(s) URL, a local image path, or a data:image value.', 'warn');
+    focusWithoutScroll(caseEditImageUrlInput);
+    return;
+  }
+  const caseNotes = {
+    ...normalizeCaseNotesObject(editedCase.case_notes || {}),
+    case_name_manually_set: true,
+    location_manually_set: true,
+  };
+  if (nextStatus === 'Watchlist' && String(editedCase?.status || '') !== 'Watchlist') {
+    caseNotes.watchlist_last_reviewed_at = new Date().toISOString();
+  }
   if (nextStatus === 'Watchlist' && !nextCadence) {
     showNotification('Monitoring refresh cadence is required for Watchlist.', 'warn');
     focusWithoutScroll(caseEditCadenceSelect);
@@ -1934,6 +2137,8 @@ async function submitCaseEdit(event) {
         threat_level: nextThreat,
         data_retention_period: nextRetention,
         known_location: nextLocation,
+        poi_image_url: nextPoiImage,
+        case_notes: caseNotes,
       }),
     });
     if (!response.ok) {
@@ -1942,7 +2147,7 @@ async function submitCaseEdit(event) {
     }
     storeWatchlistCadence(id, nextStatus, nextCadence);
     await loadCases();
-    updateLocalActiveCaseName(nextName);
+    updateLocalActiveCaseName(nextName, { manuallySet: true });
     closeCaseEditModal();
     if (nextStatus === 'Watchlist') {
       showNotification(`Case details updated (cadence: ${nextCadence})`, 'success');
@@ -1960,13 +2165,20 @@ async function submitCaseEdit(event) {
 async function openCase(caseId) {
   const id = String(caseId || '').trim();
   if (!id) return;
+  activeCaseSession += 1;
   const found = caseList.find((row) => String(row?.case_id || '') === id) || null;
   scheduleCaseOpenLoadingOverlay(found);
   clearCollectionPolling();
+  // Everything below is case-scoped. Clear it before loading the next case so
+  // stale profiles, snapshot results, and modal evidence can never be reused.
+  clearCaseScopedEvidenceState();
+  setCaseNotesModalOpen(false);
   activeCaseId = id;
   activeCase = found;
+  void acknowledgeWatchlistActivity(found);
   activeCaseExplicitlySaved = true;
   lastAutofilledCaseTitle = '';
+  lastAutofilledCaseLocation = '';
   activeTargets = [];
   activeStartDate = '';
   activeEndDate = '';
@@ -1981,7 +2193,7 @@ async function openCase(caseId) {
   renderFaceRecognitionFilters();
   updateFilterToggleLabel();
   renderCollectionContext();
-  dashboardBaseStatus = found ? `Active case: ${found.case_name}` : '';
+  dashboardBaseStatus = '';
   updateStatusLine();
   syncDashboardCaseTitleFromActiveCase();
   seedReconFromCaseNotes(found);
@@ -2050,9 +2262,11 @@ async function openCaseSaveModal() {
     return;
   }
   const currentName = String(activeCase?.case_name || '').trim() || 'Untitled Case';
+  const openedForCaseId = String(activeCaseId || '').trim();
+  const openedForSession = activeCaseSession;
   const currentStatus = String(activeCase?.status || 'Open').trim() || 'Open';
   const currentCadence = watchlistCadenceForCase(activeCaseId, activeCase?.monitoring_refresh_cadence);
-  const currentThreat = String(activeCase?.threat_level || 'Low Threat').trim() || 'Low Threat';
+  const currentThreat = String(activeCase?.threat_level || 'Unassessed').trim() || 'Unassessed';
   const currentRetention = normalizeDataRetentionPeriod(activeCase?.data_retention_period);
   const currentLocation = String(activeCase?.known_location || 'Unknown').trim() || 'Unknown';
   const currentPoiImage = normalizeProfileImageUrl(activeCase?.poi_image_url);
@@ -2067,8 +2281,9 @@ async function openCaseSaveModal() {
   renderCaseSaveImageOptions();
   setWatchlistCadenceVisibility(caseSaveStatusSelect, caseSaveCadenceField, caseSaveCadenceSelect, currentCadence);
   setCaseSaveModalOpen(true);
-  fetchCasePosts(activeCaseId)
+  fetchCasePosts(openedForCaseId)
     .then((posts) => {
+      if (openedForSession !== activeCaseSession || openedForCaseId !== String(activeCaseId || '').trim()) return;
       const associatedImages = uniqueProfileImageUrls(posts);
       if (currentPoiImage && !associatedImages.includes(currentPoiImage)) {
         associatedImages.unshift(currentPoiImage);
@@ -2106,14 +2321,19 @@ function normalizeCaseNotesReportPreferences(raw) {
   const excludedFootprintResultKeys = Array.isArray(prefs.excluded_footprint_result_keys)
     ? prefs.excluded_footprint_result_keys.map((item) => String(item || '').trim().toLowerCase()).filter(Boolean)
     : [];
+  const excludedPatternLifeEvidenceKeys = Array.isArray(prefs.excluded_pattern_life_evidence_keys)
+    ? prefs.excluded_pattern_life_evidence_keys.map((item) => String(item || '').trim().toLowerCase()).filter(Boolean)
+    : [];
   return {
     excluded_sections: [...new Set(excludedSections.filter((item) => !item.startsWith('digital_footprint_')))],
     excluded_footprint_result_keys: [...new Set(excludedFootprintResultKeys)],
+    excluded_pattern_life_evidence_keys: [...new Set(excludedPatternLifeEvidenceKeys)],
   };
 }
 
 function caseNotesFootprintSourcePriority(source) {
   const clean = String(source || '').trim().toLowerCase();
+  if (clean === 'case profile record') return -1;
   if (clean === 'osint industries') return 0;
   if (clean === 'people data labs') return 1;
   if (clean.startsWith('recon (osint_industries')) return 2;
@@ -2150,6 +2370,14 @@ function splitCommaSeparatedValues(raw) {
   const text = String(raw || '').trim();
   if (!text) return [];
   return text.split(',').map((item) => String(item || '').trim()).filter(Boolean);
+}
+
+function normalizeCaseDetailValue(raw, { multiline = false } = {}) {
+  const value = String(raw || '').replace(/\r\n?/g, '\n').trim();
+  if (!value) return '';
+  return multiline
+    ? value.split('\n').map((line) => line.replace(/\s+/g, ' ').trim()).filter(Boolean).join('\n')
+    : value.replace(/\s+/g, ' ').trim();
 }
 
 function joinCommaSeparatedValues(values) {
@@ -2276,7 +2504,7 @@ function inferSelectorValuesFromCaseNotes(notes) {
       else if (label.includes('phone')) pushPhone(value);
       else if (label.includes('username') || label.includes('online id') || label.includes('alias')) pushUsername(value);
       else if (label.includes('name')) pushUsername(value);
-      else if (label.includes('location') || label.includes('city') || label.includes('area') || label.includes('address')) ingest('location', value);
+      else if (/^(?:location|bio\s*location|city|state|province|region|country)$/i.test(label)) ingest('location', value);
     }
   }
   for (const profile of (Array.isArray(notes?.known_profiles) ? notes.known_profiles : [])) {
@@ -2296,6 +2524,7 @@ function inferSelectorValuesFromCaseNotes(notes) {
 function buildCaseNotesFootprintEntries(notes) {
   const snapshot = normalizeReconSnapshot(notes?.recon_snapshot);
   const payload = snapshot?.payload || {};
+  const capturedAt = String(snapshot?.saved_at || '').trim();
   const prefs = normalizeCaseNotesReportPreferences(notes?.report_preferences);
   const excludedFootprintResultKeys = new Set(prefs.excluded_footprint_result_keys);
   const entries = [];
@@ -2307,6 +2536,7 @@ function buildCaseNotesFootprintEntries(notes) {
     profileUrl = '',
     imageUrl = '',
     metadata = [],
+    collectionMethod = '',
   }) => {
     const cleanSource = String(source || '').trim() || 'Digital Footprint';
     const cleanSelectorType = String(selectorType || '').trim().toLowerCase();
@@ -2323,6 +2553,17 @@ function buildCaseNotesFootprintEntries(notes) {
     const cleanSummary = metadataRows.length
       ? metadataRows.map((item) => `${item.label}: ${item.value}`).join(' | ')
       : 'No details available.';
+    // This is intentionally part of every finding, rather than report-only
+    // decoration: the case snapshot is the retained original record and the
+    // export turns these fields into a verifiable evidence manifest.
+    const provenanceRows = [
+      { label: 'Source URL', value: cleanProfileUrl || 'Not recorded' },
+      { label: 'Captured (UTC)', value: capturedAt || 'Not recorded' },
+      { label: 'Collection Method', value: collectionMethod || 'Not recorded' },
+      { label: 'Original Content', value: 'Retained in case snapshot' },
+      { label: 'Media URL', value: cleanImageUrl || 'Not recorded' },
+    ].filter(Boolean);
+    metadataRows.push(...provenanceRows);
     const key = caseNotesFootprintResultKey(
       cleanSource,
       cleanSelectorType,
@@ -2364,6 +2605,7 @@ function buildCaseNotesFootprintEntries(notes) {
       profileUrl,
       imageUrl: row.profile_image_url || row.picture_url || row.avatar_url || row.screenshot_url,
       metadata,
+      collectionMethod: `Recon provider: ${source}`,
     });
   }
 
@@ -2389,6 +2631,7 @@ function buildCaseNotesFootprintEntries(notes) {
       profileUrl,
       imageUrl: row.picture_url || row.avatar_url || row.profile_image_url || row.screenshot_url,
       metadata,
+      collectionMethod: `OSINT Industries module: ${module}`,
     });
   }
 
@@ -2414,6 +2657,7 @@ function buildCaseNotesFootprintEntries(notes) {
       profileUrl: '',
       imageUrl: '',
       metadata,
+      collectionMethod: 'Numverify phone intelligence lookup',
     });
   }
 
@@ -2441,6 +2685,27 @@ function buildCaseNotesFootprintEntries(notes) {
       profileUrl: linkedin,
       imageUrl: row.picture_url || row.avatar_url || '',
       metadata,
+      collectionMethod: 'People Data Labs enrichment lookup',
+    });
+  }
+
+  for (const profile of (Array.isArray(notes?.known_profiles) ? notes.known_profiles : [])) {
+    if (!profile || typeof profile !== 'object') continue;
+    const site = String(profile.site || 'Major Profile').trim() || 'Major Profile';
+    const profileUrl = String(profile.url || profile.profile_url || '').trim();
+    const imageUrl = String(profile.image_url || profile.screenshot_url || '').trim();
+    addEntry({
+      source: 'Case Profile Record',
+      selectorType: 'profile',
+      selectorValue: profileUrl || site,
+      siteLabel: site,
+      profileUrl,
+      imageUrl,
+      metadata: [
+        { label: 'Profile Site', value: site },
+        { label: 'Collection Ready', value: profile.collection_ready === true ? 'Yes' : 'No' },
+      ],
+      collectionMethod: 'Analyst-curated case profile record',
     });
   }
 
@@ -2487,35 +2752,38 @@ function caseNotesMajorProfiles(profiles) {
 
 function renderCaseNotesFootprintResults() {
   if (!(caseNotesFootprintResults instanceof HTMLElement)) return;
-  const visibleEntries = caseNotesFootprintEntries.filter((entry) => !isCaseNotesFootprintEntryExcluded(entry));
+  const visibleEntries = caseNotesFootprintEntries.filter((entry) => entry.source !== 'Case Profile Record' && !isCaseNotesFootprintEntryExcluded(entry));
   if (!visibleEntries.length) {
     caseNotesFootprintResults.innerHTML = '<p class="case-notes-footprint-empty">No digital footprint results are currently attached to case notes.</p>';
     return;
   }
   caseNotesFootprintResults.innerHTML = `
     <section class="case-notes-footprint-group">
-      <h4>Digital Footprint Results <span>${visibleEntries.length}</span></h4>
-      <div class="case-notes-footprint-group-items">${visibleEntries.map((entry) => {
+      <h4>Other Profile Findings <span>${visibleEntries.length}</span></h4>
+      <div class="case-notes-footprint-group-items">${visibleEntries.map((entry, index) => {
         const selectorType = String(entry.selectorType || '').trim().toLowerCase() || 'default';
         const selectorValue = String(entry.selectorValue || '').trim();
         const profileUrl = String(entry.profileUrl || '').trim();
         const imageUrl = String(entry.imageUrl || '').trim();
         const siteLabel = String(entry.siteLabel || '').trim() || String(entry.source || '').trim() || 'Digital Footprint';
         const evidenceLabel = footprintSelectorEvidenceLabel(selectorType, selectorValue);
-        const metadataMarkup = Array.isArray(entry.metadata) && entry.metadata.length
-          ? `
-            <dl class="case-notes-footprint-metadata">
-              ${entry.metadata.map((item) => `
+        const provenanceLabels = new Set(['source url', 'captured (utc)', 'collection method', 'original content', 'content sha-256', 'media url', 'media reference sha-256']);
+        const metadataRows = Array.isArray(entry.metadata) ? entry.metadata : [];
+        const metadataMarkup = (rows, emptyLabel) => rows.length
+          ? `<dl class="case-notes-footprint-metadata">
+              ${rows.map((item) => `
                 <div class="case-notes-footprint-metadata-row">
                   <dt>${escapeHtml(item.label)}</dt>
                   <dd>${escapeHtml(item.value)}</dd>
                 </div>
               `).join('')}
-            </dl>
-          `
-          : '<p class="case-notes-footprint-summary">No associated metadata captured.</p>';
+            </dl>`
+          : `<p class="case-notes-footprint-summary">${escapeHtml(emptyLabel)}</p>`;
+        const observedMarkup = metadataMarkup(metadataRows.filter((item) => !provenanceLabels.has(String(item?.label || '').trim().toLowerCase())), 'No observed provider details captured.');
+        const provenanceMarkup = metadataMarkup(metadataRows.filter((item) => provenanceLabels.has(String(item?.label || '').trim().toLowerCase())), 'No provenance metadata captured.');
         return `
           <article class="case-notes-footprint-item">
+            <div class="case-notes-evidence-figure">Figure ${caseNotesFootprintFigureOffset() + index + 1}</div>
             <div class="case-notes-footprint-item-head">
               <div class="case-notes-footprint-item-meta">
                 <span class="case-notes-footprint-source">${escapeHtml(entry.source)}</span>
@@ -2540,7 +2808,10 @@ function renderCaseNotesFootprintResults() {
                   <span class="case-notes-footprint-selector-type">${escapeHtml(selectorTypeDisplayLabel(selectorType))}</span>
                   <span class="case-notes-footprint-selector-value">${escapeHtml(evidenceLabel)}</span>
                 </div>
-                ${metadataMarkup}
+                <div class="case-notes-evidence-section-title">Observed details</div>
+                ${observedMarkup}
+                <div class="case-notes-evidence-section-title">Provenance and integrity</div>
+                ${provenanceMarkup}
               </div>
             </div>
           </article>
@@ -2551,12 +2822,97 @@ function renderCaseNotesFootprintResults() {
   `;
 }
 
+function caseNotesCitedEvidenceCount() {
+  const capturedPostCount = Array.isArray(activeCase?.case_notes?.evidence_capture)
+    ? activeCase.case_notes.evidence_capture.filter((item) => item && typeof item === 'object').length
+    : 0;
+  return capturedPostCount + (Array.isArray(caseNotesPatternLifeEvidence) ? caseNotesPatternLifeEvidence.length : 0);
+}
+
+function caseNotesProfileFigureOffset() {
+  return caseNotesCitedEvidenceCount();
+}
+
+function caseNotesFootprintFigureOffset() {
+  return caseNotesProfileFigureOffset() + caseNotesMajorProfiles(caseNotesKnownProfiles).length;
+}
+
+function renderCaseNotesEvidenceCapture() {
+  if (!(caseNotesEvidenceCapture instanceof HTMLElement)) return;
+  const entries = Array.isArray(activeCase?.case_notes?.evidence_capture)
+    ? activeCase.case_notes.evidence_capture.filter((item) => item && typeof item === 'object')
+    : [];
+  const patternEvidence = Array.isArray(caseNotesPatternLifeEvidence) ? caseNotesPatternLifeEvidence : [];
+  if (caseNotesEvidenceSection instanceof HTMLElement) {
+    caseNotesEvidenceSection.dataset.evidenceCount = String(entries.length + patternEvidence.length);
+    caseNotesEvidenceSection.querySelector('.case-notes-section-head')?.setAttribute('data-evidence-count', String(entries.length + patternEvidence.length));
+  }
+  if (!entries.length && !patternEvidence.length) {
+    caseNotesEvidenceCapture.innerHTML = '<p class="case-notes-evidence-empty">No captured posts or images yet. Use the Capture Evidence icon while reviewing results.</p>';
+    return;
+  }
+  const capturedMarkup = entries.map((entry, index) => {
+    const figureNumber = index + 1;
+    const author = String(entry.author_name || entry.author_handle || 'Unknown author').trim() || 'Unknown author';
+    const handle = String(entry.author_handle || '').trim();
+    const timestamp = String(entry.timestamp || '').trim();
+    const platform = String(entry.platform || '').trim();
+    const sourceUrl = String(entry.source_url || '').trim();
+    const mediaUrl = String(entry.media_url || '').trim();
+    const collectedAt = String(entry.captured_at || '').trim();
+    const profileImage = normalizeProfileImageUrl(entry.profile_image_url);
+    return `
+      <article class="case-notes-evidence-item">
+        <div class="case-notes-evidence-top">
+          <div class="case-notes-evidence-figure">Figure ${figureNumber}</div>
+          <div class="case-notes-evidence-top-actions">
+            <button class="secondary-btn case-notes-evidence-cite" type="button" data-case-notes-evidence-cite="${figureNumber}" data-case-notes-evidence-url="${escapeAttr(sourceUrl)}" title="Append this figure citation to Threat / Risk Assessment">Cite</button>
+            <button class="case-notes-evidence-remove" type="button" data-case-notes-evidence-remove="${index}" title="Remove cited post" aria-label="Remove cited post">${evidenceTrashIconMarkup()}</button>
+          </div>
+        </div>
+        <div class="case-notes-evidence-author">
+          ${profileImage ? `<img src="${escapeAttr(profileImage)}" alt="${escapeAttr(author)} profile image" loading="lazy" />` : '<span class="case-notes-evidence-avatar-placeholder">No image</span>'}
+          <div class="case-notes-evidence-author-name"><strong>${escapeHtml(author)}</strong>${handle ? `<span>(${escapeHtml(handle)})</span>` : ''}</div>
+        </div>
+        <p class="case-notes-evidence-text">${escapeHtml(String(entry.post_text || '').trim() || 'No post text captured.')}</p>
+        ${mediaUrl ? `<img class="case-notes-evidence-media" src="${escapeAttr(mediaUrl)}" alt="Captured post media" loading="lazy" referrerpolicy="no-referrer" />` : ''}
+        <div class="case-notes-evidence-meta">${escapeHtml([platform, timestamp && `Posted ${timestamp}`, collectedAt && `Collected ${collectedAt}`].filter(Boolean).join(' · ') || 'Post and collection times not recorded')}</div>
+        ${sourceUrl ? `<a href="${escapeAttr(sourceUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(sourceUrl)}</a>` : '<span class="case-notes-evidence-missing">Source URL not recorded</span>'}
+      </article>`;
+  }).join('');
+  const mapMarkup = patternEvidence.map((entry, index) => {
+    const figureNumber = entries.length + index + 1;
+    const title = String(entry.title || 'Pattern of Life map').trim();
+    const description = String(entry.description || '').trim();
+    const fallbackImageUrl = String(entry.fallback_image_url || '').trim();
+    const primaryImageUrl = String(entry.image_url || '').trim();
+    // Newer captures are raster snapshots. Older files used a remote map as
+    // the primary source, so retain their self-contained fallback instead.
+    const imageUrl = primaryImageUrl.startsWith('data:image/png') ? primaryImageUrl : (fallbackImageUrl || primaryImageUrl);
+    const fallbackAttribute = fallbackImageUrl ? ` onerror="this.onerror=null;this.src='${escapeAttr(fallbackImageUrl)}';"` : '';
+    return `<article class="case-notes-evidence-item case-notes-pattern-life-evidence">
+      <div class="case-notes-evidence-top">
+        <div class="case-notes-evidence-figure">Figure ${figureNumber}</div>
+        <div class="case-notes-evidence-top-actions"><button class="case-notes-evidence-remove" type="button" data-case-notes-pattern-evidence-remove="${escapeAttr(String(entry.key || ''))}" title="Remove map figure" aria-label="Remove map figure">${evidenceTrashIconMarkup()}</button></div>
+      </div>
+      <div class="case-notes-evidence-author"><div class="case-notes-evidence-author-name"><strong>${escapeHtml(title)}</strong></div></div>
+      ${description ? `<p class="case-notes-evidence-text case-notes-pattern-life-caption">${escapeHtml(description)}</p>` : ''}
+      ${imageUrl ? `<img class="case-notes-evidence-media case-notes-pattern-life-map" src="${escapeAttr(imageUrl)}" alt="${escapeAttr(title)}" width="1100" height="620" loading="eager" decoding="sync"${fallbackAttribute} />` : ''}
+    </article>`;
+  }).join('');
+  caseNotesEvidenceCapture.innerHTML = capturedMarkup + mapMarkup;
+}
+
 function normalizeKnownProfiles(rawProfiles) {
   const rows = Array.isArray(rawProfiles) ? rawProfiles : [];
   const output = [];
   for (const item of rows) {
     if (!item || typeof item !== 'object') continue;
     output.push({
+      name: String(item.name || item.full_name || '').trim(),
+      username: String(item.username || item.handle || '').trim(),
+      location: String(item.location || item.location_name || '').trim(),
+      captured_at: String(item.captured_at || item.collected_at || '').trim(),
       site: String(item.site || '').trim(),
       url: String(item.url || '').trim(),
       image_url: normalizeProfileImageUrl(item.image_url),
@@ -2721,14 +3077,186 @@ function seedReconFromCaseNotes(caseRow) {
   }
 }
 
+function reconDetailsForProfile(profile) {
+  const payload = latestReconPayload && typeof latestReconPayload === 'object' ? latestReconPayload : emptyReconPayload();
+  const profileUrl = normalizeExternalUrl(profile?.profile_url || profile?.url);
+  const profileHandle = extractHandleFromProfileUrl(profileUrl).toLowerCase();
+  const profilePlatform = normalizePlatformName(profile?.site || inferPlatformFromProfileUrl(profileUrl));
+  const candidates = [
+    ...(Array.isArray(payload?.results) ? payload.results : []),
+    ...(Array.isArray(payload?.osint_profiles) ? payload.osint_profiles : []),
+    ...(Array.isArray(payload?.person_data_profiles) ? payload.person_data_profiles : []),
+    ...(Array.isArray(payload?.scanner_results) ? payload.scanner_results : []),
+  ].filter((item) => item && typeof item === 'object');
+  const matches = candidates.filter((item) => {
+    const itemUrl = normalizeExternalUrl(item?.profile_url || item?.url || item?.linkedin_url);
+    if (profileUrl && itemUrl && profileUrl.toLowerCase() === itemUrl.toLowerCase()) return true;
+    const itemHandle = String(item?.username || item?.handle || extractHandleFromProfileUrl(itemUrl)).trim().replace(/^@+/, '').toLowerCase();
+    const itemPlatform = normalizePlatformName(item?.site || item?.website || inferPlatformFromProfileUrl(itemUrl));
+    return Boolean(profileHandle && itemHandle && profileHandle === itemHandle && (!profilePlatform || !itemPlatform || profilePlatform === itemPlatform));
+  });
+  const values = (keys) => {
+    for (const item of matches) {
+      const fields = item?.profile_record?.fields && typeof item.profile_record.fields === 'object' ? item.profile_record.fields : {};
+      const extra = item?.extra && typeof item.extra === 'object' ? item.extra : {};
+      for (const key of keys) {
+        const value = item?.[key] ?? extra?.[key] ?? fields?.[key];
+        if (String(value || '').trim()) return String(value).trim();
+      }
+    }
+    return '';
+  };
+  return {
+    name: values(['full_name', 'display_name', 'profile_name', 'name', 'title']),
+    username: values(['username', 'handle', 'screen_name']),
+    location: values(['location', 'location_name', 'biolocation', 'city']),
+    image_url: values(['profile_image_url', 'picture_url', 'avatar_url', 'image_url', 'image']),
+    screenshot_url: values(['screenshot_url']),
+    captured_at: values(['captured_at', 'collected_at', 'retrieved_at']),
+  };
+}
+
 function defaultKnownProfilesFromRecon() {
   if (!Array.isArray(reconProfiles) || !reconProfiles.length) return [];
-  return reconProfiles.map((profile) => ({
-    site: discoveredProfileLabel(String(profile?.site || '').trim(), String(profile?.profile_url || '').trim()),
-    url: String(profile?.profile_url || '').trim(),
-    image_url: normalizeProfileImageUrl(profile?.profile_image_url) || normalizeProfileImageUrl(profile?.image_url),
-    screenshot_url: String(profile?.screenshot_url || '').trim(),
-  }));
+  return reconProfiles.map((profile) => {
+    const details = reconDetailsForProfile(profile);
+    const fields = profile?.profile_record?.fields && typeof profile.profile_record.fields === 'object' ? profile.profile_record.fields : {};
+    const extra = profile?.extra && typeof profile.extra === 'object' ? profile.extra : {};
+    return {
+      name: String(profile?.full_name || profile?.display_name || profile?.profile_name || profile?.name || details.name || extra?.full_name || extra?.display_name || fields?.full_name || fields?.display_name || '').trim(),
+      username: String(profile?.username || profile?.handle || details.username || extra?.username || extra?.handle || fields?.username || fields?.handle || extractHandleFromProfileUrl(profile?.profile_url)).trim(),
+      location: String(profile?.location || profile?.location_name || profile?.biolocation || details.location || extra?.location || fields?.location || fields?.location_name || '').trim(),
+      captured_at: String(profile?.captured_at || profile?.collected_at || details.captured_at || reconSnapshotCache?.saved_at || '').trim(),
+      site: discoveredProfileLabel(String(profile?.site || '').trim(), String(profile?.profile_url || '').trim()),
+      url: String(profile?.profile_url || '').trim(),
+      image_url: normalizeProfileImageUrl(profile?.profile_image_url) || normalizeProfileImageUrl(profile?.image_url) || normalizeProfileImageUrl(profile?.picture_url) || normalizeProfileImageUrl(profile?.avatar_url) || normalizeProfileImageUrl(details.image_url),
+      screenshot_url: String(profile?.screenshot_url || details.screenshot_url || '').trim(),
+    };
+  });
+}
+
+function corroboratedSubjectImageCandidates(payload = latestReconPayload) {
+  const sourcePayload = payload && typeof payload === 'object' ? payload : {};
+  const candidates = new Map();
+  const addProfile = (row, index, kind) => {
+    if (!row || typeof row !== 'object') return;
+    const status = String(row?.status || '').trim().toLowerCase();
+    if (status && !/^(found|present|registered)$/.test(status)) return;
+    const fields = row?.profile_record?.fields && typeof row.profile_record.fields === 'object' ? row.profile_record.fields : {};
+    const extra = row?.extra && typeof row.extra === 'object' ? row.extra : {};
+    const media = row?.media && typeof row.media === 'object' ? row.media : {};
+    const imageUrl = normalizeProfileImageUrl(
+      row?.profile_image_url || row?.picture_url || row?.avatar_url || row?.image_url || row?.image
+      || extra?.profile_image_url || extra?.picture_url || extra?.avatar_url || extra?.avatar || extra?.image
+      || media?.profile_image || media?.avatar || media?.image || fields?.profile_image_url || fields?.picture_url || fields?.avatar_url,
+    );
+    if (!imageUrl) return;
+    const profileUrl = normalizeExternalUrl(row?.profile_url || row?.url || row?.website || '');
+    const source = String(row?.site_name || row?.site || row?.site_key || row?.module || kind || 'profile').trim().toLowerCase();
+    const key = profileUrl ? `url:${profileUrl.toLowerCase()}` : `image:${imageUrl}`;
+    const profile = candidates.get(key) || { imageUrl, usernames: new Set(), names: new Set(), sources: new Set(), index };
+    profile.sources.add(source);
+    const usernames = [row?.username, extra?.username, fields?.username];
+    if (String(row?.selector_type || row?.query_type || '').trim().toLowerCase() === 'username') usernames.push(row?.selector || row?.query_value);
+    for (const value of usernames) {
+      const normalized = normalizeKnownSelectorValue('username', value);
+      if (normalized && isLikelyUsername(normalized)) profile.usernames.add(normalized);
+    }
+    for (const value of [row?.full_name, row?.display_name, row?.profile_name, row?.name, row?.title, extra?.full_name, extra?.display_name, extra?.name, fields?.full_name, fields?.display_name, fields?.name]) {
+      const normalized = normalizeKnownSelectorValue('name', value);
+      if (normalized && isLikelyPersonName(normalized)) profile.names.add(normalized);
+    }
+    candidates.set(key, profile);
+  };
+  let index = 0;
+  for (const row of (Array.isArray(sourcePayload?.results) ? sourcePayload.results : [])) addProfile(row, index++, 'recon');
+  for (const row of (Array.isArray(sourcePayload?.scanner_results) ? sourcePayload.scanner_results : [])) addProfile(row, index++, 'scanner');
+  for (const row of (Array.isArray(sourcePayload?.osint_profiles) ? sourcePayload.osint_profiles : [])) addProfile(row, index++, 'osint');
+
+  const profiles = Array.from(candidates.values());
+  const supportFor = (identity, value, current) => profiles.filter((profile) => profile !== current && profile[identity].has(value));
+  return profiles
+    .map((profile) => {
+      let corroboration = 0;
+      let matchedProfiles = 0;
+      const matchedSources = new Set(profile.sources);
+      for (const username of profile.usernames) {
+        const matches = supportFor('usernames', username, profile);
+        corroboration += matches.length * 40;
+        matchedProfiles += matches.length;
+        for (const match of matches) for (const source of match.sources) matchedSources.add(source);
+      }
+      for (const name of profile.names) {
+        const matches = supportFor('names', name, profile);
+        corroboration += matches.length * 30;
+        matchedProfiles += matches.length;
+        for (const match of matches) for (const source of match.sources) matchedSources.add(source);
+      }
+      return { ...profile, corroboration, matchedProfiles, matchedSources };
+    })
+    .sort((a, b) => b.corroboration - a.corroboration || b.matchedSources.size - a.matchedSources.size || b.matchedProfiles - a.matchedProfiles || a.index - b.index);
+}
+
+function preferredSubjectImageFromRecon(payload = latestReconPayload) {
+  return corroboratedSubjectImageCandidates(payload)[0]?.imageUrl || '';
+}
+
+function maybeAutofillCaseNotesSubjectImage() {
+  if (!(caseNotesModal instanceof HTMLElement) || caseNotesModal.classList.contains('hidden')) return;
+  if (!(caseNotesSubjectImageSelect instanceof HTMLSelectElement)) return;
+  const candidate = preferredSubjectImageFromRecon();
+  if (!candidate) return;
+  const current = String(caseNotesSubjectImageSelect.value || '').trim();
+  const canReplace = !current || current === USER_PLACEHOLDER_AVATAR_URL || current === lastAutofilledCaseNotesSubjectImage;
+  if (!canReplace) return;
+  if (!caseNotesImageChoices.includes(candidate)) caseNotesImageChoices.unshift(candidate);
+  renderCaseNotesSubjectImageOptions(candidate);
+  renderCaseNotesSubjectImagePreview(candidate);
+  lastAutofilledCaseNotesSubjectImage = candidate;
+}
+
+function syncAutofilledSubjectImageToCaseTile() {
+  if (!activeCaseId || !activeCase || typeof activeCase !== 'object') return;
+  const existingPoiImage = normalizeProfileImageUrl(activeCase.poi_image_url);
+  if (existingPoiImage) return;
+  const notes = normalizeCaseNotesObject(activeCase.case_notes || {});
+  // The selector remains mounted after its modal closes.  Reading it while
+  // closed could therefore persist the image selected for the previously
+  // opened case onto the current one.
+  const notesAreOpen = caseNotesModal instanceof HTMLElement && !caseNotesModal.classList.contains('hidden');
+  const rawSelectedInOpenNotes = notesAreOpen && caseNotesSubjectImageSelect instanceof HTMLSelectElement
+    ? String(caseNotesSubjectImageSelect.value || '').trim()
+    : '';
+  const selectedInOpenNotes = rawSelectedInOpenNotes === USER_PLACEHOLDER_AVATAR_URL
+    ? ''
+    : normalizeProfileImageUrl(rawSelectedInOpenNotes);
+  const imageUrl = normalizeProfileImageUrl(notes.subject_image_url)
+    || selectedInOpenNotes
+    || preferredSubjectImageFromRecon();
+  if (!imageUrl) return;
+
+  const updatedNotes = { ...notes, subject_image_url: imageUrl };
+  const caseId = String(activeCaseId || '').trim();
+  const session = activeCaseSession;
+  const previousActiveCase = activeCase;
+  const caseIndex = caseList.findIndex((row) => String(row?.case_id || '').trim() === String(activeCaseId).trim());
+  const previousCaseRow = caseIndex >= 0 ? caseList[caseIndex] : null;
+  activeCase = { ...activeCase, poi_image_url: imageUrl, case_notes: updatedNotes };
+  if (caseIndex >= 0) caseList[caseIndex] = { ...caseList[caseIndex], poi_image_url: imageUrl, case_notes: updatedNotes };
+  renderCases();
+
+  fetch(`/api/cases/${encodeURIComponent(caseId)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ poi_image_url: imageUrl, case_notes: updatedNotes }),
+  }).catch((error) => {
+    if (session !== activeCaseSession || caseId !== String(activeCaseId || '').trim()) return;
+    console.error('Unable to persist autofilled subject image', error);
+    if (normalizeProfileImageUrl(activeCase?.poi_image_url) !== imageUrl) return;
+    activeCase = previousActiveCase;
+    if (caseIndex >= 0) caseList[caseIndex] = previousCaseRow;
+    renderCases();
+  });
 }
 
 function normalizeProfileKey(site, url) {
@@ -2907,6 +3435,10 @@ function mergeDiscoveredKnownProfiles(baseProfiles, discoveredProfiles) {
     }
     const current = merged.get(key) || {};
     merged.set(key, {
+      name: String(item.name || current.name || '').trim(),
+      username: String(item.username || current.username || '').trim(),
+      location: String(item.location || current.location || '').trim(),
+      captured_at: String(item.captured_at || current.captured_at || '').trim(),
       site: String(item.site || current.site || '').trim(),
       url: String(item.url || current.url || '').trim(),
       image_url: normalizeProfileImageUrl(item.image_url) || normalizeProfileImageUrl(current.image_url),
@@ -2975,26 +3507,79 @@ function renderCaseNotesSubjectImageOptions(selectedUrl) {
 
 function renderCaseNotesSubjectImagePreview(url) {
   if (!(caseNotesSubjectImage instanceof HTMLImageElement)) return;
-  const selected = normalizeProfileImageUrl(url) || USER_PLACEHOLDER_AVATAR_URL;
+  const requested = String(url || '').trim();
+  const hasSubjectImage = Boolean(requested && requested !== USER_PLACEHOLDER_AVATAR_URL && normalizeProfileImageUrl(requested));
+  const selected = hasSubjectImage ? normalizeProfileImageUrl(requested) : USER_PLACEHOLDER_AVATAR_URL;
   caseNotesSubjectImage.src = selected;
+  caseNotesImageSide?.classList.toggle('is-empty', !hasSubjectImage);
 }
 
-function caseNotesProfileCardMarkup(profile, index) {
+function caseNotesProfileCardMarkup(profile, index, figureNumber = index + 1) {
   const safe = profile || {};
   const inferredSiteKey = _siteKeyFromKnownProfile(safe);
   const site = CASE_NOTES_MAJOR_PROFILE_SITE_KEYS.has(inferredSiteKey) ? inferredSiteKey : '';
   const url = String(safe.url || '').trim();
+  const name = String(safe.name || '').trim();
+  const username = String(safe.username || '').trim();
+  const location = String(safe.location || '').trim();
   const imageUrl = normalizeProfileImageUrl(safe.image_url) || USER_PLACEHOLDER_AVATAR_URL;
   const screenshotUrl = String(safe.screenshot_url || '').trim();
   const collectionReady = safe.collection_ready === true;
+  const capturedAt = String(safe.captured_at || reconSnapshotCache?.saved_at || '').trim();
   const collectionReadySupported = CASE_NOTES_COLLECTION_READY_SITE_KEYS.has(site);
   const imageOptions = [USER_PLACEHOLDER_AVATAR_URL, ...caseNotesImageChoices.filter((item) => item !== USER_PLACEHOLDER_AVATAR_URL)];
+  const isEditing = caseNotesEditingProfileIndexes.has(index);
+  if (!isEditing) {
+    const displayedSite = platformDisplayName(site) || String(safe.site || 'Not recorded');
+    return `
+      <article class="case-notes-profile-card case-notes-profile-record" data-profile-index="${index}" data-screenshot-url="${escapeAttr(screenshotUrl)}" data-captured-at="${escapeAttr(capturedAt)}">
+        <div class="case-notes-evidence-figure">Figure ${figureNumber}</div>
+        <input class="case-notes-profile-name" type="hidden" value="${escapeAttr(name)}" />
+        <input class="case-notes-profile-username" type="hidden" value="${escapeAttr(username)}" />
+        <input class="case-notes-profile-location" type="hidden" value="${escapeAttr(location)}" />
+        <input class="case-notes-profile-site" type="hidden" value="${escapeAttr(site)}" />
+        <input class="case-notes-profile-url" type="hidden" value="${escapeAttr(url)}" />
+        <input class="case-notes-profile-image-select" type="hidden" value="${escapeAttr(imageUrl)}" />
+        <input class="case-notes-profile-collection-ready" type="checkbox"${collectionReady ? ' checked' : ''} hidden />
+        <div class="case-notes-profile-top">
+          ${imageUrl !== USER_PLACEHOLDER_AVATAR_URL ? `<img class="case-notes-profile-avatar" src="${escapeAttr(imageUrl)}" alt="${escapeAttr(name || displayedSite)} profile image" loading="lazy" referrerpolicy="no-referrer" />` : '<div class="case-notes-profile-avatar case-notes-footprint-avatar-placeholder">No image</div>'}
+          <div class="case-notes-footprint-body">
+            <div class="case-notes-footprint-site-row"><strong class="case-notes-footprint-site-name">${escapeHtml(name || username || displayedSite)}</strong><button class="secondary-btn case-notes-profile-edit-btn" type="button" data-case-notes-profile-edit="${index}">Edit</button></div>
+            <div class="case-notes-evidence-section-title">Observed details</div>
+            <dl class="case-notes-footprint-metadata">
+              ${[
+                ['Name', name || 'Not recorded'], ['Username / Handle', username || 'Not recorded'], ['Location', location || 'Not recorded'],
+                ['Platform', displayedSite], ['Profile URL', url || 'Not recorded'], ['Collection-ready', collectionReady ? 'Yes' : 'No'],
+              ].map(([label, value]) => `<div class="case-notes-footprint-metadata-row"><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`).join('')}
+            </dl>
+            <div class="case-notes-evidence-section-title">Provenance</div>
+            <div class="case-notes-evidence-provenance"><span><b>Identification method</b>Analyst-curated case profile</span><span><b>Collection timestamp</b>${escapeHtml(capturedAt || 'Not recorded')}</span><span><b>Profile image</b>${imageUrl !== USER_PLACEHOLDER_AVATAR_URL ? 'Retained' : 'Not recorded'}</span></div>
+          </div>
+        </div>
+        ${screenshotUrl ? `<div class="case-notes-profile-shot"><img src="${escapeAttr(screenshotUrl)}" alt="${escapeAttr(displayedSite)} screenshot" loading="lazy" /></div>` : ''}
+        <div class="case-notes-profile-actions case-notes-profile-actions-end"><button class="secondary-btn case-notes-remove-profile-btn" type="button">Delete</button></div>
+      </article>
+    `;
+  }
   return `
-    <article class="case-notes-profile-card" data-profile-index="${index}" data-screenshot-url="${escapeAttr(screenshotUrl)}">
+    <article class="case-notes-profile-card" data-profile-index="${index}" data-screenshot-url="${escapeAttr(screenshotUrl)}" data-captured-at="${escapeAttr(capturedAt)}">
+      <div class="case-notes-evidence-figure">Figure ${figureNumber}</div>
       <div class="case-notes-profile-top">
         <img class="case-notes-profile-avatar" src="${escapeAttr(imageUrl)}" alt="Profile image" loading="lazy" />
         <div class="case-notes-profile-fields">
           <div class="case-notes-profile-grid">
+            <label class="field">
+              <span>Name</span>
+              <input class="case-notes-profile-name" type="text" value="${escapeAttr(name)}" placeholder="Observed name" />
+            </label>
+            <label class="field">
+              <span>Username / Handle</span>
+              <input class="case-notes-profile-username" type="text" value="${escapeAttr(username)}" placeholder="@username" />
+            </label>
+            <label class="field">
+              <span>Location</span>
+              <input class="case-notes-profile-location" type="text" value="${escapeAttr(location)}" placeholder="Observed location" />
+            </label>
             <label class="field">
               <span>Platform</span>
               <select class="case-notes-profile-site">
@@ -3029,6 +3614,11 @@ function caseNotesProfileCardMarkup(profile, index) {
             <input class="case-notes-profile-collection-ready" type="checkbox"${collectionReady ? ' checked' : ''}${collectionReadySupported ? '' : ' disabled'} />
             <span>${collectionReadySupported ? 'Collection-ready' : 'Collection unavailable for this platform'}</span>
           </label>
+          <div class="case-notes-evidence-provenance">
+            <span><b>Collection method</b> Analyst-curated case profile record</span>
+            <span><b>Original content</b> Retained in case notes</span>
+            <span><b>Media</b> ${imageUrl === USER_PLACEHOLDER_AVATAR_URL ? 'Not recorded' : 'Profile image retained'}</span>
+          </div>
         </div>
       </div>
       <div class="case-notes-profile-shot">
@@ -3037,6 +3627,7 @@ function caseNotesProfileCardMarkup(profile, index) {
     : '<p class="case-notes-profile-shot-empty">No screenshot available.</p>'}
       </div>
       <div class="case-notes-profile-actions case-notes-profile-actions-end">
+        <button class="secondary-btn case-notes-profile-done-btn" type="button" data-case-notes-profile-done="${index}">Done</button>
         <button class="secondary-btn case-notes-remove-profile-btn" type="button">Delete</button>
       </div>
     </article>
@@ -3047,19 +3638,59 @@ function renderCaseNotesProfiles() {
   if (!caseNotesProfilesList) return;
   caseNotesKnownProfiles = caseNotesMajorProfiles(caseNotesKnownProfiles);
   if (!caseNotesKnownProfiles.length) {
-    caseNotesProfilesList.innerHTML = '<div class="empty">No major profiles yet. Add supported social profiles here, flag the collection-ready ones, or run recon.</div>';
+    caseNotesProfilesList.innerHTML = '<div class="empty">No profiles yet. Add a profile or run reconnaissance; collectable profiles remain at the top of this evidence register.</div>';
+    renderCaseNotesFootprintResults();
     return;
   }
-  caseNotesProfilesList.innerHTML = caseNotesKnownProfiles.map((profile, index) => caseNotesProfileCardMarkup(profile, index)).join('');
+  const figureOffset = caseNotesProfileFigureOffset();
+  caseNotesProfilesList.innerHTML = caseNotesKnownProfiles
+    .map((profile, index) => caseNotesProfileCardMarkup(profile, index, figureOffset + index + 1))
+    .join('');
+  renderCaseNotesFootprintResults();
 }
 
 function setCaseNotesModalOpen(isOpen) {
   if (!caseNotesModal) return;
-  caseNotesModal.classList.toggle('hidden', !isOpen);
+  if (!isOpen) {
+    caseNotesModal.classList.add('hidden');
+    setCaseNotesEvidencePopout(false);
+  } else {
+    caseNotesModal.classList.remove('hidden');
+    setCaseNotesEvidencePopout(caseNotesCitedEvidenceCount() > 0);
+  }
   if (isOpen && caseNotesForm instanceof HTMLElement) {
     caseNotesForm.scrollTop = 0;
   }
   syncModalActiveState();
+}
+
+function setCaseNotesEvidencePopout(open) {
+  const hasEvidence = caseNotesCitedEvidenceCount() > 0;
+  caseNotesEvidencePopoutOpen = Boolean(open) && hasEvidence;
+  caseNotesEvidenceSection?.classList.toggle('hidden', !hasEvidence);
+  if (caseNotesEvidenceSection instanceof HTMLElement && caseNotesModal instanceof HTMLElement) {
+    if (caseNotesEvidencePopoutOpen || !caseNotesModal.classList.contains('hidden')) {
+      if (caseNotesEvidenceSection.parentElement !== caseNotesModal) caseNotesModal.appendChild(caseNotesEvidenceSection);
+    } else if (caseNotesEvidenceSectionHome instanceof HTMLElement && caseNotesEvidenceSection.parentElement !== caseNotesEvidenceSectionHome) {
+      caseNotesEvidenceSectionHome.insertBefore(caseNotesEvidenceSection, caseNotesEvidenceSectionNextSibling);
+    }
+  }
+  caseNotesModal?.classList.toggle('case-notes-evidence-popout-open', caseNotesEvidencePopoutOpen);
+  caseNotesModal?.classList.toggle('case-notes-evidence-popout-collapsed', !caseNotesEvidencePopoutOpen && !caseNotesModal?.classList.contains('hidden'));
+  caseNotesEvidenceSection?.classList.toggle('case-notes-evidence-popout', caseNotesEvidencePopoutOpen);
+  caseNotesEvidenceSection?.classList.toggle('case-notes-evidence-collapsed', !caseNotesEvidencePopoutOpen);
+  if (caseNotesEvidencePopoutBtn instanceof HTMLButtonElement) {
+    if (!caseNotesModal?.classList.contains('hidden') && caseNotesEvidenceRailActions instanceof HTMLElement) {
+      caseNotesEvidenceRailActions.appendChild(caseNotesEvidencePopoutBtn);
+    }
+    const label = caseNotesEvidencePopoutOpen ? 'Collapse cited posts' : 'Expand cited posts';
+    caseNotesEvidencePopoutBtn.innerHTML = `<span class="case-notes-evidence-toggle-label">${caseNotesEvidencePopoutOpen ? 'Collapse' : 'Expand'}</span><span class="case-notes-evidence-toggle-arrow" aria-hidden="true">‹</span>`;
+    caseNotesEvidencePopoutBtn.setAttribute('aria-label', label);
+    caseNotesEvidencePopoutBtn.setAttribute('title', label);
+    caseNotesEvidencePopoutBtn.setAttribute('aria-expanded', String(caseNotesEvidencePopoutOpen));
+    caseNotesEvidencePopoutBtn.disabled = !hasEvidence;
+    caseNotesEvidencePopoutBtn.classList.toggle('hidden', !hasEvidence);
+  }
 }
 
 function finalizeCaseNotesClose() {
@@ -3069,19 +3700,163 @@ function finalizeCaseNotesClose() {
   }
 }
 
+function caseNotesSelectorCorroborationSummary(valuesByType = {}) {
+  const snapshot = normalizeReconSnapshot(reconSnapshotCache?.payload ? reconSnapshotCache : activeCase?.case_notes?.recon_snapshot);
+  const known = collectKnownSelectors(snapshot?.payload || {});
+  const corroboration = known?.corroboration instanceof Map ? known.corroboration : new Map();
+  const output = {};
+  for (const type of ['email', 'phone', 'username']) {
+    const values = splitCommaSeparatedValues(valuesByType[type]);
+    const stats = values.map((value) => corroboration.get(`${type}|${String(value).toLowerCase()}`) || {});
+    const sourceCount = stats.length ? Math.max(...stats.map((item) => Number(item?.sourceCount) || 0)) : 0;
+    const searchedSelectorCount = stats.reduce((total, item) => total + (Number(item?.searchedSelectorCount) || 0), 0);
+    output[type] = { source_count: sourceCount, searched_selector_count: searchedSelectorCount };
+  }
+  return output;
+}
+
+function renderCaseNotesSelectorCorroboration() {
+  const summary = caseNotesSelectorCorroborationSummary({
+    email: caseNotesSelectorEmailsInput?.value,
+    phone: caseNotesSelectorPhonesInput?.value,
+    username: caseNotesSelectorUsernamesInput?.value,
+  });
+  const fields = [
+    ['email', caseNotesSelectorEmailsCorroboration],
+    ['phone', caseNotesSelectorPhonesCorroboration],
+    ['username', caseNotesSelectorUsernamesCorroboration],
+  ];
+  for (const [type, element] of fields) {
+    if (!(element instanceof HTMLElement)) continue;
+    const row = summary[type] || {};
+    const sources = Number(row.source_count) || 0;
+    const searched = Number(row.searched_selector_count) || 0;
+    element.textContent = sources || searched
+      ? `Corroborated by ${sources} source${sources === 1 ? '' : 's'} across ${searched} searched selector${searched === 1 ? '' : 's'}.`
+      : 'No corroboration recorded.';
+  }
+}
+
+function renderCaseNotesSelectorLists() {
+  const snapshot = normalizeReconSnapshot(reconSnapshotCache?.payload ? reconSnapshotCache : activeCase?.case_notes?.recon_snapshot);
+  const corroboration = collectKnownSelectors(snapshot?.payload || {})?.corroboration || new Map();
+  const groups = [
+    [caseNotesSelectorEmailsInput, caseNotesSelectorEmailsList, 'email'],
+    [caseNotesSelectorPhonesInput, caseNotesSelectorPhonesList, 'phone'],
+    [caseNotesSelectorUsernamesInput, caseNotesSelectorUsernamesList, 'username'],
+  ];
+  for (const [input, list, type] of groups) {
+    if (!(input instanceof HTMLInputElement) || !(list instanceof HTMLElement)) continue;
+    const values = splitCommaSeparatedValues(input.value);
+    list.innerHTML = values.length
+      ? values.map((value) => {
+        const stats = corroboration.get(sourceSelectorKey(type, value)) || {};
+        const sources = Math.max(0, Number(stats?.sourceCount) || 0);
+        const searched = Math.max(0, Number(stats?.searchedSelectorCount) || 0);
+        const searchedSelectors = Array.isArray(stats?.searchedSelectors) ? stats.searchedSelectors : [];
+        const relatedSelectors = searchedSelectors.map((key) => {
+          const related = sourceSelectorParts(key);
+          return related.type && related.value
+            ? `<span class="case-notes-selector-tooltip-pill"><b>${escapeHtml(selectorTypeDisplayLabel(related.type))}</b>${escapeHtml(related.value)}</span>`
+            : '';
+        }).filter(Boolean).join('');
+        return `<span class="case-notes-selector-pill known-selector-pill-${escapeAttr(type)}">
+          <span class="case-notes-selector-value">${escapeHtml(value)}</span>
+          <span class="case-notes-selector-tooltip" role="tooltip">
+            <span class="case-notes-selector-tooltip-title">Corroboration</span>
+            <span><b>${searched}</b> searched selector${searched === 1 ? '' : 's'} · <b>${sources}</b> corroborating source${sources === 1 ? '' : 's'}</span>
+            ${relatedSelectors ? `<span class="case-notes-selector-tooltip-related">${relatedSelectors}</span>` : ''}
+          </span>
+          <button class="case-notes-selector-remove" type="button" data-case-notes-selector-remove-type="${escapeAttr(type)}" data-case-notes-selector-remove-value="${escapeAttr(value)}" aria-label="Remove ${escapeAttr(value)}" title="Remove selector">×</button>
+        </span>`;
+      }).join('')
+      : '<span class="case-notes-selector-empty">No selectors recorded</span>';
+  }
+}
+
+function selectorValueMatches(selectorType, left, right) {
+  const type = String(selectorType || '').trim().toLowerCase();
+  const normalize = (value) => {
+    const clean = String(value || '').trim().toLowerCase();
+    if (type === 'phone') return clean.replace(/[^\d+]/g, '');
+    if (type === 'username') return clean.replace(/^@+/, '');
+    return clean;
+  };
+  return Boolean(normalize(left)) && normalize(left) === normalize(right);
+}
+
+function removeCaseNotesSelector(selectorType, selectorValue) {
+  const type = String(selectorType || '').trim().toLowerCase();
+  const input = type === 'email' ? caseNotesSelectorEmailsInput
+    : type === 'phone' ? caseNotesSelectorPhonesInput
+      : type === 'username' ? caseNotesSelectorUsernamesInput : null;
+  const notesField = type === 'email' ? 'selector_emails'
+    : type === 'phone' ? 'selector_phone_numbers'
+      : type === 'username' ? 'selector_usernames' : '';
+  const withoutSelector = (raw) => joinCommaSeparatedValues(
+    splitCommaSeparatedValues(raw).filter((value) => !selectorValueMatches(type, value, selectorValue)),
+  );
+  if (input instanceof HTMLInputElement) input.value = withoutSelector(input.value);
+  if (notesField && activeCase?.case_notes) {
+    activeCase.case_notes = {
+      ...activeCase.case_notes,
+      [notesField]: withoutSelector(activeCase.case_notes[notesField]),
+    };
+  }
+  renderCaseNotesSelectorLists();
+  renderCaseNotesSelectorCorroboration();
+}
+
+function removeCaseNotesSelectorsForRemovedTiles(selectorKeys) {
+  const keys = Array.from(selectorKeys || []).map((key) => String(key || '').trim().toLowerCase()).filter(Boolean);
+  if (!keys.length) return;
+  const visiblePayload = filteredReconPayload(latestReconPayload || emptyReconPayload());
+  const groups = [visiblePayload.results, visiblePayload.osint_profiles, visiblePayload.person_data_profiles, visiblePayload.numverify_profiles];
+  for (const key of keys) {
+    const { type, value } = sourceSelectorParts(key);
+    if (!['email', 'phone', 'username'].includes(type) || !value) continue;
+    const stillRepresented = groups.some((group) => Array.isArray(group) && group.some((item) => profileMatchesKnownSelector(item, key)));
+    if (!stillRepresented) removeCaseNotesSelector(type, value);
+  }
+  if (activeCase?.case_notes) {
+    const filteredSnapshot = filteredReconPayload(reconSnapshotCache?.payload || activeCase.case_notes?.recon_snapshot?.payload || {});
+    reconSnapshotCache = buildReconSnapshotFromPayload(filteredSnapshot);
+    activeCase.case_notes = {
+      ...activeCase.case_notes,
+      recon_snapshot: reconSnapshotCache,
+    };
+    caseNotesFootprintEntries = buildCaseNotesFootprintEntries(activeCase.case_notes);
+    renderCaseNotesFootprintResults();
+  }
+}
+
 function captureCaseNotesDraft() {
   if (!activeCaseId || !activeCase) return null;
   syncKnownProfilesFromForm();
-  const name = String(caseNotesNameInput?.value || '').trim() || String(activeCase?.case_name || 'Untitled Case');
-  const location = String(caseNotesLocationInput?.value || '').trim();
-  const age = String(caseNotesAgeInput?.value || '').trim();
-  const akas = String(caseNotesAkasInput?.value || '').trim();
-  const context = String(caseNotesContextInput?.value || '').trim();
-  const threatRisk = String(caseNotesThreatInput?.value || '').trim();
-  const personal = String(caseNotesPersonalInput?.value || '').trim();
+  const name = normalizeCaseDetailValue(caseNotesNameInput?.value) || normalizeCaseDetailValue(activeCase?.case_name) || 'Untitled Case';
+  const existingNotes = normalizeCaseNotesObject(activeCase?.case_notes || {});
+  const isAutofilledName = Boolean(lastAutofilledCaseNotesName)
+    && name.toLowerCase() === String(lastAutofilledCaseNotesName).trim().toLowerCase();
+  const caseNameManuallySet = Boolean(existingNotes.case_name_manually_set)
+    || (!isAutofilledName && !isPlaceholderCaseTitle(name));
+  const location = normalizeCaseDetailValue(caseNotesLocationInput?.value);
+  const isAutofilledLocation = Boolean(lastAutofilledCaseNotesLocation)
+    && location.toLowerCase() === String(lastAutofilledCaseNotesLocation).trim().toLowerCase();
+  const locationManuallySet = Boolean(existingNotes.location_manually_set)
+    || (Boolean(location) && !isAutofilledLocation);
+  const age = normalizeCaseDetailValue(caseNotesAgeInput?.value);
+  const akas = joinCommaSeparatedValues(splitCommaSeparatedValues(caseNotesAkasInput?.value));
+  const context = normalizeCaseDetailValue(caseNotesContextInput?.value, { multiline: true });
+  const threatRisk = normalizeCaseDetailValue(caseNotesThreatInput?.value, { multiline: true });
+  const personal = normalizeCaseDetailValue(caseNotesPersonalInput?.value, { multiline: true });
   const selectorEmails = joinCommaSeparatedValues(splitCommaSeparatedValues(caseNotesSelectorEmailsInput?.value));
   const selectorPhones = joinCommaSeparatedValues(splitCommaSeparatedValues(caseNotesSelectorPhonesInput?.value));
   const selectorUsernames = joinCommaSeparatedValues(splitCommaSeparatedValues(caseNotesSelectorUsernamesInput?.value));
+  const selectorCorroboration = caseNotesSelectorCorroborationSummary({
+    email: selectorEmails,
+    phone: selectorPhones,
+    username: selectorUsernames,
+  });
   const subjectImage = String(caseNotesSubjectImageSelect?.value || '').trim();
   const normalizedSubjectImage = subjectImage === USER_PLACEHOLDER_AVATAR_URL ? '' : normalizeProfileImageUrl(subjectImage);
   const sanitizedProfiles = caseNotesMajorProfiles(caseNotesKnownProfiles)
@@ -3090,6 +3865,10 @@ function captureCaseNotesDraft() {
       const url = String(profile.url || '').trim();
       const normalizedProfile = { site, url };
       return {
+      name: String(profile.name || '').trim(),
+      username: String(profile.username || '').trim(),
+      location: String(profile.location || '').trim(),
+      captured_at: String(profile.captured_at || '').trim(),
         site,
         url,
         image_url: normalizeProfileImageUrl(profile.image_url),
@@ -3104,7 +3883,9 @@ function captureCaseNotesDraft() {
     known_location: location,
     poi_image_url: normalizedSubjectImage,
     case_notes: {
-      ...normalizeCaseNotesObject(activeCase?.case_notes || {}),
+      ...existingNotes,
+      case_name_manually_set: caseNameManuallySet,
+      location_manually_set: locationManuallySet,
       name,
       location,
       age,
@@ -3116,10 +3897,13 @@ function captureCaseNotesDraft() {
       selector_emails: selectorEmails,
       selector_phone_numbers: selectorPhones,
       selector_usernames: selectorUsernames,
+      selector_corroboration: selectorCorroboration,
       known_profiles: sanitizedProfiles,
+      pattern_of_life_evidence: caseNotesPatternLifeEvidence,
       report_preferences: {
         excluded_sections: Array.from(caseNotesExcludedSections.values()),
         excluded_footprint_result_keys: Array.from(caseNotesExcludedFootprintResultKeys.values()),
+        excluded_pattern_life_evidence_keys: Array.from(caseNotesExcludedPatternLifeEvidenceKeys.values()),
       },
       recon_snapshot: {
         ...(normalizeReconSnapshot(activeCase?.case_notes?.recon_snapshot) || {}),
@@ -3158,9 +3942,13 @@ function syncKnownProfilesFromForm() {
     const url = row.querySelector('.case-notes-profile-url');
     const imageSelect = row.querySelector('.case-notes-profile-image-select');
     const collectionReady = row.querySelector('.case-notes-profile-collection-ready');
-    const selectedImage = imageSelect instanceof HTMLSelectElement ? String(imageSelect.value || '').trim() : '';
+    const selectedImage = imageSelect instanceof HTMLSelectElement || imageSelect instanceof HTMLInputElement ? String(imageSelect.value || '').trim() : '';
     const screenshot = String(row.getAttribute('data-screenshot-url') || '').trim();
     const profile = {
+      name: String(row.querySelector('.case-notes-profile-name')?.value || '').trim(),
+      username: String(row.querySelector('.case-notes-profile-username')?.value || '').trim(),
+      location: String(row.querySelector('.case-notes-profile-location')?.value || '').trim(),
+      captured_at: String(row.getAttribute('data-captured-at') || '').trim(),
       site: site instanceof HTMLInputElement || site instanceof HTMLSelectElement ? String(site.value || '').trim() : '',
       url: url instanceof HTMLInputElement ? String(url.value || '').trim() : '',
       image_url: selectedImage === USER_PLACEHOLDER_AVATAR_URL ? '' : normalizeProfileImageUrl(selectedImage),
@@ -3181,14 +3969,26 @@ async function openCaseNotesModal() {
     return;
   }
   const notes = normalizeCaseNotesObject(activeCase.case_notes || {});
+  syncDashboardCaseTitleFromActiveCase();
+  const openedForCaseId = String(activeCaseId || '').trim();
+  const openedForSession = activeCaseSession;
+  caseNotesEditingProfileIndexes.clear();
   const reportPreferences = normalizeCaseNotesReportPreferences(notes.report_preferences);
   caseNotesExcludedSections.clear();
   for (const key of reportPreferences.excluded_sections) caseNotesExcludedSections.add(key);
   caseNotesExcludedFootprintResultKeys.clear();
   for (const key of reportPreferences.excluded_footprint_result_keys) caseNotesExcludedFootprintResultKeys.add(key);
+  caseNotesExcludedPatternLifeEvidenceKeys.clear();
+  for (const key of reportPreferences.excluded_pattern_life_evidence_keys) caseNotesExcludedPatternLifeEvidenceKeys.add(key);
   caseNotesFootprintEntries = buildCaseNotesFootprintEntries(notes);
   const posts = await fetchCasePosts(activeCaseId);
+  if (openedForSession !== activeCaseSession || openedForCaseId !== String(activeCaseId || '').trim()) return;
   const associatedImages = uniqueProfileImageUrls(posts);
+  caseNotesPatternLifeEvidence = buildPatternLifeEvidence(posts)
+    .filter((entry) => !caseNotesExcludedPatternLifeEvidenceKeys.has(String(entry?.key || '').trim().toLowerCase()));
+  // The immediate canvas is retained as a resilient fallback; replace it as
+  // soon as the Carto tiles have loaded so cited figures include a basemap.
+  void hydratePatternLifeEvidenceBasemaps(posts);
   const casePoiImage = normalizeProfileImageUrl(activeCase?.poi_image_url);
   const notesSubjectImage = normalizeProfileImageUrl(notes.subject_image_url);
   const notesKnownProfiles = caseNotesMajorProfiles(notes.known_profiles);
@@ -3202,21 +4002,24 @@ async function openCaseNotesModal() {
   const knownProfileImages = caseNotesKnownProfiles.map((item) => normalizeProfileImageUrl(item.image_url)).filter(Boolean);
   caseNotesImageChoices = [...new Set([USER_PLACEHOLDER_AVATAR_URL, casePoiImage, notesSubjectImage, ...associatedImages, ...knownProfileImages].filter(Boolean))];
 
-  const discoveredName = firstProfileNameCandidate(posts, caseNotesKnownProfiles);
-  const likelyName = calculatedLikelyNameForCaseNotes();
+  const likelyName = calculatedLikelyCaseTitle();
   if (caseNotesNameInput) {
     if (String(notes.name || '').trim()) {
       caseNotesNameInput.value = String(notes.name || '').trim();
-      lastAutofilledCaseNotesName = '';
-      caseNotesNameInput.classList.remove('case-notes-name-autofill');
+      const nameWasAutofilled = notes.case_name_manually_set === false
+        && likelyName
+        && caseNotesNameInput.value.trim().toLowerCase() === likelyName.toLowerCase();
+      lastAutofilledCaseNotesName = nameWasAutofilled ? likelyName : '';
+      caseNotesNameInput.classList.toggle('case-notes-name-autofill', nameWasAutofilled);
+      caseNotesNameInput.classList.toggle('case-notes-autofill', nameWasAutofilled);
     } else if (likelyName) {
       caseNotesNameInput.value = likelyName;
       lastAutofilledCaseNotesName = likelyName;
-      caseNotesNameInput.classList.add('case-notes-name-autofill');
+      caseNotesNameInput.classList.add('case-notes-name-autofill', 'case-notes-autofill');
     } else {
-      caseNotesNameInput.value = String(discoveredName || activeCase.case_name || '').trim();
+      caseNotesNameInput.value = String(activeCase.case_name || '').trim();
       lastAutofilledCaseNotesName = '';
-      caseNotesNameInput.classList.remove('case-notes-name-autofill');
+      caseNotesNameInput.classList.remove('case-notes-name-autofill', 'case-notes-autofill');
     }
   }
   const notesLocation = String(notes.location || '').trim();
@@ -3226,7 +4029,8 @@ async function openCaseNotesModal() {
   if (caseNotesLocationInput) {
     const selectedLocation = String(notesLocation || inferredLikelyLocation || (hasUsableKnownLocation ? caseKnownLocation : '') || '').trim();
     caseNotesLocationInput.value = selectedLocation;
-    lastAutofilledCaseNotesLocation = notesLocation ? '' : selectedLocation;
+    lastAutofilledCaseNotesLocation = notes.location_manually_set === false || !notesLocation ? selectedLocation : '';
+    caseNotesLocationInput.classList.toggle('case-notes-autofill', Boolean(lastAutofilledCaseNotesLocation));
   }
   if (caseNotesAgeInput) caseNotesAgeInput.value = String(notes.age || '').trim();
   if (caseNotesAkasInput) caseNotesAkasInput.value = String(notes.akas || '').trim();
@@ -3237,21 +4041,33 @@ async function openCaseNotesModal() {
   if (caseNotesSelectorEmailsInput) {
     const saved = splitCommaSeparatedValues(notes.selector_emails);
     caseNotesSelectorEmailsInput.value = joinCommaSeparatedValues([...saved, ...inferredSelectors.emails]);
+    caseNotesSelectorEmailsInput.classList.toggle('case-notes-autofill', inferredSelectors.emails.length > 0);
   }
   if (caseNotesSelectorPhonesInput) {
     const saved = splitCommaSeparatedValues(notes.selector_phone_numbers);
     caseNotesSelectorPhonesInput.value = joinCommaSeparatedValues([...saved, ...inferredSelectors.phones]);
+    caseNotesSelectorPhonesInput.classList.toggle('case-notes-autofill', inferredSelectors.phones.length > 0);
   }
   if (caseNotesSelectorUsernamesInput) {
     const saved = splitCommaSeparatedValues(notes.selector_usernames);
     caseNotesSelectorUsernamesInput.value = joinCommaSeparatedValues([...saved, ...inferredSelectors.usernames]);
+    caseNotesSelectorUsernamesInput.classList.toggle('case-notes-autofill', inferredSelectors.usernames.length > 0);
   }
+  renderCaseNotesSelectorLists();
+  renderCaseNotesSelectorCorroboration();
+  mergeCorroboratedSelectorsIntoReport(latestReconPayload);
+  renderCaseNotesSelectorCorroboration();
 
-  const selectedSubject = notesSubjectImage || casePoiImage || knownProfileImages[0] || associatedImages[0] || USER_PLACEHOLDER_AVATAR_URL;
+  const corroboratedReconImage = preferredSubjectImageFromRecon();
+  const selectedSubject = notesSubjectImage || casePoiImage || corroboratedReconImage || knownProfileImages[0] || associatedImages[0] || USER_PLACEHOLDER_AVATAR_URL;
   renderCaseNotesSubjectImageOptions(selectedSubject);
   renderCaseNotesSubjectImagePreview(selectedSubject);
+  lastAutofilledCaseNotesSubjectImage = (!notesSubjectImage && !casePoiImage && corroboratedReconImage)
+    ? corroboratedReconImage
+    : '';
   renderCaseNotesProfiles();
   renderCaseNotesSectionVisibility();
+  renderCaseNotesEvidenceCapture();
   renderCaseNotesFootprintResults();
   caseNotesInitialDraft = serializeCaseNotesDraft(captureCaseNotesDraft());
   setCaseNotesModalOpen(true);
@@ -3262,10 +4078,12 @@ async function saveCaseNotesDraft({ closeAfterSave = true, notify = true } = {})
   if (caseNotesSaveInFlight) return caseNotesSaveInFlight;
   const draft = captureCaseNotesDraft();
   if (!draft) return false;
+  const savingCaseId = String(activeCaseId || '').trim();
+  const savingSession = activeCaseSession;
   caseNotesSaveInFlight = (async () => {
     if (caseNotesSaveBtn) caseNotesSaveBtn.disabled = true;
     try {
-      const response = await fetch(`/api/cases/${encodeURIComponent(activeCaseId)}`, {
+      const response = await fetch(`/api/cases/${encodeURIComponent(savingCaseId)}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(draft),
@@ -3274,6 +4092,7 @@ async function saveCaseNotesDraft({ closeAfterSave = true, notify = true } = {})
         const message = await parseErrorResponse(response);
         throw new Error(message);
       }
+      if (savingSession !== activeCaseSession || savingCaseId !== String(activeCaseId || '').trim()) return true;
       activeCase = {
         ...(activeCase || {}),
         case_name: draft.case_name,
@@ -3286,7 +4105,7 @@ async function saveCaseNotesDraft({ closeAfterSave = true, notify = true } = {})
       caseNotesInitialDraft = serializeCaseNotesDraft(draft);
       updateCollectionReadyProfilesButtonState();
       await loadCases();
-      updateLocalActiveCaseName(draft.case_name);
+      updateLocalActiveCaseName(draft.case_name, { manuallySet: draft.case_notes?.case_name_manually_set === true });
       if (closeAfterSave) finalizeCaseNotesClose();
       else renderCaseNotesFootprintResults();
       if (notify) showNotification('Case notes saved', 'success');
@@ -3296,8 +4115,8 @@ async function saveCaseNotesDraft({ closeAfterSave = true, notify = true } = {})
       showNotification(`Case notes save failed: ${error.message || 'unknown error'}`, 'error');
       return false;
     } finally {
-      if (caseNotesSaveBtn) caseNotesSaveBtn.disabled = false;
-      caseNotesSaveInFlight = null;
+      if (savingSession === activeCaseSession && caseNotesSaveBtn) caseNotesSaveBtn.disabled = false;
+      if (savingSession === activeCaseSession) caseNotesSaveInFlight = null;
     }
   })();
   return caseNotesSaveInFlight;
@@ -3319,11 +4138,18 @@ async function closeCaseNotesModal() {
   finalizeCaseNotesClose();
 }
 
-function exportCaseNotesPdf() {
+async function exportCaseNotesPdf() {
   if (!activeCaseId) {
     showNotification('Open a case first.', 'warn');
     return;
   }
+  // Rebuild from the persisted case posts immediately before export so that
+  // deletions made since the notes panel was opened are not represented.
+  const posts = await fetchCasePosts(activeCaseId);
+  caseNotesPatternLifeEvidence = buildPatternLifeEvidence(posts)
+    .filter((entry) => !caseNotesExcludedPatternLifeEvidenceKeys.has(String(entry?.key || '').trim().toLowerCase()));
+  await hydratePatternLifeEvidenceBasemaps(posts);
+  renderCaseNotesEvidenceCapture();
   const draft = captureCaseNotesDraft();
   if (caseNotesExportPdfBtn) caseNotesExportPdfBtn.disabled = true;
   fetch(`/api/cases/${encodeURIComponent(activeCaseId)}/notes.pdf`, {
@@ -3376,6 +4202,10 @@ async function submitCaseSave(event) {
   const selectedImage = selectedInput instanceof HTMLInputElement ? String(selectedInput.value || '').trim() : '';
   const nextPoiImage = selectedImage === USER_PLACEHOLDER_AVATAR_URL ? '' : normalizeProfileImageUrl(selectedImage);
   const existingNotes = normalizeCaseNotesObject(activeCase?.case_notes || {});
+  const isAutofilledTitle = Boolean(lastAutofilledCaseTitle)
+    && nextName.toLowerCase() === String(lastAutofilledCaseTitle).trim().toLowerCase();
+  const caseNameManuallySet = Boolean(existingNotes.case_name_manually_set)
+    || (!isAutofilledTitle && !isPlaceholderCaseTitle(nextName));
   const existingKnownProfiles = normalizeKnownProfiles(existingNotes.known_profiles);
   const discoveredFromRecon = defaultKnownProfilesFromRecon();
   const discoveredFromPosts = discoverKnownProfilesFromPosts(Array.isArray(latestFetchedPosts) ? latestFetchedPosts : latestPosts);
@@ -3383,6 +4213,8 @@ async function submitCaseSave(event) {
   const mergedKnownProfiles = mergeDiscoveredKnownProfiles(existingKnownProfiles, discoveredKnownProfiles);
   const notes = {
     ...existingNotes,
+    case_name_manually_set: caseNameManuallySet,
+    location_manually_set: true,
     name: String(existingNotes.name || nextName || '').trim(),
     location: String(nextLocation || existingNotes.location || '').trim(),
     subject_image_url: nextPoiImage,
@@ -3421,7 +4253,7 @@ async function submitCaseSave(event) {
     activeCaseExplicitlySaved = true;
     clearCollectionPolling();
     await loadCases();
-    updateLocalActiveCaseName(nextName);
+    updateLocalActiveCaseName(nextName, { manuallySet: caseNameManuallySet });
     closeCaseSaveModal();
     showCaseWorkspace();
     if (nextStatus === 'Watchlist') {
@@ -3477,7 +4309,7 @@ async function createNewCaseAndLaunch() {
       body: JSON.stringify({
         case_name: `Case ${stamp}`,
         status: 'Open',
-        threat_level: 'Low Threat',
+        threat_level: 'Unassessed',
         data_retention_period: normalizeDataRetentionPeriod(defaultDataRetentionPeriod),
         known_location: '',
       }),
@@ -3492,7 +4324,7 @@ async function createNewCaseAndLaunch() {
     activeCase = created;
     activeCaseExplicitlySaved = false;
     lastAutofilledCaseTitle = String(created?.case_name || '').trim();
-    dashboardBaseStatus = `Active case: ${String(created?.case_name || 'Untitled Case')}`;
+    dashboardBaseStatus = '';
     updateStatusLine();
     syncDashboardCaseTitleFromActiveCase();
     await loadCases();
@@ -3914,6 +4746,229 @@ function renderPosts(posts) {
   renderVisuals(latestRenderedPosts);
 }
 
+function postResultKey(post) {
+  const source = String(post?.source_url || '').trim().toLowerCase();
+  if (source) return source;
+  return [
+    String(post?.platform || '').trim().toLowerCase(),
+    String(post?.username || '').trim().toLowerCase(),
+    String(post?.timestamp || '').trim(),
+    String(post?.content || '').trim().toLowerCase(),
+  ].join('|');
+}
+
+function evidenceCaptureIconMarkup(isCaptured = false) {
+  return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 7h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Z"/><path d="M8 7 9.5 4h5L16 7M8 16l2.7-2.7 2.1 2.1 1.4-1.4 2.8 2.8M16.5 11.5h.01"/>${isCaptured ? '<path d="m15.5 18 1.4 1.4 3-3"/>' : ''}</svg>`;
+}
+
+function evidenceTrashIconMarkup() {
+  return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 7h16M10 11v6M14 11v6M9 7l1-3h4l1 3M6 7l1 13h10l1-13"/></svg>`;
+}
+
+function evidencePanelToggleIconMarkup(isOpen) {
+  return isOpen
+    ? `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 4h14v16H5zM9 4v16M13 9l3 3-3 3"/></svg>`
+    : `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 4h14v16H5zM9 4v16M12 9l3 3-3 3"/></svg>`;
+}
+
+function evidenceCaptureFromPost(post, mediaIndex = null) {
+  const media = normalizeMedia(post);
+  const selectedMedia = Number.isInteger(mediaIndex) && mediaIndex >= 0 ? media[mediaIndex] : null;
+  const imageMedia = selectedMedia || media.find((item) => String(item?.type || '').toLowerCase() === 'image') || media[0] || {};
+  const sourceUrl = String(post?.source_url || '').trim();
+  const mediaUrl = String(imageMedia?.url || imageMedia?.thumbnail_url || '').trim();
+  return {
+    key: `${postResultKey(post)}|${mediaUrl}`.toLowerCase(),
+    source_url: sourceUrl,
+    post_text: String(post?.content || '').trim(),
+    author_name: String(post?.author_name || post?.display_name || post?.metadata?.author_name || accountTag(post)).trim(),
+    author_handle: String(post?.username || post?.author || '').trim(),
+    profile_image_url: normalizeProfileImageUrl(postProfileImageUrl(post)),
+    timestamp: String(post?.timestamp || '').trim(),
+    platform: String(post?.platform || '').trim(),
+    media_url: mediaUrl,
+    media_type: String(imageMedia?.type || '').trim(),
+    captured_at: new Date().toISOString(),
+  };
+}
+
+function isEvidenceCaptured(post, mediaIndex = null) {
+  if (!post || !activeCase) return false;
+  const entry = evidenceCaptureFromPost(post, mediaIndex);
+  const entries = Array.isArray(activeCase?.case_notes?.evidence_capture) ? activeCase.case_notes.evidence_capture : [];
+  return entries.some((item) => String(item?.key || '').toLowerCase() === entry.key);
+}
+
+function renderEvidenceCapturePreview(post, mediaIndex = null) {
+  if (!(evidenceCapturePreview instanceof HTMLElement)) return;
+  if (!post || typeof post !== 'object') {
+    evidenceCapturePreview.innerHTML = '';
+    return;
+  }
+  const media = normalizeMedia(post);
+  const selectedMedia = Number.isInteger(mediaIndex) && mediaIndex >= 0 ? media[mediaIndex] : null;
+  const imageMedia = selectedMedia || media.find((item) => String(item?.type || '').toLowerCase() === 'image') || media[0] || {};
+  const mediaUrl = String(imageMedia?.url || imageMedia?.thumbnail_url || '').trim();
+  const profileImageUrl = postProfileImageUrl(post);
+  const assessment = normalizeEditableLlmAssessment(llmAssessmentFromPost(post));
+  const tags = [
+    ...assessment.tagged_primary.map((label) => ({ label, kind: 'primary', group: 'Primary warning' })),
+    ...assessment.tagged_secondary.map((label) => ({ label, kind: 'secondary', group: 'Secondary risk' })),
+  ];
+  const postText = primaryPostText(post).trim() || 'No post text available.';
+  const meta = [
+    String(post?.platform || '').trim().toUpperCase(),
+    String(post?.timestamp || '').trim(),
+  ].filter(Boolean).join(' · ');
+  evidenceCapturePreview.innerHTML = `
+    <div class="evidence-capture-preview-label">Evidence to capture</div>
+    <article class="evidence-capture-preview-post">
+      <div class="evidence-capture-preview-author">
+        ${profileImageUrl ? `<img src="${escapeAttr(profileImageUrl)}" alt="${escapeAttr(accountTag(post))} profile image" />` : '<span class="evidence-capture-preview-avatar">No image</span>'}
+        <div><strong>${escapeHtml(accountTag(post))}</strong>${meta ? `<span>${escapeHtml(meta)}</span>` : ''}</div>
+      </div>
+      <p class="evidence-capture-preview-text">${escapeHtml(postText)}</p>
+      ${mediaUrl ? `<img class="evidence-capture-preview-media" src="${escapeAttr(mediaUrl)}" alt="Post media selected for evidence capture" referrerpolicy="no-referrer" />` : ''}
+    </article>
+    <section class="evidence-capture-preview-assessment" aria-label="Post assessment">
+      <div class="evidence-capture-preview-section-heading">Assessment tags</div>
+      ${tags.length
+        ? `<div class="llm-pill-row">${tags.map((item) => `<span class="llm-pill ${item.kind}" title="${escapeAttr(item.group)}">${escapeHtml(item.label)}</span>`).join('')}</div>`
+        : '<p class="evidence-capture-preview-empty">No assessment tags have been applied.</p>'}
+      <div class="evidence-capture-preview-section-heading">Theme</div>
+      <p class="evidence-capture-preview-theme">${assessment.underlying_theme ? escapeHtml(assessment.underlying_theme) : 'No assessment theme has been set.'}</p>
+    </section>
+  `;
+}
+
+function openEvidenceCaptureModal(postIndex, mediaIndex = null) {
+  const normalizedPostIndex = Number(postIndex);
+  const normalizedMediaIndex = Number.isFinite(Number(mediaIndex)) ? Number(mediaIndex) : null;
+  pendingEvidenceCapture = { postIndex: normalizedPostIndex, mediaIndex: normalizedMediaIndex };
+  if (evidenceCaptureCommentInput instanceof HTMLTextAreaElement) evidenceCaptureCommentInput.value = '';
+  renderEvidenceCapturePreview(latestRenderedPosts[normalizedPostIndex], normalizedMediaIndex);
+  evidenceCaptureModal?.classList.remove('hidden');
+  syncModalActiveState();
+  focusWithoutScroll(evidenceCaptureCommentInput);
+}
+
+function closeEvidenceCaptureModal() {
+  pendingEvidenceCapture = null;
+  if (evidenceCapturePreview instanceof HTMLElement) evidenceCapturePreview.innerHTML = '';
+  evidenceCaptureModal?.classList.add('hidden');
+  syncModalActiveState();
+}
+
+async function captureEvidenceFromPost(postIndex, mediaIndex = null, comment = '') {
+  if (!activeCaseId || !activeCase) {
+    showNotification('Open a case before capturing report evidence.', 'warn');
+    return;
+  }
+  const index = Number(postIndex);
+  const post = latestRenderedPosts[index];
+  if (!post || typeof post !== 'object') return;
+  if (evidenceCaptureSaveInFlight) return evidenceCaptureSaveInFlight;
+  const entry = evidenceCaptureFromPost(post, Number.isFinite(Number(mediaIndex)) ? Number(mediaIndex) : null);
+  const notes = normalizeCaseNotesObject(activeCase.case_notes || {});
+  const existing = Array.isArray(notes.evidence_capture) ? notes.evidence_capture.filter((item) => item && typeof item === 'object') : [];
+  if (existing.some((item) => String(item.key || '').toLowerCase() === entry.key)) {
+    showNotification('This post/image is already pinned to Evidence Capture.', 'warn');
+    return;
+  }
+  const figureNumber = existing.length + 1;
+  const cleanComment = String(comment || '').trim();
+  const existingThreat = String(notes.threat_risk_assessment || '').trim();
+  const commentBullet = cleanComment ? `- ${cleanComment} (Figure ${figureNumber})` : '';
+  const nextNotes = {
+    ...notes,
+    evidence_capture: [...existing, entry],
+    threat_risk_assessment: commentBullet ? [existingThreat, commentBullet].filter(Boolean).join(existingThreat ? '\n' : '') : existingThreat,
+  };
+  evidenceCaptureSaveInFlight = (async () => {
+    try {
+      const response = await fetch(`/api/cases/${encodeURIComponent(activeCaseId)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ case_notes: nextNotes }),
+      });
+      if (!response.ok) throw new Error(await parseErrorResponse(response));
+      activeCase = { ...activeCase, case_notes: nextNotes };
+      const caseIndex = caseList.findIndex((item) => String(item?.id || '') === String(activeCaseId));
+      if (caseIndex >= 0) caseList[caseIndex] = { ...caseList[caseIndex], case_notes: nextNotes };
+      if (commentBullet && caseNotesThreatInput instanceof HTMLTextAreaElement) caseNotesThreatInput.value = nextNotes.threat_risk_assessment;
+      renderCaseNotesEvidenceCapture();
+      renderCaseNotesProfiles();
+      setCaseNotesEvidencePopout(true);
+      rerenderFromCurrentFilters();
+      showNotification(commentBullet ? `Captured as Figure ${figureNumber} and cited in the Threat / Risk Assessment.` : `Added as Figure ${figureNumber} to Evidence Capture.`, 'success');
+      return true;
+    } catch (error) {
+      console.error(error);
+      showNotification(`Evidence capture failed: ${error.message || 'unknown error'}`, 'error');
+      return false;
+    } finally {
+      evidenceCaptureSaveInFlight = null;
+    }
+  })();
+  return evidenceCaptureSaveInFlight;
+}
+
+function profileResultKey(profile) {
+  return [
+    String(profile?.site_key || profile?.site || '').trim().toLowerCase(),
+    String(profile?.profile_url || profile?.url || '').trim().toLowerCase(),
+    String(profile?.username || profile?.selector || '').trim().toLowerCase(),
+  ].join('|');
+}
+
+function updateResultsViewAttention(view, count = 0) {
+  const normalized = view === 'footprint' || view === 'pattern' ? view : 'posts';
+  resultsViewAttention[normalized] = Math.max(0, Number(count) || 0);
+  const config = {
+    posts: { button: viewPostsBtn, noun: 'post', label: 'new posts' },
+    footprint: { button: viewFootprintBtn, noun: 'profile', label: 'new profiles' },
+    pattern: { button: viewPatternLifeBtn, noun: 'new activity update', label: 'new activity updates' },
+  }[normalized];
+  const button = config?.button;
+  if (!(button instanceof HTMLElement)) return;
+  let badge = button.querySelector('[data-results-view-attention]');
+  const shouldShow = resultsViewAttention[normalized] > 0 && activeResultsView !== normalized;
+  if (!shouldShow) {
+    badge?.remove();
+    button.removeAttribute('data-results-view-attention-label');
+    button.removeAttribute('title');
+    button.setAttribute('aria-label', normalized === 'footprint' ? 'Profiles' : (normalized === 'pattern' ? 'Pattern of Life' : 'Posts'));
+    return;
+  }
+  if (!(badge instanceof HTMLElement)) {
+    badge = document.createElement('span');
+    badge.className = 'view-tab-attention';
+    badge.setAttribute('data-results-view-attention', normalized);
+    badge.setAttribute('aria-hidden', 'true');
+    button.appendChild(badge);
+  }
+  const total = resultsViewAttention[normalized];
+  badge.textContent = total > 99 ? '99+' : String(total);
+  const noun = total === 1 ? config.noun : config.label;
+  const message = `${total} ${noun} ready to review`;
+  button.setAttribute('data-results-view-attention-label', message);
+  button.setAttribute('title', message);
+  button.setAttribute('aria-label', `${normalized === 'footprint' ? 'Profiles' : (normalized === 'pattern' ? 'Pattern of Life' : 'Posts')} — ${message}`);
+}
+
+function noteResultsViewAttention(view, count) {
+  const normalized = view === 'footprint' || view === 'pattern' ? view : 'posts';
+  if (activeResultsView === normalized) {
+    updateResultsViewAttention(normalized, 0);
+    return;
+  }
+  updateResultsViewAttention(normalized, resultsViewAttention[normalized] + Math.max(0, Number(count) || 0));
+}
+
+function clearResultsViewAttention(view) {
+  updateResultsViewAttention(view, 0);
+}
+
 function renderLlmSandboxExamples() {
   if (!(llmSandboxExamples instanceof HTMLElement)) return;
   llmSandboxExamples.innerHTML = LLM_SANDBOX_EXAMPLES.map((example, index) => `
@@ -4128,6 +5183,10 @@ function renderPostCard(post, index, options = {}) {
   const assessmentEditable = options.assessmentEditable !== false;
   const assessmentForceVisible = options.assessmentForceVisible === true;
   const profileImageUrl = postProfileImageUrl(post) || USER_PLACEHOLDER_AVATAR_URL;
+  const capturedAsEvidence = isEvidenceCaptured(post);
+  const evidenceCaptureAction = options.evidenceCaptureAction !== false && activeCaseId
+    ? `<button class="evidence-capture-btn${capturedAsEvidence ? ' is-captured' : ''}" type="button" data-evidence-capture-post-index="${index}" data-tooltip="${capturedAsEvidence ? 'Evidence captured' : 'Capture Evidence and add to report'}" aria-label="${capturedAsEvidence ? 'Evidence captured' : 'Capture Evidence and add to report'}">${evidenceCaptureIconMarkup(capturedAsEvidence)}</button>`
+    : '';
   return `
     <article ${includeCardId ? `id="post-card-${index}" ` : ''}class="card" data-post-index="${index}">
       <div class="meta">
@@ -4140,6 +5199,7 @@ function renderPostCard(post, index, options = {}) {
         <div class="meta-right">
           <time class="recency">${escapeHtml(formatRecency(post.timestamp))}</time>
           ${post.source_url ? `<a class="url-icon" href="${escapeHtml(post.source_url)}" target="_blank" rel="noopener noreferrer" title="Open source post">🔗</a>` : ''}
+          ${evidenceCaptureAction}
         </div>
       </div>
       <div class="content">${postContentMarkup(post, index, { fullContent })}</div>
@@ -4344,6 +5404,7 @@ function renderMediaGrid(posts) {
     const kindBadge = item.kind === 'profile' ? '<span class="media-grid-kind media-grid-kind-profile">PROFILE</span>' : '';
     return `
         <button type="button" class="media-grid-tile${hasMatchedFace ? ' has-face-match' : ''}" data-post-index="${item.postIndex}" data-media-index="${item.mediaIndex}">
+          ${activeCaseId ? (() => { const captured = isEvidenceCaptured(post, item.mediaIndex); return `<span class="media-grid-capture${captured ? ' is-captured' : ''}" data-evidence-capture-post-index="${item.postIndex}" data-evidence-capture-media-index="${item.mediaIndex}" data-tooltip="${captured ? 'Evidence captured' : 'Capture Evidence and add to report'}" aria-label="${captured ? 'Evidence captured' : 'Capture Evidence and add to report'}">${evidenceCaptureIconMarkup(captured)}</span>`; })() : ''}
           <span class="media-grid-preview">${previewMarkup}${renderFaceOverlays(item.faceDetections)}</span>
           <span class="media-grid-meta">
             <span class="media-grid-author">${escapeHtml(accountTag(post))}</span>
@@ -5790,6 +6851,7 @@ function collectPatternOfLifeLocationPoints(posts) {
     if (normalized === 'pdl') return 'pdl';
     if (normalized === 'numverify') return 'numverify';
     if (normalized === 'osint_industries') return 'osint_industries';
+    if (normalized === 'profile') return 'profile';
     return 'other';
   };
   const addPoint = (name, lat, lon, reference = null) => {
@@ -6103,6 +7165,59 @@ function collectPatternOfLifeLocationPoints(posts) {
     }
   }
 
+  const returnedProfileRows = [
+    ...(Array.isArray(latestReconPayload?.scanner_results) ? latestReconPayload.scanner_results : []),
+    ...(Array.isArray(latestReconPayload?.results) ? latestReconPayload.results : []),
+  ].filter((profile) => /^(found|present|registered)$/i.test(String(profile?.status || '').trim()));
+  const seenReturnedProfiles = new Set();
+  for (const profile of returnedProfileRows) {
+    const fields = profile?.profile_record?.fields && typeof profile.profile_record.fields === 'object'
+      ? profile.profile_record.fields
+      : {};
+    const extra = profile?.extra && typeof profile.extra === 'object' ? profile.extra : {};
+    const site = normalizeReconSiteLabel(profile?.site_name || profile?.site || profile?.site_key || profile?.module || profile?.source, profile?.profile_url || profile?.url, profile?.site_url);
+    const profileUrl = normalizeExternalUrl(profile?.profile_url || profile?.url || profile?.website || '');
+    const title = String(profile?.full_name || profile?.display_name || profile?.profile_name || profile?.name || profile?.title || extra?.full_name || extra?.display_name || extra?.name || fields?.full_name || fields?.display_name || fields?.name || profile?.username || profile?.selector || 'profile').trim();
+    const profileKey = `${site}|${profileUrl}|${title}`.toLowerCase();
+    if (seenReturnedProfiles.has(profileKey)) continue;
+    seenReturnedProfiles.add(profileKey);
+    const label = `${site}: ${title}`;
+    const locations = [
+      profile?.location,
+      profile?.location_name,
+      profile?.biolocation,
+      profile?.city,
+      profile?.region,
+      profile?.country,
+      fields?.location,
+      fields?.location_name,
+      fields?.biolocation,
+      fields?.city,
+      fields?.region,
+      fields?.country,
+      extra?.location,
+      extra?.location_name,
+      extra?.biolocation,
+      extra?.city,
+      extra?.region,
+      extra?.country,
+    ];
+    for (const rawLocation of locations) {
+      const location = _cleanLocationEntityLabel(rawLocation);
+      if (!location) continue;
+      addFromTextSource(location, label, `profile location: ${location}`, 'profile', profileUrl, { strict: true, preferMostSpecific: true });
+    }
+    for (const geo of extractCoordinateSignals({ profile, fields, extra })) {
+      if (!_hasUsableGeoPoint(geo.lat, geo.lon)) continue;
+      addPoint(geo.label || title || 'Profile location', geo.lat, geo.lon, {
+        kind: 'profile',
+        label,
+        detail: `${geo.path || 'geo'}${geo.detail ? ` • ${geo.detail}` : ''}`,
+        profileUrl,
+      });
+    }
+  }
+
   const numverifyProfiles = Array.isArray(reconNumverifyProfiles) ? reconNumverifyProfiles : [];
   for (const profile of numverifyProfiles) {
     const number = String(profile?.number || profile?.international_format || 'number').trim();
@@ -6195,6 +7310,7 @@ function _patternLifeSourceWeight(kind) {
   if (normalized === 'post') return 1.1;
   if (normalized === 'osint_industries') return 1.06;
   if (normalized === 'numverify') return 0.93;
+  if (normalized === 'profile') return 1.02;
   if (normalized === 'other') return 0.85;
   return 0.9;
 }
@@ -6369,6 +7485,47 @@ function inferMostLikelyLocationForCaseNotes(posts) {
   return name;
 }
 
+async function maybeAutofillActiveCaseLocationFromPatternLife() {
+  if (!activeCaseId || !activeCase || caseLocationWasManuallySet() || caseLocationAutofillInFlight) return;
+  const posts = Array.isArray(latestFetchedPosts) && latestFetchedPosts.length ? latestFetchedPosts : latestPosts;
+  const candidate = inferMostLikelyLocationForCaseNotes(posts);
+  if (!candidate || /^likely area$/i.test(candidate)) return;
+  const current = String(activeCase?.known_location || '').trim();
+  const priorAuto = String(lastAutofilledCaseLocation || '').trim();
+  const notes = normalizeCaseNotesObject(activeCase?.case_notes || {});
+  const canReplace = !current
+    || /^(?:unknown|n\/a|none)$/i.test(current)
+    || notes.location_manually_set === false
+    || (priorAuto && current.toLowerCase() === priorAuto.toLowerCase());
+  if (!canReplace) return;
+  if (current.toLowerCase() === candidate.toLowerCase()) {
+    lastAutofilledCaseLocation = candidate;
+    return;
+  }
+  const caseId = String(activeCaseId || '').trim();
+  const nextNotes = {
+    ...notes,
+    location: candidate,
+    location_manually_set: false,
+  };
+  caseLocationAutofillInFlight = fetch(`/api/cases/${encodeURIComponent(caseId)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ known_location: candidate, case_notes: nextNotes }),
+  })
+    .then((response) => {
+      if (!response.ok) throw new Error(`location autofill failed (${response.status})`);
+      updateLocalActiveCaseLocation(candidate, { autofilled: true });
+    })
+    .catch((error) => {
+      console.warn(error);
+    })
+    .finally(() => {
+      caseLocationAutofillInFlight = null;
+    });
+  await caseLocationAutofillInFlight;
+}
+
 function patternLifeMarkerStyle(point, maxCount) {
   const sizeRatio = maxCount > 0 ? Number(point?.count || 0) / maxCount : 0;
   const radius = 4 + Math.max(0.1, sizeRatio) * 8;
@@ -6410,6 +7567,16 @@ function patternLifeMarkerStyle(point, maxCount) {
       fillColor: '#4f46e5',
       fillOpacity: 0.85,
       haloColor: 'rgba(79, 70, 229, 0.34)',
+      haloWeight: 9,
+    };
+  }
+  if (kind === 'profile') {
+    return {
+      radius,
+      color: '#86efac',
+      fillColor: '#16a34a',
+      fillOpacity: 0.86,
+      haloColor: 'rgba(34, 197, 94, 0.35)',
       haloWeight: 9,
     };
   }
@@ -6580,6 +7747,16 @@ function patternLifeSourceHeaderMarkup(label, profileUrl = '') {
   return `<span class="pattern-life-source-head">${icon}<span class="pattern-life-source-label">${escapeHtml(cleanLabel)}</span></span>`;
 }
 
+function patternLifeProfileSourceCardMarkup(ref, fallbackDetail = 'location signal') {
+  const label = String(ref?.label || '').trim() || 'Profile source';
+  const detail = String(ref?.detail || '').trim() || fallbackDetail;
+  const profileUrl = normalizeExternalUrl(ref?.profileUrl);
+  const openProfile = profileUrl
+    ? `<a class="pattern-life-profile-source-open" href="${escapeAttr(profileUrl)}" target="_blank" rel="noopener noreferrer">Open profile</a>`
+    : '';
+  return `<article class="pattern-life-profile-source-card">${patternLifeSourceHeaderMarkup(label, profileUrl)}<small>${escapeHtml(detail)}</small>${openProfile}</article>`;
+}
+
 function ensurePatternLifeMapInstance() {
   if (!patternLifeMap) return Promise.resolve(null);
   return loadLeaflet().then((L) => {
@@ -6659,7 +7836,7 @@ function renderPatternLifeMap(posts, analysis = null) {
   const topLikelyCandidate = Array.isArray(synthesis?.candidates) ? synthesis.candidates[0] : null;
   latestPatternLifeMapPoints = points;
   latestPatternLifeMapRoutes = routes;
-  const totalMentions = points.reduce((sum, point) => sum + point.count, 0) + routes.reduce((sum, route) => sum + route.count, 0);
+  const totalMentions = points.reduce((sum, point) => sum + point.count, 0) + routes.length;
   patternLifeLocationMapTotal.textContent = `${totalMentions} point${totalMentions === 1 ? '' : 's'}`;
   patternLifeMapEmpty.classList.toggle('hidden', (points.length + routes.length) > 0);
 
@@ -6771,15 +7948,7 @@ function renderPatternLifeMap(posts, analysis = null) {
           .join('');
         const popupRows = route.references
           .slice(0, 8)
-          .map((ref) => {
-            const label = String(ref?.label || '').trim() || 'source';
-            const detail = String(ref?.detail || '').trim();
-            const profileUrl = normalizeExternalUrl(ref?.profileUrl);
-            const linkMarkup = profileUrl
-              ? `<a href="${escapeAttr(profileUrl)}" target="_blank" rel="noopener noreferrer">open profile</a>`
-              : '';
-            return `<div class="pattern-life-popup-row">${patternLifeSourceHeaderMarkup(label, profileUrl)}<small>${escapeHtml(detail || 'route signal')}${linkMarkup ? ` • ${linkMarkup}` : ''}</small></div>`;
-          })
+          .map((ref) => patternLifeProfileSourceCardMarkup(ref, 'route signal'))
           .join('');
         const routeStyle = patternLifeRouteStyle(route);
         L.polyline(latLngs, {
@@ -6836,11 +8005,7 @@ function renderPatternLifeMap(posts, analysis = null) {
             if (Number.isFinite(postIndex) && postIndex >= 0) {
               return patternLifePostPreviewMarkup(rows[postIndex], ref, point.name);
             }
-            const profileUrl = normalizeExternalUrl(ref?.profileUrl);
-            const linkMarkup = profileUrl
-              ? `<a href="${escapeAttr(profileUrl)}" target="_blank" rel="noopener noreferrer">open profile</a>`
-              : '';
-            return `<div class="pattern-life-popup-row">${patternLifeSourceHeaderMarkup(label, profileUrl)}<small>${escapeHtml(detail || 'location signal')}${linkMarkup ? ` • ${linkMarkup}` : ''}</small></div>`;
+            return patternLifeProfileSourceCardMarkup(ref, 'location signal');
           })
           .join('');
         const marker = L.circleMarker([point.lat, point.lon], {
@@ -6976,6 +8141,264 @@ function filterPatternLifePosts(posts) {
   return rows.filter((post) => activePatternLifePlatforms.has(normalizePlatformName(post?.platform)));
 }
 
+function patternLifeEvidenceMapDataUri(points, routes, title, focus = false) {
+  const coordinates = [];
+  for (const point of Array.isArray(points) ? points : []) coordinates.push({ lat: Number(point?.lat), lon: Number(point?.lon), count: Number(point?.count) || 1 });
+  for (const route of Array.isArray(routes) ? routes : []) {
+    for (const coordinate of Array.isArray(route?.coordinates) ? route.coordinates : []) {
+      coordinates.push({ lat: Number(coordinate?.lat), lon: Number(coordinate?.lon), count: Number(route?.count) || 1 });
+    }
+  }
+  const usable = coordinates.filter((item) => Number.isFinite(item.lat) && Number.isFinite(item.lon));
+  if (!usable.length) return '';
+  const anchor = [...usable].sort((a, b) => b.count - a.count)[0];
+  let selected = usable;
+  if (focus) {
+    const nearby = usable.filter((item) => Math.hypot(item.lat - anchor.lat, item.lon - anchor.lon) <= 3);
+    selected = nearby.length ? nearby : [anchor];
+  }
+  let south = Math.min(...selected.map((item) => item.lat));
+  let north = Math.max(...selected.map((item) => item.lat));
+  let west = Math.min(...selected.map((item) => item.lon));
+  let east = Math.max(...selected.map((item) => item.lon));
+  const minSpan = focus ? 0.08 : 8;
+  const latSpan = Math.max(north - south, minSpan);
+  const lonSpan = Math.max(east - west, minSpan);
+  const padding = focus ? 0.34 : 0.22;
+  south -= latSpan * padding; north += latSpan * padding; west -= lonSpan * padding; east += lonSpan * padding;
+  const width = 1100; const height = 620; const inset = 28;
+  const project = (item) => ({
+    x: inset + ((item.lon - west) / (east - west || 1)) * (width - inset * 2),
+    y: inset + ((north - item.lat) / (north - south || 1)) * (height - inset * 2),
+  });
+  const grid = Array.from({ length: 7 }, (_, index) => {
+    const x = inset + index * ((width - inset * 2) / 6);
+    const y = inset + index * ((height - inset * 2) / 6);
+    return `<path d="M${x.toFixed(1)} ${inset}V${height - inset} M${inset} ${y.toFixed(1)}H${width - inset}" />`;
+  }).join('');
+  const routePaths = (Array.isArray(routes) ? routes : []).map((route) => {
+    const routePoints = (Array.isArray(route?.coordinates) ? route.coordinates : [])
+      .map((item) => project({ lat: Number(item?.lat), lon: Number(item?.lon) }))
+      .filter((item) => Number.isFinite(item.x) && Number.isFinite(item.y));
+    if (routePoints.length < 2) return '';
+    return `<path class="route" d="M${routePoints.map((item) => `${item.x.toFixed(1)} ${item.y.toFixed(1)}`).join(' L')}" />`;
+  }).join('');
+  const pins = (Array.isArray(points) ? points : []).map((point) => {
+    const position = project({ lat: Number(point?.lat), lon: Number(point?.lon) });
+    if (!Number.isFinite(position.x) || !Number.isFinite(position.y)) return '';
+    const radius = Math.max(6, Math.min(15, 5 + Math.sqrt(Number(point?.count) || 1) * 3));
+    return `<g transform="translate(${position.x.toFixed(1)} ${position.y.toFixed(1)})"><circle class="halo" r="${(radius + 5).toFixed(1)}"/><path class="pin" d="M0 ${radius + 8} C-${radius} 3 -${radius} -${radius} 0 -${radius} C${radius} -${radius} ${radius} 3 0 ${radius + 8}Z"/><circle class="pin-core" r="${Math.max(2.5, radius * .25).toFixed(1)}"/></g>`;
+  }).join('');
+  const activityCount = (Array.isArray(points) ? points : []).reduce((sum, item) => sum + (Number(item?.count) || 0), 0)
+    + (Array.isArray(routes) ? routes.length : 0);
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+    <style>.bg{fill:#0b1220}.frame{fill:#101c31;stroke:#40516f;stroke-width:2}.grid{fill:none;stroke:#2d405d;stroke-width:1}.route{fill:none;stroke:#60a5fa;stroke-width:5;stroke-linecap:round;stroke-linejoin:round;opacity:.82}.halo{fill:#f59e0b;opacity:.18}.pin{fill:#f59e0b;stroke:#fff7d6;stroke-width:2}.pin-core{fill:#fff7d6}.meta{fill:#a9bad3;font:15px Arial,sans-serif}</style>
+    <rect class="bg" width="100%" height="100%"/><rect class="frame" x="${inset}" y="${inset}" width="${width - inset * 2}" height="${height - inset * 2}" rx="8"/><g class="grid">${grid}</g>${routePaths}${pins}<text class="meta" x="${width - inset}" y="20" text-anchor="end">${activityCount} signal${activityCount === 1 ? '' : 's'}</text></svg>`;
+  return `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svg)))}`;
+}
+
+function patternLifeEvidenceMapRasterDataUri(points, routes, title, focus = false, baseTiles = []) {
+  if (typeof document === 'undefined') return '';
+  const coordinates = [];
+  for (const point of Array.isArray(points) ? points : []) coordinates.push({ lat: Number(point?.lat), lon: Number(point?.lon), count: Number(point?.count) || 1 });
+  for (const route of Array.isArray(routes) ? routes : []) {
+    for (const coordinate of Array.isArray(route?.coordinates) ? route.coordinates : []) coordinates.push({ lat: Number(coordinate?.lat), lon: Number(coordinate?.lon), count: Number(route?.count) || 1 });
+  }
+  const usable = coordinates.filter((item) => Number.isFinite(item.lat) && Number.isFinite(item.lon));
+  if (!usable.length) return '';
+  const anchor = [...usable].sort((a, b) => b.count - a.count)[0];
+  let selected = usable;
+  if (focus) {
+    const nearby = usable.filter((item) => Math.hypot(item.lat - anchor.lat, item.lon - anchor.lon) <= 3);
+    selected = nearby.length ? nearby : [anchor];
+  }
+  let south = Math.min(...selected.map((item) => item.lat));
+  let north = Math.max(...selected.map((item) => item.lat));
+  let west = Math.min(...selected.map((item) => item.lon));
+  let east = Math.max(...selected.map((item) => item.lon));
+  const minSpan = focus ? .08 : 8;
+  const latSpan = Math.max(north - south, minSpan);
+  const lonSpan = Math.max(east - west, minSpan);
+  const padding = focus ? .34 : .22;
+  south -= latSpan * padding; north += latSpan * padding; west -= lonSpan * padding; east += lonSpan * padding;
+  const width = 1100; const height = 620; const inset = 28;
+  const canvas = document.createElement('canvas');
+  canvas.width = width; canvas.height = height;
+  const context = canvas.getContext('2d');
+  if (!context) return '';
+  const mercatorY = (lat) => {
+    const radians = Math.max(-85, Math.min(85, lat)) * Math.PI / 180;
+    return (1 - Math.log(Math.tan(Math.PI / 4 + radians / 2)) / Math.PI) / 2;
+  };
+  const northMercator = mercatorY(north); const southMercator = mercatorY(south);
+  const project = (item) => ({
+    x: inset + ((item.lon - west) / (east - west || 1)) * (width - inset * 2),
+    y: baseTiles.length
+      ? inset + ((mercatorY(item.lat) - northMercator) / (southMercator - northMercator || 1)) * (height - inset * 2)
+      : inset + ((north - item.lat) / (north - south || 1)) * (height - inset * 2),
+  });
+  context.fillStyle = '#0b1220'; context.fillRect(0, 0, width, height);
+  if (baseTiles.length) {
+    context.save();
+    context.beginPath(); context.rect(inset, inset, width - inset * 2, height - inset * 2); context.clip();
+    for (const tile of baseTiles) {
+      context.globalAlpha = Number.isFinite(tile.opacity) ? tile.opacity : 1;
+      context.drawImage(tile.image, tile.x, tile.y, tile.width, tile.height);
+    }
+    context.globalAlpha = 1;
+    context.fillStyle = 'rgba(2, 8, 20, .38)'; context.fillRect(inset, inset, width - inset * 2, height - inset * 2);
+    context.restore();
+  }
+  context.fillStyle = baseTiles.length ? 'rgba(16, 28, 49, .12)' : '#101c31'; context.strokeStyle = '#40516f'; context.lineWidth = 2;
+  // Basic primitives keep the raster snapshot available in browsers without
+  // CanvasRenderingContext2D.roundRect support.
+  context.fillRect(inset, inset, width - inset * 2, height - inset * 2);
+  context.strokeRect(inset, inset, width - inset * 2, height - inset * 2);
+  context.strokeStyle = '#2d405d'; context.lineWidth = 1;
+  for (let index = 0; index < 7; index += 1) {
+    const x = inset + index * ((width - inset * 2) / 6);
+    const y = inset + index * ((height - inset * 2) / 6);
+    context.beginPath(); context.moveTo(x, inset); context.lineTo(x, height - inset); context.moveTo(inset, y); context.lineTo(width - inset, y); context.stroke();
+  }
+  context.strokeStyle = '#60a5fa'; context.lineWidth = 5; context.lineCap = 'round'; context.lineJoin = 'round'; context.globalAlpha = .82;
+  for (const route of Array.isArray(routes) ? routes : []) {
+    const routePoints = (Array.isArray(route?.coordinates) ? route.coordinates : []).map((item) => project({ lat: Number(item?.lat), lon: Number(item?.lon) })).filter((item) => Number.isFinite(item.x) && Number.isFinite(item.y));
+    if (routePoints.length < 2) continue;
+    context.beginPath(); context.moveTo(routePoints[0].x, routePoints[0].y);
+    for (const point of routePoints.slice(1)) context.lineTo(point.x, point.y);
+    context.stroke();
+  }
+  context.globalAlpha = 1;
+  for (const point of Array.isArray(points) ? points : []) {
+    const position = project({ lat: Number(point?.lat), lon: Number(point?.lon) });
+    if (!Number.isFinite(position.x) || !Number.isFinite(position.y)) continue;
+    const radius = Math.max(6, Math.min(15, 5 + Math.sqrt(Number(point?.count) || 1) * 3));
+    context.fillStyle = 'rgba(245, 158, 11, .18)'; context.beginPath(); context.arc(position.x, position.y, radius + 5, 0, Math.PI * 2); context.fill();
+    context.fillStyle = '#f59e0b'; context.strokeStyle = '#fff7d6'; context.lineWidth = 2;
+    context.beginPath(); context.arc(position.x, position.y, radius, 0, Math.PI * 2); context.fill(); context.stroke();
+    context.fillStyle = '#fff7d6'; context.beginPath(); context.arc(position.x, position.y, Math.max(2.5, radius * .25), 0, Math.PI * 2); context.fill();
+  }
+  const activityCount = (Array.isArray(points) ? points : []).reduce((sum, item) => sum + (Number(item?.count) || 0), 0) + (Array.isArray(routes) ? routes.length : 0);
+  context.fillStyle = '#a9bad3'; context.font = '15px Arial, sans-serif'; context.textAlign = 'right'; context.fillText(`${activityCount} signal${activityCount === 1 ? '' : 's'}`, width - inset, 20);
+  try {
+    return canvas.toDataURL('image/png');
+  } catch (_error) {
+    return '';
+  }
+}
+
+function patternLifeEvidenceBounds(points, routes, focus = false) {
+  const coordinates = [];
+  for (const point of Array.isArray(points) ? points : []) coordinates.push({ lat: Number(point?.lat), lon: Number(point?.lon), count: Number(point?.count) || 1 });
+  for (const route of Array.isArray(routes) ? routes : []) {
+    for (const coordinate of Array.isArray(route?.coordinates) ? route.coordinates : []) coordinates.push({ lat: Number(coordinate?.lat), lon: Number(coordinate?.lon), count: Number(route?.count) || 1 });
+  }
+  const usable = coordinates.filter((item) => Number.isFinite(item.lat) && Number.isFinite(item.lon));
+  if (!usable.length) return null;
+  const anchor = [...usable].sort((a, b) => b.count - a.count)[0];
+  let selected = usable;
+  if (focus) {
+    const nearby = usable.filter((item) => Math.hypot(item.lat - anchor.lat, item.lon - anchor.lon) <= 3);
+    selected = nearby.length ? nearby : [anchor];
+  }
+  let south = Math.min(...selected.map((item) => item.lat)); let north = Math.max(...selected.map((item) => item.lat));
+  let west = Math.min(...selected.map((item) => item.lon)); let east = Math.max(...selected.map((item) => item.lon));
+  const minSpan = focus ? .08 : 8;
+  const latSpan = Math.max(north - south, minSpan); const lonSpan = Math.max(east - west, minSpan);
+  const padding = focus ? .34 : .22;
+  south -= latSpan * padding; north += latSpan * padding; west -= lonSpan * padding; east += lonSpan * padding;
+  return { south: Math.max(-85, south), north: Math.min(85, north), west, east };
+}
+
+function loadPatternLifeBasemapTile(url) {
+  return new Promise((resolve) => {
+    const image = new Image();
+    image.crossOrigin = 'anonymous';
+    let settled = false;
+    const finish = (result) => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timeout);
+      resolve(result);
+    };
+    const timeout = window.setTimeout(() => finish(null), 5000);
+    image.onload = () => finish(image);
+    image.onerror = () => finish(null);
+    image.src = url;
+  });
+}
+
+async function patternLifeEvidenceMapWithBasemapDataUri(points, routes, title, focus = false) {
+  const bounds = patternLifeEvidenceBounds(points, routes, focus);
+  if (!bounds) return '';
+  const width = 1100; const height = 620; const inset = 28; const innerWidth = width - inset * 2; const innerHeight = height - inset * 2;
+  const mercatorY = (lat) => {
+    const radians = Math.max(-85, Math.min(85, lat)) * Math.PI / 180;
+    return (1 - Math.log(Math.tan(Math.PI / 4 + radians / 2)) / Math.PI) / 2;
+  };
+  const westX = (bounds.west + 180) / 360; const eastX = (bounds.east + 180) / 360;
+  const northY = mercatorY(bounds.north); const southY = mercatorY(bounds.south);
+  const horizontalScale = innerWidth / Math.max(.000001, eastX - westX);
+  const verticalScale = innerHeight / Math.max(.000001, southY - northY);
+  const zoom = Math.max(1, Math.min(15, Math.floor(Math.log2(Math.min(horizontalScale, verticalScale) / 256))));
+  const worldPixels = 256 * (2 ** zoom);
+  const minTileX = Math.floor(westX * worldPixels / 256); const maxTileX = Math.floor(eastX * worldPixels / 256);
+  const minTileY = Math.floor(northY * worldPixels / 256); const maxTileY = Math.floor(southY * worldPixels / 256);
+  const tileSpecs = [];
+  for (let y = Math.max(0, minTileY); y <= Math.min(2 ** zoom - 1, maxTileY); y += 1) {
+    for (let rawX = minTileX; rawX <= maxTileX; rawX += 1) {
+      const x = ((rawX % (2 ** zoom)) + (2 ** zoom)) % (2 ** zoom);
+      const placement = { x: inset + ((rawX * 256) - westX * worldPixels) * (innerWidth / ((eastX - westX) * worldPixels)), y: inset + ((y * 256) - northY * worldPixels) * (innerHeight / ((southY - northY) * worldPixels)), width: 256 * (innerWidth / ((eastX - westX) * worldPixels)), height: 256 * (innerHeight / ((southY - northY) * worldPixels)) };
+      // Match the live Pattern of Life map: World Imagery, then the dark
+      // Carto overlay and its label layer.
+      tileSpecs.push(
+        { ...placement, opacity: 1, url: `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${zoom}/${y}/${x}` },
+        { ...placement, opacity: .68, url: `https://a.basemaps.cartocdn.com/dark_nolabels/${zoom}/${x}/${y}.png` },
+        { ...placement, opacity: .9, url: `https://a.basemaps.cartocdn.com/dark_only_labels/${zoom}/${x}/${y}.png` },
+      );
+    }
+  }
+  const loaded = await Promise.all(tileSpecs.map(async (tile) => ({ ...tile, image: await loadPatternLifeBasemapTile(tile.url) })));
+  const baseTiles = loaded.filter((tile) => tile.image);
+  return baseTiles.length ? patternLifeEvidenceMapRasterDataUri(points, routes, title, focus, baseTiles) : '';
+}
+
+async function hydratePatternLifeEvidenceBasemaps(posts) {
+  const geo = collectPatternOfLifeLocationPoints(Array.isArray(posts) ? posts : []);
+  const points = Array.isArray(geo?.points) ? geo.points : []; const routes = Array.isArray(geo?.routes) ? geo.routes : [];
+  if (!points.length && !routes.length) return;
+  const snapshots = await Promise.all([
+    patternLifeEvidenceMapWithBasemapDataUri(points, routes, 'Activity overview'),
+    patternLifeEvidenceMapWithBasemapDataUri(points, routes, 'Main activity area', true),
+  ]);
+  if (!snapshots.some(Boolean) || !Array.isArray(caseNotesPatternLifeEvidence)) return;
+  const snapshotsByKey = {
+    'pattern-life-overview': snapshots[0],
+    'pattern-life-focus': snapshots[1],
+  };
+  caseNotesPatternLifeEvidence = caseNotesPatternLifeEvidence.map((entry) => {
+    const snapshot = snapshotsByKey[String(entry?.key || '').trim().toLowerCase()];
+    return snapshot ? { ...entry, image_url: snapshot } : entry;
+  });
+  renderCaseNotesEvidenceCapture();
+}
+
+function buildPatternLifeEvidence(posts) {
+  const geo = collectPatternOfLifeLocationPoints(Array.isArray(posts) ? posts : []);
+  const points = Array.isArray(geo?.points) ? geo.points : [];
+  const routes = Array.isArray(geo?.routes) ? geo.routes : [];
+  if (!points.length && !routes.length) return [];
+  const capturedAt = new Date().toISOString();
+  const overviewFallback = patternLifeEvidenceMapDataUri(points, routes, 'Activity overview');
+  const focusFallback = patternLifeEvidenceMapDataUri(points, routes, 'Main activity area', true);
+  const overviewMap = patternLifeEvidenceMapRasterDataUri(points, routes, 'Activity overview') || overviewFallback;
+  const focusMap = patternLifeEvidenceMapRasterDataUri(points, routes, 'Main activity area', true) || focusFallback;
+  return [
+    { key: 'pattern-life-overview', title: 'Activity overview', description: '', image_url: overviewMap, fallback_image_url: overviewFallback, captured_at: capturedAt },
+    { key: 'pattern-life-focus', title: 'Main activity area', description: '', image_url: focusMap, fallback_image_url: focusFallback, captured_at: capturedAt },
+  ];
+}
+
 function renderPatternOfLife(posts) {
   const rows = Array.isArray(posts) ? posts : [];
   renderPatternLifePlatformFilters(rows);
@@ -6983,6 +8406,7 @@ function renderPatternOfLife(posts) {
   const analysis = summarizePostingRhythm(scopedRows);
   renderPatternPostingRhythm(scopedRows, analysis);
   renderPatternLifeMap(scopedRows, analysis);
+  void maybeAutofillActiveCaseLocationFromPatternLife();
 }
 
 function refreshPatternOfLifeEstimate() {
@@ -7324,6 +8748,8 @@ async function refreshPosts(options = {}) {
   if (activeStartDate) params.set('start_date', activeStartDate);
   if (activeEndDate) params.set('end_date', activeEndDate);
   const includeFaceAnalysis = forceFaceRefresh || activeFaceFilters.size > 0;
+  const requestedCaseId = String(activeCaseId || '').trim();
+  const requestedCaseSession = activeCaseSession;
   if (includeFaceAnalysis) params.set('include_faces', '1');
   if (forceFaceRefresh) params.set('face_refresh', '1');
 
@@ -7334,6 +8760,7 @@ async function refreshPosts(options = {}) {
     const response = await fetch(`/api/posts?${params.toString()}`, { signal: controller.signal });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json();
+    if (requestedCaseSession !== activeCaseSession || requestedCaseId !== String(activeCaseId || '').trim()) return;
     latestFaceClusters = Array.isArray(data?.face_clusters) ? data.face_clusters : [];
     latestFaceRecognition = data?.face_recognition && typeof data.face_recognition === 'object'
       ? data.face_recognition
@@ -7351,6 +8778,7 @@ async function refreshPosts(options = {}) {
     updateStatusLine();
   } catch (error) {
     if (error.name === 'AbortError') return;
+    if (requestedCaseSession !== activeCaseSession || requestedCaseId !== String(activeCaseId || '').trim()) return;
     console.error(error);
     latestFaceClusters = [];
     latestFaceRecognition = { available: false, reason: 'request_failed' };
@@ -7366,8 +8794,114 @@ function queueRefresh() {
   requestTimer = setTimeout(refreshPosts, 250);
 }
 
+const GUIDE_STEPS = [
+  { id: 'query', title: 'Query initial selectors', detail: 'Start with the known usernames, email addresses, phone numbers, or names.', action: 'query', cta: 'Run search' },
+  { id: 'validate', title: 'Review and validate results', detail: 'Inspect returned profiles and remove results that are not relevant to this case.', action: 'validate', cta: 'Review results' },
+  { id: 'pivot', title: 'Pivot off discovered selectors', detail: 'Use the suggested selectors below to expand the investigation with a traceable pivot.', action: 'pivot', cta: 'Review pivots' },
+  { id: 'collect', title: 'Collect high-value profiles', detail: 'Preview discovered profiles, then collect an individual profile or queue all selected profiles.', action: 'collect', cta: 'Open collection' },
+  { id: 'posts', title: 'Review posts for new selectors and leads', detail: 'Review collected activity, selectors, and leads before deciding whether a behavioural assessment is required.', action: 'posts', cta: 'Review posts' },
+];
+
+function guideState() {
+  const notes = normalizeCaseNotesObject(activeCase?.case_notes || {});
+  const raw = notes.investigation_guide && typeof notes.investigation_guide === 'object' ? notes.investigation_guide : {};
+  return {
+    completed: raw.completed && typeof raw.completed === 'object' ? raw.completed : {},
+    bta_required: raw.bta_required === true ? true : (raw.bta_required === false ? false : null),
+    primary_notes: String(raw.primary_notes || ''),
+    secondary_notes: String(raw.secondary_notes || ''),
+  };
+}
+
+function guideAuditEntries(notes = activeCase?.case_notes) {
+  const entries = normalizeCaseNotesObject(notes || {}).investigation_audit_log;
+  return Array.isArray(entries) ? entries.filter((entry) => entry && typeof entry === 'object') : [];
+}
+
+async function saveGuideState(nextState, auditAction, auditSelector = 'Investigation Guide') {
+  if (!activeCaseId || !activeCase) return false;
+  const notes = normalizeCaseNotesObject(activeCase.case_notes || {});
+  const entries = guideAuditEntries(notes);
+  if (auditAction) entries.unshift({ action: auditAction, selector: auditSelector, user: 'Current analyst', occurred_at: new Date().toISOString() });
+  const nextNotes = { ...notes, investigation_guide: nextState, investigation_audit_log: entries.slice(0, 100) };
+  try {
+    const response = await fetch(`/api/cases/${encodeURIComponent(activeCaseId)}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ case_notes: nextNotes }),
+    });
+    if (!response.ok) throw new Error(await parseErrorResponse(response));
+    activeCase = { ...activeCase, case_notes: nextNotes };
+    renderGuide();
+    renderCaseAuditLog(activeCase);
+    return true;
+  } catch (error) {
+    console.error(error);
+    showNotification(`Guide save failed: ${error.message || 'unknown error'}`, 'error');
+    return false;
+  }
+}
+
+function renderCaseAuditLog(caseRow = activeCase) {
+  if (!caseAuditRows || !caseAuditCount) return;
+  const timestamp = (entry) => {
+    const value = new Date(String(entry?.occurred_at || '')).getTime();
+    return Number.isNaN(value) ? Number.NEGATIVE_INFINITY : value;
+  };
+  const entries = guideAuditEntries(caseRow?.case_notes)
+    .slice()
+    .sort((a, b) => timestamp(b) - timestamp(a));
+  caseAuditCount.textContent = entries.length ? `${entries.length} recorded event${entries.length === 1 ? '' : 's'}` : 'No activity recorded';
+  caseAuditRows.innerHTML = entries.length ? entries.map((entry) => {
+    const date = new Date(String(entry.occurred_at || ''));
+    const when = Number.isNaN(date.getTime()) ? 'Unknown time' : date.toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'UTC' }) + ' UTC';
+    return `<div class="case-audit-row" role="row"><span role="cell">${escapeHtml(String(entry.action || 'Guide activity'))}</span><span role="cell">${escapeHtml(String(entry.selector || '—'))}</span><span role="cell">${escapeHtml(String(entry.user || 'Current analyst'))}</span><span role="cell">${escapeHtml(when)}</span></div>`;
+  }).join('') : '<div class="case-audit-row case-audit-empty" role="row"><span role="cell">No Guide activity has been recorded for this case.</span></div>';
+}
+
+function guideCollectionPreview(model) {
+  const profiles = model.collectionCandidates.slice(0, 5);
+  if (!profiles.length) return '<p class="guide-inline-note">No collection-ready profiles yet. Validate recon results first.</p>';
+  return `<div class="guide-profile-preview">${profiles.map((profile, index) => `<div><span>${escapeHtml(profile.platform)} · @${escapeHtml(profile.username)}</span><button class="secondary-btn guide-inline-btn" type="button" data-guide-collect-index="${index}">Collect</button></div>`).join('')}<button class="secondary-btn guide-inline-btn" type="button" data-guide-action="collect-all">Collect all (${profiles.length})</button></div>`;
+}
+
+function renderGuide() {
+  if (!guideSteps || !guideProgress) return;
+  const state = guideState();
+  const model = buildWorkflowModel();
+  const assessmentComplete = state.bta_required === false || (state.bta_required === true && Boolean(state.primary_notes.trim() && state.secondary_notes.trim()));
+  const completeCount = GUIDE_STEPS.filter((step) => state.completed[step.id]).length + (assessmentComplete ? 1 : 0);
+  guideProgress.textContent = `${completeCount} of 6 complete`;
+  const baseSteps = GUIDE_STEPS.map((step, index) => {
+    const isComplete = state.completed[step.id] === true;
+    const extra = step.id === 'pivot' && model.reconSuggestions.length
+      ? `<p class="guide-inline-note">${model.reconSuggestions.length} suggested selector${model.reconSuggestions.length === 1 ? '' : 's'} ready to pivot.</p>`
+      : step.id === 'collect' ? guideCollectionPreview(model) : '';
+    return `<article class="guide-step${isComplete ? ' is-complete' : ''}"><div class="guide-step-number">${index + 1}</div><div class="guide-step-content"><div><h4>${escapeHtml(step.title)}</h4><p>${escapeHtml(step.detail)}</p></div>${extra}<div class="guide-step-actions"><button class="secondary-btn" type="button" data-guide-action="${step.action}">${escapeHtml(step.cta)}</button><button class="guide-complete-btn" type="button" data-guide-complete="${step.id}" aria-pressed="${isComplete}">${isComplete ? 'Completed' : 'Mark complete'}</button></div></div></article>`;
+  }).join('');
+  const assessment = `<article class="guide-step guide-assessment${assessmentComplete ? ' is-complete' : ''}"><div class="guide-step-number">6</div><div class="guide-step-content"><div><h4>Behavioural Threat Assessment</h4><p>Will a behavioural threat assessment be required? Record the decision and, if required, review and describe primary and secondary warning behaviours.</p></div><div class="guide-decision"><label><input type="radio" name="guide-bta" value="yes"${state.bta_required === true ? ' checked' : ''}> Yes</label><label><input type="radio" name="guide-bta" value="no"${state.bta_required === false ? ' checked' : ''}> No</label></div>${state.bta_required === true ? `<div class="guide-assessment-fields"><label>Primary warning behaviours <button class="guide-text-link" type="button" data-guide-action="primary-warning">Open primary review</button><textarea data-guide-notes="primary" placeholder="Describe the primary warning behaviours and supporting context.">${escapeHtml(state.primary_notes)}</textarea></label><label>Secondary warning behaviours <button class="guide-text-link" type="button" data-guide-action="secondary-warning">Open secondary review</button><textarea data-guide-notes="secondary" placeholder="Describe the secondary warning behaviours and supporting context.">${escapeHtml(state.secondary_notes)}</textarea></label><button class="secondary-btn" type="button" data-guide-action="save-assessment">Save assessment to case notes</button></div>` : ''}<div class="guide-step-actions"><button class="guide-complete-btn" type="button" data-guide-complete="assessment" aria-pressed="${assessmentComplete}">${assessmentComplete ? 'Completed' : 'Mark complete'}</button></div></div></article>`;
+  guideSteps.innerHTML = baseSteps + assessment;
+}
+
+function openGuideWarningReview(kind) {
+  setResultsView('posts');
+  const filter = kind === 'primary' ? filterLLMPrimary : filterLLMSecondary;
+  if (filter instanceof HTMLInputElement) { filter.checked = true; queueRefresh(); }
+}
+
+async function saveGuideAssessmentFromFields() {
+  if (!guideSteps) return false;
+  const state = guideState();
+  const primary = guideSteps.querySelector('[data-guide-notes="primary"]');
+  const secondary = guideSteps.querySelector('[data-guide-notes="secondary"]');
+  const next = { ...state, primary_notes: primary instanceof HTMLTextAreaElement ? primary.value.trim() : '', secondary_notes: secondary instanceof HTMLTextAreaElement ? secondary.value.trim() : '' };
+  const notes = normalizeCaseNotesObject(activeCase?.case_notes || {});
+  const summary = `Behavioural Threat Assessment\nPrimary warning behaviours: ${next.primary_notes || 'Not recorded'}\nSecondary warning behaviours: ${next.secondary_notes || 'Not recorded'}`;
+  activeCase = { ...activeCase, case_notes: { ...notes, threat_risk_assessment: summary } };
+  return saveGuideState(next, 'Behavioural threat assessment narrative saved', 'Case notes');
+}
+
 function applyResultsViewButtonState() {
   const workflowMode = activeResultsView === 'workflow';
+  const guideMode = activeResultsView === 'guide';
   const postView = activeResultsView === 'posts';
   const mediaView = activeResultsView === 'media';
   const footprintMode = activeResultsView === 'footprint';
@@ -7376,6 +8910,7 @@ function applyResultsViewButtonState() {
   const entityGraphMode = activeResultsView === 'entitygraph';
   const sandboxMode = activeResultsView === 'sandbox';
   viewWorkflowBtn?.classList.toggle('is-active', workflowMode);
+  viewGuideBtn?.classList.toggle('is-active', guideMode);
   viewPostsBtn?.classList.toggle('is-active', postView);
   viewMediaBtn?.classList.toggle('is-active', mediaView);
   viewFootprintBtn?.classList.toggle('is-active', footprintMode);
@@ -7383,26 +8918,28 @@ function applyResultsViewButtonState() {
   viewTimelineBtn?.classList.toggle('is-active', timelineMode);
   viewEntityGraphBtn?.classList.toggle('is-active', entityGraphMode);
   viewWorkflowBtn?.setAttribute('aria-pressed', String(workflowMode));
+  viewGuideBtn?.setAttribute('aria-pressed', String(guideMode));
   viewPostsBtn?.setAttribute('aria-pressed', String(postView));
   viewMediaBtn?.setAttribute('aria-pressed', String(mediaView));
   viewFootprintBtn?.setAttribute('aria-pressed', String(footprintMode));
   viewPatternLifeBtn?.setAttribute('aria-pressed', String(patternLifeMode));
   viewTimelineBtn?.setAttribute('aria-pressed', String(timelineMode));
   viewEntityGraphBtn?.setAttribute('aria-pressed', String(entityGraphMode));
-  [[viewWorkflowBtn, workflowMode], [viewPostsBtn, postView], [viewMediaBtn, mediaView], [viewFootprintBtn, footprintMode], [viewPatternLifeBtn, patternLifeMode], [viewTimelineBtn, timelineMode], [viewEntityGraphBtn, entityGraphMode]].forEach(([button, active]) => {
+  [[viewWorkflowBtn, workflowMode], [viewGuideBtn, guideMode], [viewPostsBtn, postView], [viewMediaBtn, mediaView], [viewFootprintBtn, footprintMode], [viewPatternLifeBtn, patternLifeMode], [viewTimelineBtn, timelineMode], [viewEntityGraphBtn, entityGraphMode]].forEach(([button, active]) => {
     button?.setAttribute('aria-selected', String(active));
     button?.setAttribute('tabindex', active ? '0' : '-1');
   });
   if (resultsColumn instanceof HTMLElement) {
     resultsColumn.setAttribute('aria-labelledby', mediaView ? 'viewMediaBtn' : 'viewPostsBtn');
   }
-  const hideStandardLayout = workflowMode || footprintMode || patternLifeMode || timelineMode || entityGraphMode || sandboxMode;
+  const hideStandardLayout = workflowMode || guideMode || footprintMode || patternLifeMode || timelineMode || entityGraphMode || sandboxMode;
   resultsEl?.classList.toggle('hidden', hideStandardLayout);
   resultsColumn?.classList.toggle('hidden', hideStandardLayout);
   dashboardContent?.classList.toggle('media-grid-mode', mediaView);
   const insightsEl = dashboardContent?.querySelector('.insights');
   if (insightsEl instanceof HTMLElement) insightsEl.classList.toggle('hidden', hideStandardLayout || mediaView);
   workflowView?.classList.toggle('hidden', !workflowMode);
+  guideView?.classList.toggle('hidden', !guideMode);
   footprintView?.classList.toggle('hidden', !footprintMode);
   patternLifeView?.classList.toggle('hidden', !patternLifeMode);
   timelineView?.classList.toggle('hidden', !timelineMode);
@@ -7419,6 +8956,8 @@ function setResultsView(mode) {
   const normalized = String(mode || '').trim().toLowerCase();
   const next = (normalized === 'workflow' || normalized === 'nextsteps' || normalized === 'next_steps' || normalized === 'leads')
     ? 'workflow'
+    : (normalized === 'guide' || normalized === 'investigation-guide'
+      ? 'guide'
     : (normalized === 'media'
     ? 'media'
     : (normalized === 'footprint'
@@ -7429,13 +8968,15 @@ function setResultsView(mode) {
           ? 'timeline'
           : ((normalized === 'entitygraph' || normalized === 'entity_graph' || normalized === 'graph')
             ? 'entitygraph'
-            : (normalized === 'sandbox' ? 'sandbox' : 'posts'))))));
+            : (normalized === 'sandbox' ? 'sandbox' : 'posts')))))));
   if (activeResultsView === next) return;
   activeResultsView = next;
+  clearResultsViewAttention(next);
   if (activeResultsView === 'footprint') {
     ensureAtLeastOneReconSelectorRow(footprintSelectorsList);
   }
   applyResultsViewButtonState();
+  if (activeResultsView === 'guide') renderGuide();
   if (activeResultsView === 'pattern') {
     activePatternLifePlatforms.clear();
     for (const platform of SOURCE_ORDER) activePatternLifePlatforms.add(platform);
@@ -7550,11 +9091,13 @@ function syncModalActiveState() {
   const configOpen = configModal && !configModal.classList.contains('hidden');
   const manualInsertOpen = manualInsertModal && !manualInsertModal.classList.contains('hidden');
   const postOpen = postModal && !postModal.classList.contains('hidden');
+  const evidenceCaptureOpen = evidenceCaptureModal && !evidenceCaptureModal.classList.contains('hidden');
   const quitOptionsOpen = quitOptionsModal && !quitOptionsModal.classList.contains('hidden');
   document.body.classList.toggle(
     'modal-active',
-    Boolean(setupOpen || editOpen || saveOpen || notesOpen || configOpen || manualInsertOpen || postOpen || quitOptionsOpen),
+    Boolean(setupOpen || editOpen || saveOpen || notesOpen || configOpen || manualInsertOpen || postOpen || evidenceCaptureOpen || quitOptionsOpen),
   );
+  document.body.classList.toggle('recon-setup-open', Boolean(setupOpen && modalMode === 'recon'));
 }
 
 function openConfigModal() {
@@ -7805,6 +9348,7 @@ function setModalMode(mode) {
     setupTitle.textContent = 'Start Collection';
     setupSubtitle.textContent = '';
   }
+  syncModalActiveState();
 }
 
 function setSetupFormBusy(isBusy) {
@@ -8177,6 +9721,10 @@ function filteredReconPayload(payload) {
   });
   const output = {
     ...base,
+    selectors: (Array.isArray(base?.selectors) ? base.selectors : []).filter((selector) => {
+      const key = sourceSelectorKey(selector?.type, selector?.value);
+      return !key || !hiddenKnownSelectorKeys.has(key);
+    }),
     results,
     scanner_results: scannerResults,
     osint_profiles: osintProfiles,
@@ -8210,6 +9758,40 @@ function pivotSelectorActionMarkup(type, value, title = 'Pivot Search') {
       <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="11" cy="11" r="6.5"></circle><path d="M16.5 16.5L21 21"></path></svg>
     </button>
   `;
+}
+
+function pivotTypeForReturnedField(label) {
+  const field = String(label || '').trim().toLowerCase().replace(/[\s_-]+/g, ' ');
+  if (/\be ?mail\b/.test(field)) return 'email';
+  if (/\b(phone|mobile|telephone|tel)\b/.test(field)) return 'phone';
+  if (/\b(username|user name|handle|screen name)\b/.test(field)) return 'username';
+  return '';
+}
+
+function selectorTypeForReturnedField(label) {
+  const field = String(label || '').trim().toLowerCase().replace(/[\s_-]+/g, ' ');
+  const pivotType = pivotTypeForReturnedField(field);
+  if (pivotType) return pivotType;
+  if (/\b(location|biolocation|city|region|state|province|country|area|address)\b/.test(field)) return 'location';
+  if (/\b(name|full name|display name)\b/.test(field)) return 'name';
+  return '';
+}
+
+function pivotableReturnedValueMarkup(label, value, pivotTypeOverride = '') {
+  const clean = String(value || '').trim();
+  const pivotType = String(pivotTypeOverride || '').trim().toLowerCase() || pivotTypeForReturnedField(label);
+  const pivotMarkup = pivotType ? pivotSelectorActionMarkup(pivotType, clean, `Pivot from ${label}`) : '';
+  const valueMarkup = expandableReturnedFieldMarkup(clean);
+  if (!pivotMarkup) return valueMarkup;
+  return `<span class="pivotable-returned-value">${valueMarkup}${pivotMarkup}</span>`;
+}
+
+function expandableReturnedFieldMarkup(value) {
+  const clean = String(value || '').trim();
+  const previewLength = 80;
+  if (clean.length <= previewLength) return `<strong>${escapeHtml(clean)}</strong>`;
+  const preview = `${clean.slice(0, previewLength).trimEnd()}…`;
+  return `<span class="returned-field-value" data-returned-field-value data-returned-field-preview="${escapeAttr(preview)}" data-returned-field-full="${escapeAttr(clean)}"><strong>${escapeHtml(preview)}</strong><button type="button" class="returned-field-toggle" data-returned-field-toggle aria-expanded="false">See more</button></span>`;
 }
 
 function toReconBadge(row, clsName = 'lead', options = {}) {
@@ -8285,6 +9867,31 @@ function sourceSelectorAttr(selectorType, selectorValue) {
   return key ? ` data-source-selector-key="${escapeAttr(key)}"` : '';
 }
 
+function selectorAttributionKind(selectorType) {
+  const type = String(selectorType || '').trim().toLowerCase();
+  if (type === 'email' || type === 'phone') return 'unique';
+  if (type === 'username' || type === 'name') return 'non-unique';
+  return '';
+}
+
+function selectorAttributionClass(selectorType) {
+  const kind = selectorAttributionKind(selectorType);
+  return kind ? ` selector-attribution-${kind}` : '';
+}
+
+function selectorMatchTooltip(selectorType, selectorValue) {
+  const selector = String(selectorValue || '').trim();
+  const type = String(selectorType || '').trim();
+  const kind = selectorAttributionKind(type);
+  if (kind === 'unique') {
+    return `Match for ${selector} ${type} query. This is a unique selector and a high confidence attribution.`;
+  }
+  if (kind === 'non-unique') {
+    return `Match for ${selector} ${type} query. This may be a non-unique selector, multiple people can use the same ${type}. Attribution requires human analysis.`;
+  }
+  return `Match for ${selector} ${type} query`;
+}
+
 function sourceSelectorParts(key) {
   const raw = String(key || '').trim().toLowerCase();
   if (!raw || !raw.includes('|')) return { type: '', value: '' };
@@ -8315,6 +9922,7 @@ function focusFootprintSelectorMatch(selectorKey, options = {}) {
   const advance = options?.advance === true;
   const preserveIndex = options?.preserveIndex === true;
   const suppressStatus = options?.suppressStatus === true;
+  const associatedQueryKeys = Array.isArray(options?.associatedQueryKeys) ? options.associatedQueryKeys : [];
   const previousKey = activeFootprintSelectorMatchKey;
   const previousIndex = activeFootprintSelectorMatchIndex;
   if (!(footprintReconResults instanceof HTMLElement) || !key || key === 'all') {
@@ -8322,9 +9930,10 @@ function focusFootprintSelectorMatch(selectorKey, options = {}) {
     return false;
   }
   resetFootprintSelectorMatchFocus();
-  const matches = Array.from(
-    footprintReconResults.querySelectorAll(`[data-source-selector-key="${escapeSelectorLiteral(key)}"]`),
-  ).filter((element) => element instanceof HTMLElement);
+  const matchKeys = new Set([key, ...associatedQueryKeys.map((item) => String(item || '').trim().toLowerCase()).filter(Boolean)]);
+  const matches = Array.from(matchKeys).flatMap((matchKey) => Array.from(
+    footprintReconResults.querySelectorAll(`[data-source-selector-key="${escapeSelectorLiteral(matchKey)}"]`),
+  )).filter((element, index, all) => element instanceof HTMLElement && all.indexOf(element) === index);
   const knownPills = Array.from(footprintKnownSelectorsGroups?.querySelectorAll('[data-known-focus-key]') || []);
   for (const pill of knownPills) {
     const isActive = String(pill.getAttribute('data-known-focus-key') || '').trim().toLowerCase() === key;
@@ -8387,7 +9996,7 @@ function collectSourceSelectorFilterOptions(results) {
 }
 
 function collectKnownSelectors(payload) {
-  const selectorMap = new Map(KNOWN_SELECTOR_GROUPS.map((type) => [type, new Set()]));
+  const selectorMap = new Map(KNOWN_SELECTOR_GROUPS.map((type) => [type, new Map()]));
   const rows = Array.isArray(payload?.results) ? payload.results : [];
   const selectors = Array.isArray(payload?.selectors) ? payload.selectors : [];
   const osintProfiles = Array.isArray(payload?.osint_profiles) ? payload.osint_profiles : [];
@@ -8396,37 +10005,128 @@ function collectKnownSelectors(payload) {
   const leads = Array.isArray(payload?.leads) ? payload.leads : [];
   const breachRecords = Array.isArray(payload?.breach_records) ? payload.breach_records : [];
 
-  for (const selector of selectors) addKnownSelector(selectorMap, selector?.type, selector?.value);
-  for (const row of rows) addKnownSelector(selectorMap, row?.selector_type, row?.selector);
+  const addProfileIdentitySelectors = (profile, source, searchedSelectorKey = '') => {
+    if (!profile || typeof profile !== 'object') return;
+    const profileFields = profile?.profile_record?.fields && typeof profile.profile_record.fields === 'object'
+      ? profile.profile_record.fields
+      : {};
+    const extra = profile?.extra && typeof profile.extra === 'object' ? profile.extra : {};
+    const nameValues = [
+      profile?.full_name,
+      profile?.display_name,
+      profile?.profile_name,
+      profile?.name,
+      profile?.title,
+      profileFields?.full_name,
+      profileFields?.display_name,
+      profileFields?.name,
+      profileFields?.['extra.full_name'],
+      profileFields?.['extra.fullname'],
+      profileFields?.['extra.display_name'],
+      profileFields?.['extra.name'],
+      extra?.full_name,
+      extra?.fullname,
+      extra?.display_name,
+      extra?.name,
+    ];
+    const locationValues = [
+      profile?.location,
+      profile?.location_name,
+      profile?.biolocation,
+      profile?.city,
+      profile?.region,
+      profile?.country,
+      profileFields?.location,
+      profileFields?.location_name,
+      profileFields?.biolocation,
+      profileFields?.['extra.location'],
+      profileFields?.['extra.location_name'],
+      profileFields?.['extra.city'],
+      profileFields?.['extra.region'],
+      profileFields?.['extra.country'],
+      extra?.location,
+      extra?.location_name,
+      extra?.city,
+      extra?.region,
+      extra?.country,
+    ];
+    for (const value of nameValues) addKnownSelector(selectorMap, 'name', value, source, searchedSelectorKey);
+    for (const value of locationValues) addKnownSelector(selectorMap, 'location', value, source, searchedSelectorKey);
+  };
+
+  const addOsintProfileSelectors = (profile, source, searchedSelectorKey = '') => {
+    if (!profile || typeof profile !== 'object') return;
+    addKnownSelector(selectorMap, 'email', profile?.email, source, searchedSelectorKey);
+    addKnownSelector(selectorMap, 'phone', profile?.phone, source, searchedSelectorKey);
+    addKnownSelector(selectorMap, 'username', profile?.username, source, searchedSelectorKey);
+    addKnownSelector(selectorMap, 'name', profile?.name, source, searchedSelectorKey);
+    addKnownSelector(selectorMap, 'location', profile?.location, source, searchedSelectorKey);
+    addKnownSelector(selectorMap, 'location', profile?.biolocation, source, searchedSelectorKey);
+    addKnownSelector(selectorMap, 'phone', profile?.phone_hint, source, searchedSelectorKey);
+    addKnownSelector(selectorMap, 'email', profile?.email_hint, source, searchedSelectorKey);
+
+    // OSINT Industries modules use provider-specific field names. Preserve
+    // selector pivots from their parsed response rather than relying only on
+    // the normalized profile fields above.
+    const parsedValues = profile?.parsed_values && typeof profile.parsed_values === 'object'
+      ? profile.parsed_values
+      : {};
+    const fieldTypes = [
+      ['email', /(?:^|[\s_-])(e[\s_-]?mail|mail)(?:$|[\s_-])/i],
+      ['phone', /(?:^|[\s_-])(phone|mobile|telephone|tel)(?:$|[\s_-])/i],
+      ['username', /(?:^|[\s_-])(username|user[\s_-]?name|handle|screen[\s_-]?name|nick(?:name)?|alias)(?:$|[\s_-])/i],
+      ['name', /(?:^|[\s_-])(full[\s_-]?name|display[\s_-]?name|name)(?:$|[\s_-])/i],
+      ['location', /(?:^|[\s_-])(location|bio[\s_-]?location|city|region|state|province|country)(?:$|[\s_-])/i],
+    ];
+    for (const [field, rawValue] of Object.entries(parsedValues)) {
+      const type = fieldTypes.find(([, pattern]) => pattern.test(String(field || '').trim()))?.[0];
+      if (!type) continue;
+      const values = Array.isArray(rawValue) ? rawValue : [rawValue];
+      for (const value of values) {
+        if (typeof value === 'string' || typeof value === 'number') addKnownSelector(selectorMap, type, value, source, searchedSelectorKey);
+      }
+    }
+  };
+
+  for (const selector of selectors) {
+    const searchedSelectorKey = sourceSelectorKey(selector?.type, selector?.value);
+    addKnownSelector(selectorMap, selector?.type, selector?.value, 'Investigation input', searchedSelectorKey);
+  }
+  for (const row of rows) {
+    const source = normalizeReconSiteLabel(row?.site || row?.site_key || row?.source, row?.profile_url, row?.site_url);
+    const searchedSelectorKey = sourceSelectorKey(row?.selector_type, row?.selector);
+    addKnownSelector(selectorMap, row?.selector_type, row?.selector, source, searchedSelectorKey);
+    addProfileIdentitySelectors(row, source, searchedSelectorKey);
+    addProfileIdentitySelectors(row?.scanner_result, source, searchedSelectorKey);
+  }
+  for (const result of Array.isArray(payload?.scanner_results) ? payload.scanner_results : []) {
+    addProfileIdentitySelectors(result, normalizeReconSiteLabel(result?.site || result?.site_key || result?.source, result?.profile_url, result?.site_url), sourceSelectorKey(result?.selector_type || result?.query_type, result?.selector || result?.query_value));
+  }
 
   for (const profile of osintProfiles) {
     const moduleName = String(profile?.module || '').trim().toLowerCase();
     if (moduleName === 'hibp') continue;
-    addKnownSelector(selectorMap, 'email', profile?.email);
-    addKnownSelector(selectorMap, 'phone', profile?.phone);
-    addKnownSelector(selectorMap, 'username', profile?.username);
-    addKnownSelector(selectorMap, 'name', profile?.name);
-    addKnownSelector(selectorMap, 'location', profile?.location);
-    addKnownSelector(selectorMap, 'location', profile?.biolocation);
-    addKnownSelector(selectorMap, 'phone', profile?.phone_hint);
-    addKnownSelector(selectorMap, 'email', profile?.email_hint);
+    addOsintProfileSelectors(profile, normalizeReconSiteLabel(profile?.module || profile?.website, profile?.profile_url, profile?.website), sourceSelectorKey(profile?.query_type, profile?.query_value));
   }
 
   for (const profile of personDataProfiles) {
-    addKnownSelector(selectorMap, 'name', profile?.full_name);
-    for (const row of (Array.isArray(profile?.aliases) ? profile.aliases : [])) addKnownSelector(selectorMap, 'name', row);
-    addKnownSelector(selectorMap, 'location', profile?.location_name);
-    for (const row of (Array.isArray(profile?.biolocations) ? profile.biolocations : [])) addKnownSelector(selectorMap, 'location', row);
-    addKnownSelector(selectorMap, 'email', profile?.professional_email || profile?.work_email);
-    for (const row of (Array.isArray(profile?.personal_emails) ? profile.personal_emails : [])) addKnownSelector(selectorMap, 'email', row);
-    addKnownSelector(selectorMap, 'phone', profile?.mobile_phone);
-    for (const row of (Array.isArray(profile?.personal_phones) ? profile.personal_phones : [])) addKnownSelector(selectorMap, 'phone', row);
-    for (const row of (Array.isArray(profile?.professional_phones) ? profile.professional_phones : [])) addKnownSelector(selectorMap, 'phone', row);
+    const source = 'People Data Labs';
+    const searchedSelectorKey = sourceSelectorKey(profile?.query_type, profile?.query_value);
+    addKnownSelector(selectorMap, 'name', profile?.full_name, source, searchedSelectorKey);
+    for (const row of (Array.isArray(profile?.aliases) ? profile.aliases : [])) addKnownSelector(selectorMap, 'name', row, source, searchedSelectorKey);
+    addKnownSelector(selectorMap, 'location', profile?.location_name, source, searchedSelectorKey);
+    for (const row of (Array.isArray(profile?.biolocations) ? profile.biolocations : [])) addKnownSelector(selectorMap, 'location', row, source, searchedSelectorKey);
+    addKnownSelector(selectorMap, 'email', profile?.professional_email || profile?.work_email, source, searchedSelectorKey);
+    for (const row of (Array.isArray(profile?.personal_emails) ? profile.personal_emails : [])) addKnownSelector(selectorMap, 'email', row, source, searchedSelectorKey);
+    addKnownSelector(selectorMap, 'phone', profile?.mobile_phone, source, searchedSelectorKey);
+    for (const row of (Array.isArray(profile?.personal_phones) ? profile.personal_phones : [])) addKnownSelector(selectorMap, 'phone', row, source, searchedSelectorKey);
+    for (const row of (Array.isArray(profile?.professional_phones) ? profile.professional_phones : [])) addKnownSelector(selectorMap, 'phone', row, source, searchedSelectorKey);
   }
 
   for (const profile of numverifyProfiles) {
-    addKnownSelector(selectorMap, 'phone', profile?.number || profile?.international_format || profile?.e164);
-    addKnownSelector(selectorMap, 'location', profile?.location);
+    const searchedSelectorKey = sourceSelectorKey(profile?.query_type, profile?.query_value);
+    addKnownSelector(selectorMap, 'phone', profile?.number || profile?.international_format || profile?.e164, 'Numverify', searchedSelectorKey);
+    addKnownSelector(selectorMap, 'location', profile?.location, 'Numverify', searchedSelectorKey);
   }
 
   for (const lead of leads) {
@@ -8436,30 +10136,47 @@ function collectKnownSelectors(payload) {
     const value = String(lead?.value || '').trim();
     if (!value) continue;
     if (attr.includes('company') || attr.includes('breach') || attr.includes('site') || attr.includes('job title') || attr === 'title') continue;
-    if (attr.includes('email')) addKnownSelector(selectorMap, 'email', value);
-    else if (attr.includes('phone')) addKnownSelector(selectorMap, 'phone', value);
-    else if (attr.includes('name')) addKnownSelector(selectorMap, 'name', value);
-    else if (attr.includes('location')) addKnownSelector(selectorMap, 'location', value);
-    else addKnownSelector(selectorMap, inferKnownSelectorType(value), value);
+    const source = String(lead?.source || lead?.source_name || 'Recon lead').trim();
+    const searchedSelectorKey = sourceSelectorKey(lead?.query_type || lead?.selector_type, lead?.query_value || lead?.selector);
+    if (attr.includes('email')) addKnownSelector(selectorMap, 'email', value, source, searchedSelectorKey);
+    else if (attr.includes('phone')) addKnownSelector(selectorMap, 'phone', value, source, searchedSelectorKey);
+    else if (attr.includes('name')) addKnownSelector(selectorMap, 'name', value, source, searchedSelectorKey);
+    else if (attr.includes('location')) addKnownSelector(selectorMap, 'location', value, source, searchedSelectorKey);
+    else addKnownSelector(selectorMap, inferKnownSelectorType(value), value, source, searchedSelectorKey);
   }
 
   for (const breach of breachRecords) {
-    addKnownSelector(selectorMap, breach?.selectorType, breach?.selectorValue);
+    const source = String(breach?.source || breach?.breachName || 'Breach intelligence').trim();
+    const searchedSelectorKey = sourceSelectorKey(breach?.selectorType, breach?.selectorValue);
+    addKnownSelector(selectorMap, breach?.selectorType, breach?.selectorValue, source, searchedSelectorKey);
     for (const pair of (Array.isArray(breach?.fields) ? breach.fields : [])) {
       const label = String(Array.isArray(pair) ? pair[0] : '').trim().toLowerCase();
       const value = String(Array.isArray(pair) ? pair[1] : '').trim();
       if (!value) continue;
-      if (label.includes('email')) addKnownSelector(selectorMap, 'email', value);
-      else if (label.includes('phone')) addKnownSelector(selectorMap, 'phone', value);
-      else if (label.includes('username') || label.includes('online id') || label.includes('alias')) addKnownSelector(selectorMap, 'username', value);
-      else if (label.includes('name')) addKnownSelector(selectorMap, 'name', value);
-      else if (label.includes('location') || label.includes('city') || label.includes('area') || label.includes('address')) addKnownSelector(selectorMap, 'location', value);
+      if (label.includes('email')) addKnownSelector(selectorMap, 'email', value, source, searchedSelectorKey);
+      else if (label.includes('phone')) addKnownSelector(selectorMap, 'phone', value, source, searchedSelectorKey);
+      else if (label.includes('username') || label.includes('online id') || label.includes('alias')) addKnownSelector(selectorMap, 'username', value, source, searchedSelectorKey);
+      else if (label.includes('name')) addKnownSelector(selectorMap, 'name', value, source, searchedSelectorKey);
+      else if (/^(?:location|bio\s*location|city|state|province|region|country)$/i.test(label)) addKnownSelector(selectorMap, 'location', value, source, searchedSelectorKey);
     }
   }
 
-  return Object.fromEntries(
-    KNOWN_SELECTOR_GROUPS.map((type) => [type, Array.from(selectorMap.get(type) || []).sort((a, b) => a.localeCompare(b))]),
+  const known = Object.fromEntries(
+    KNOWN_SELECTOR_GROUPS.map((type) => [
+      type,
+      Array.from(selectorMap.get(type) || [])
+        .sort(([valueA, metaA], [valueB, metaB]) => metaB.searchedSelectors.size - metaA.searchedSelectors.size || metaB.sources.size - metaA.sources.size || metaB.count - metaA.count || (metaB.qualityWeight ?? selectorQualityWeight(type, valueB)) - (metaA.qualityWeight ?? selectorQualityWeight(type, valueA)) || valueA.localeCompare(valueB))
+        .map(([value]) => value),
+    ]),
   );
+  Object.defineProperty(known, 'corroboration', {
+    value: new Map(Array.from(selectorMap.entries()).flatMap(([type, values]) => Array.from(values.entries()).map(([value, meta]) => [`${type}|${value.toLowerCase()}`, {
+      sourceCount: meta.sources.size,
+      searchedSelectorCount: meta.searchedSelectors.size,
+      searchedSelectors: Array.from(meta.searchedSelectors).sort(),
+    }]))),
+  });
+  return known;
 }
 
 const KNOWN_SELECTOR_GROUPS = ['email', 'phone', 'username', 'name', 'location'];
@@ -8477,10 +10194,19 @@ const KNOWN_SELECTOR_NON_PERSON_NAME_TERMS = new Set([
   'manager', 'senior', 'public', 'sector', 'transformation', 'director', 'lead', 'team', 'official',
   'account', 'verified',
 ]);
+const KNOWN_SELECTOR_INVALID_LOCATION_VALUES = new Set([
+  'none', 'n/a', 'na', 'unknown', 'not specified', 'not set', 'unspecified',
+  'offline', 'public', 'private', 'hidden', 'null', 'undefined', '-', '—',
+]);
+
+function selectorQualityWeight(type, value) {
+  if (!['email', 'phone'].includes(String(type || '').trim().toLowerCase())) return 1;
+  return String(value || '').includes('*') ? 0 : 1;
+}
 
 function normalizeKnownSelectorValue(type, value) {
   const normalizedType = String(type || '').trim().toLowerCase();
-  const raw = String(value || '').trim();
+  const raw = String(value || '').normalize('NFKC').trim();
   if (!raw) return '';
   if (normalizedType === 'location') {
     const labeledParts = Array.from(
@@ -8495,11 +10221,11 @@ function normalizeKnownSelectorValue(type, value) {
       const preferredOrder = ['city', 'state', 'province', 'region', 'location', 'biolocation', 'bio location', 'loc', 'country'];
       for (const label of preferredOrder) {
         const hit = labeledParts.find((item) => item.label === label && item.value);
-        if (hit) return _cleanLocationEntityLabel(hit.value);
+        if (hit) return _cleanLocationEntityLabel(hit.value).toLocaleLowerCase();
       }
-      return _cleanLocationEntityLabel(labeledParts[0].value);
+      return _cleanLocationEntityLabel(labeledParts[0].value).toLocaleLowerCase();
     }
-    return _cleanLocationEntityLabel(raw);
+    return _cleanLocationEntityLabel(raw).toLocaleLowerCase();
   }
   if (normalizedType === 'email') return raw.toLowerCase();
   if (normalizedType === 'phone') return raw.replace(/[^\d+]/g, '');
@@ -8507,10 +10233,11 @@ function normalizeKnownSelectorValue(type, value) {
     return raw
       .replace(/^@+/, '')
       .replace(/\.bsky\.social$/i, '')
-      .trim();
+      .trim()
+      .toLocaleLowerCase();
   }
-  if (normalizedType === 'name') return raw.replace(/\s+/g, ' ');
-  return raw;
+  if (normalizedType === 'name') return raw.replace(/\s+/g, ' ').toLocaleLowerCase();
+  return raw.toLocaleLowerCase();
 }
 
 function isLikelyPersonName(value) {
@@ -8552,16 +10279,32 @@ function isIsoDateSelectorValue(value) {
   return /^\d{4}-\d{2}-\d{2}$/.test(String(value || '').trim());
 }
 
-function addKnownSelector(map, type, value) {
+function isLikelyLocationSelectorValue(value) {
+  const clean = String(value || '')
+    .trim()
+    .toLocaleLowerCase()
+    .replace(/[.]+$/g, '')
+    .trim();
+  return Boolean(clean) && !KNOWN_SELECTOR_INVALID_LOCATION_VALUES.has(clean);
+}
+
+function addKnownSelector(map, type, value, source = 'Recon result', searchedSelectorKey = '') {
   const normalizedType = String(type || '').trim().toLowerCase();
   if (!KNOWN_SELECTOR_GROUPS.includes(normalizedType)) return '';
   const normalizedValue = normalizeKnownSelectorValue(normalizedType, value);
   if (!normalizedValue) return '';
   if (isIsoDateSelectorValue(normalizedValue)) return '';
+  if (normalizedType === 'location' && !isLikelyLocationSelectorValue(normalizedValue)) return '';
   if (normalizedType === 'name' && !isLikelyPersonName(normalizedValue)) return '';
   if (normalizedType === 'username' && !isLikelyUsername(normalizedValue)) return '';
-  if (!map.has(normalizedType)) map.set(normalizedType, new Set());
-  map.get(normalizedType).add(normalizedValue);
+  if (!map.has(normalizedType)) map.set(normalizedType, new Map());
+  const values = map.get(normalizedType);
+  const existing = values.get(normalizedValue) || { count: 0, sources: new Set(), searchedSelectors: new Set(), qualityWeight: 0 };
+  existing.count += 1;
+  existing.qualityWeight = Math.max(Number(existing.qualityWeight) || 0, selectorQualityWeight(normalizedType, value));
+  if (String(source || '').trim()) existing.sources.add(String(source).trim());
+  if (String(searchedSelectorKey || '').trim()) existing.searchedSelectors.add(String(searchedSelectorKey).trim().toLowerCase());
+  values.set(normalizedValue, existing);
   return normalizedValue;
 }
 
@@ -8642,7 +10385,9 @@ function collectLikelyNameSummary(payload) {
       stats.set(key, {
         name: toLikelyNameCase(name),
         score: 0,
+        occurrences: 0,
         sources: new Set(),
+        returnedSources: new Set(),
         profiles: new Set(),
         evidence: new Set(),
       });
@@ -8677,10 +10422,14 @@ function collectLikelyNameSummary(payload) {
     const weighted = base * (1 + (queryWeight * 0.35));
     record.score += weighted;
     const src = String(sourceKey || '').trim().toLowerCase();
-    if (src) record.sources.add(src);
+    if (src) {
+      record.sources.add(src);
+      if (src !== 'query_input') record.returnedSources.add(src);
+    }
     const profile = String(profileKey || '').trim().toLowerCase();
     if (profile) record.profiles.add(profile);
     const evidence = String(evidenceKey || '').trim().toLowerCase();
+    if (!evidence || !record.evidence.has(evidence)) record.occurrences += 1;
     if (evidence) record.evidence.add(evidence);
     for (const token of normalized.toLowerCase().split(/\s+/g)) {
       if (token.length >= 3) explicitNameTokens.add(token);
@@ -8747,8 +10496,8 @@ function collectLikelyNameSummary(payload) {
 
   for (const row of rows) {
     const source = String(row?.source || row?.site || row?.site_key || 'result').trim().toLowerCase();
-    const selectorType = String(row?.selector_type || '').trim().toLowerCase();
-    const selectorValue = String(row?.selector || '').trim();
+    const selectorType = String(row?.selector_type || row?.query_type || '').trim().toLowerCase();
+    const selectorValue = String(row?.selector || row?.selector_value || row?.query_value || '').trim();
     const profileKey = String(row?.profile_url || `${source}|${selectorType}|${selectorValue}`).trim().toLowerCase();
     addNameEvidence(row?.profile_name || row?.title, { fieldType: 'name', queryType: selectorType, sourceKey: `result:${source}`, profileKey, evidenceKey: `result:${source}|name|${profileKey}` });
     if (selectorType === 'name') addNameEvidence(selectorValue, { fieldType: 'name', queryType: selectorType, sourceKey: `result:${source}`, profileKey, evidenceKey: `result:${source}|selector_name|${profileKey}` });
@@ -8774,7 +10523,7 @@ function collectLikelyNameSummary(payload) {
       const diversityBonus = (item.sources.size * 16) + (item.profiles.size * 7) + (item.evidence.size * 1.5);
       return { ...item, totalScore: item.score + diversityBonus };
     })
-    .sort((a, b) => b.totalScore - a.totalScore || b.profiles.size - a.profiles.size || a.name.localeCompare(b.name));
+    .sort((a, b) => b.returnedSources.size - a.returnedSources.size || b.sources.size - a.sources.size || b.profiles.size - a.profiles.size || b.occurrences - a.occurrences || b.totalScore - a.totalScore || a.name.localeCompare(b.name));
   const top = ranked[0] || null;
   return {
     name: top?.name || '',
@@ -8794,9 +10543,14 @@ function formatLikelyNameForCaseNotes(rawName) {
 }
 
 function calculatedLikelyNameForCaseNotes() {
+  return calculatedLikelyCaseTitle();
+}
+
+function calculatedLikelyCaseTitle() {
   const payload = latestReconPayload && typeof latestReconPayload === 'object' ? latestReconPayload : emptyReconPayload();
-  const summary = collectLikelyNameSummary(payload);
-  return formatLikelyNameForCaseNotes(summary?.name || '');
+  const candidates = collectLikelyNameSummary(payload)?.candidates || [];
+  const candidate = candidates.find((item) => Number(item?.returnedSources?.size || 0) >= MIN_AUTO_CASE_NAME_SOURCES);
+  return candidate ? formatLikelyNameForCaseNotes(candidate.name) : '';
 }
 
 function maybeAutofillCaseNotesLikelyName(options = {}) {
@@ -8813,13 +10567,14 @@ function maybeAutofillCaseNotesLikelyName(options = {}) {
   if (!canReplace) return;
   caseNotesNameInput.value = candidate;
   lastAutofilledCaseNotesName = candidate;
-  caseNotesNameInput.classList.add('case-notes-name-autofill');
+  caseNotesNameInput.classList.add('case-notes-name-autofill', 'case-notes-autofill');
 }
 
 function maybeAutofillActiveCaseTitleFromLikelyName(options = {}) {
   if (!activeCase || typeof activeCase !== 'object') return;
+  if (caseNameWasManuallySet()) return;
   const force = options?.force === true;
-  const candidate = calculatedLikelyNameForCaseNotes();
+  const candidate = calculatedLikelyCaseTitle();
   if (!candidate) return;
   const current = String(activeCase?.case_name || '').trim();
   const previousAuto = String(lastAutofilledCaseTitle || '').trim();
@@ -8829,6 +10584,17 @@ function maybeAutofillActiveCaseTitleFromLikelyName(options = {}) {
     || (previousAuto && current.toLowerCase() === previousAuto.toLowerCase());
   if (!canReplace) return;
   updateLocalActiveCaseName(candidate, { autofilled: true });
+  const caseId = String(activeCaseId || '').trim();
+  const session = activeCaseSession;
+  const notes = normalizeCaseNotesObject(activeCase?.case_notes || {});
+  fetch(`/api/cases/${encodeURIComponent(caseId)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ case_name: candidate, case_notes: { ...notes, case_name_manually_set: false } }),
+  }).catch((error) => {
+    if (session !== activeCaseSession || caseId !== String(activeCaseId || '').trim()) return;
+    console.error('Unable to persist autofilled case title', error);
+  });
 }
 
 function maybeAutofillCaseNotesLikelyLocation(options = {}) {
@@ -8845,6 +10611,7 @@ function maybeAutofillCaseNotesLikelyLocation(options = {}) {
   if (!canReplace) return;
   caseNotesLocationInput.value = candidate;
   lastAutofilledCaseNotesLocation = candidate;
+  caseNotesLocationInput.classList.add('case-notes-autofill');
 }
 
 function syncOpenCaseNotesKnownProfilesFromRecon() {
@@ -9603,7 +11370,7 @@ function entityGraphAttributeKind(field, value) {
   if (cleanField.includes('url') || cleanField.includes('site') || isHttpUrl(cleanValue)) return 'url';
   if (cleanField.includes('email') || isValidReconEmail(cleanValue)) return 'email';
   if (cleanField.includes('phone') || cleanField.includes('mobile') || cleanField.includes('tel') || isValidReconPhone(cleanValue.replace(/[^\d+]/g, ''))) return 'phone';
-  if (cleanField.includes('loc') || cleanField.includes('city') || cleanField.includes('country') || cleanField.includes('address')) return 'location';
+  if (/^(?:location|bio[_\s-]?location|city|state|province|region|country)$/.test(cleanField)) return 'location';
   if (cleanField.includes('date') || cleanField.includes('seen') || cleanField.includes('created') || parseTimelineDateValue(cleanValue)) return 'date';
   if (cleanField.includes('name') || cleanField.includes('title')) return 'name';
   if (cleanField.includes('user') || cleanField.includes('handle')) return 'username';
@@ -10583,6 +12350,7 @@ function personDataProfileMarkup(profile, totalProfiles = 0, pdlProfiles = [], o
   const mobilePhone = String(profile.mobile_phone || profile.phone || '').trim();
   const personalPhones = Array.isArray(profile.personal_phones) ? profile.personal_phones.filter(Boolean).map((item) => String(item).trim()) : [];
   const professionalPhones = Array.isArray(profile.professional_phones) ? profile.professional_phones.filter(Boolean).map((item) => String(item).trim()) : [];
+  const employmentHistory = Array.isArray(profile.employment_history) ? profile.employment_history.filter((item) => item && typeof item === 'object') : [];
   const uniqueValues = (values) => {
     const output = [];
     const seen = new Set();
@@ -10612,7 +12380,7 @@ function personDataProfileMarkup(profile, totalProfiles = 0, pdlProfiles = [], o
       <div class="recon-pills pdl-contact-pills">
         ${values.length ? values.map((value) => `
           <span class="recon-pill"${sourceSelectorAttr(contactSelectorType(heading), value)}>
-            <span>${escapeHtml(value)}</span>
+            ${expandableReturnedFieldMarkup(value)}
             ${pivotSelectorActionMarkup(contactSelectorType(heading), value, 'Pivot Search')}
             ${removable ? `<button type="button" class="known-selector-action recon-pill-remove recon-pill-action" data-pdl-contact-remove="${escapeAttr(pdlContactVisibilityKey(profile, heading.replace(/s$/, ''), value))}" title="Remove value">×</button>` : ''}
           </span>
@@ -10620,6 +12388,20 @@ function personDataProfileMarkup(profile, totalProfiles = 0, pdlProfiles = [], o
       </div>
     </div>
   `;
+  const employmentHistoryMarkup = employmentHistory.length ? `
+    <div class="pdl-employment-history">
+      <span class="pdl-contact-heading">Employment History</span>
+      <div class="pdl-employment-list">
+        ${employmentHistory.map((job) => {
+          const jobTitle = String(job.title || '').trim();
+          const jobCompany = String(job.company || '').trim();
+          const jobLocation = String(job.location || '').trim();
+          const dates = [String(job.start_date || '').trim(), String(job.end_date || '').trim() || 'Present'].filter(Boolean).join(' – ');
+          const role = [jobTitle, jobCompany].filter(Boolean).join(' @ ') || 'Employment record';
+          return `<div class="pdl-employment-item">${expandableReturnedFieldMarkup(role)}${jobLocation ? `<span>${expandableReturnedFieldMarkup(jobLocation)}</span>` : ''}${dates ? `<small>${expandableReturnedFieldMarkup(dates)}</small>` : ''}</div>`;
+        }).join('')}
+      </div>
+    </div>` : '';
   const normalizePDLProfileUrl = (rawUrl) => {
     const raw = String(rawUrl || '').trim();
     if (!raw) return '';
@@ -10663,7 +12445,7 @@ function personDataProfileMarkup(profile, totalProfiles = 0, pdlProfiles = [], o
   })();
   const fallbackProfileUrls = Array.isArray(profile.profile_urls)
     ? profile.profile_urls
-    : ['linkedin_url', 'facebook_url', 'twitter_url', 'github_url']
+    : ['linkedin_url', 'facebook_url', 'twitter_url', 'instagram_url', 'github_url', 'tiktok_url', 'youtube_url']
       .map((key) => String(profile?.[key] || '').trim())
       .filter(Boolean);
   const mergedProfileRows = (() => {
@@ -10692,36 +12474,49 @@ function personDataProfileMarkup(profile, totalProfiles = 0, pdlProfiles = [], o
     return rows.filter((row) => !hiddenPdlProfileUrlKeys.has(String(row?.profile_url || '').trim().toLowerCase()));
   })();
   const pdlCollectionTargets = collectionTargetsFromProfileRows(mergedProfileRows);
+  const primaryProfileUrl = mergedProfileRows[0]?.profile_url || '';
+  const pictureUrl = normalizeProfileImageUrl(profile.picture_url || profile.avatar_url || '');
+  const avatarMarkup = profileAvatarMarkup('osint-profile-avatar', pictureUrl, `${fullName || 'People Data Labs'} profile image`);
+  const targetPill = queryValue
+    ? `<span class="scanner-profile-target pdl-profile-selector${selectorAttributionClass(queryType)}" title="${escapeAttr(selectorMatchTooltip(queryType, queryValue))}" data-tooltip="${escapeAttr(selectorMatchTooltip(queryType, queryValue))}"${sourceSelectorAttr(queryType, queryValue)}><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="7"></circle><circle cx="12" cy="12" r="2"></circle><path d="M12 2v3M12 19v3M2 12h3M19 12h3"></path></svg><span class="scanner-profile-target-label">${escapeHtml(formatSelectorLabel(queryType, queryValue))}</span></span>`
+    : '';
+  const profileOpenAction = primaryProfileUrl
+    ? `<a class="known-selector-action osint-profile-open" href="${escapeAttr(primaryProfileUrl)}" target="_blank" rel="noopener noreferrer" title="Open returned profile" aria-label="Open returned profile"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M14 4h6v6"></path><path d="M10 14L20 4"></path><path d="M20 13v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h6"></path></svg></a>`
+    : '';
+  const removeAction = removable
+    ? `<button type="button" class="known-selector-action recon-tile-remove" data-pdl-profile-remove="${escapeAttr(profileKey)}" title="Remove Person Data Profile" aria-label="Remove Person Data Profile"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 7h16"></path><path d="M9 7V5h6v2"></path><path d="M7 7l1 13h8l1-13"></path><path d="M10 11v5"></path><path d="M14 11v5"></path></svg></button>`
+    : '';
+  const profileActions = profileOpenAction || removeAction
+    ? `<div class="osint-profile-actions">${profileOpenAction}${removeAction}</div>`
+    : '';
   return `
     <div class="recon-group">
-      <p>Person Data Profile${totalProfiles > 1 ? ` (${totalProfiles} matches)` : ''}</p>
-      <div class="pdl-poi-profile"${profileSelectorAttr}>
-        ${removable ? `<button type="button" class="known-selector-action recon-tile-remove" data-pdl-profile-remove="${escapeAttr(profileKey)}" title="Remove Person Data Profile">×</button>` : ''}
-        <div class="recon-pills">
-          <span class="recon-pill"${sourceSelectorAttr('name', fullName || '')}>${escapeHtml(fullName || `${queryType}: ${queryValue}`)}</span>
-        </div>
-        <div class="pdl-poi-grid">
-          <div class="pdl-poi-field"${sourceSelectorAttr('name', fullName)}>
-            <span class="pdl-poi-label">Name</span>
-            <strong>${escapeHtml(fullName || 'Unnamed')}</strong>
+      <p>People Data Labs Profile${totalProfiles > 1 ? ` (${totalProfiles} matches)` : ''}</p>
+      <div class="osint-profiles-list pdl-profiles-list">
+        <article class="osint-profile-card pdl-profile-card"${profileSelectorAttr}>
+          <div class="osint-profile-head">
+            ${avatarMarkup}
+            <div>
+              <p class="osint-profile-site">${faviconMarkup('People Data Labs', primaryProfileUrl)}<span>People Data Labs</span></p>
+              <h4${sourceSelectorAttr('name', fullName) || profileSelectorAttr}>${escapeHtml(fullName || `${queryType}: ${queryValue}`)}</h4>
+              <p class="osint-profile-scanner">Enriched person record</p>
+            </div>
+            ${targetPill}
           </div>
-          <div class="pdl-poi-field"${sourceSelectorAttr('location', location)}>
-            <span class="pdl-poi-label">Location</span>
-            <strong>${escapeHtml(location || 'Unknown')}</strong>
+          <div class="osint-profile-details">
+            <div class="osint-profile-grid">
+              <div class="osint-value"${sourceSelectorAttr('name', fullName)}><span class="osint-key">Name</span>${pivotableReturnedValueMarkup('name', fullName || 'Unnamed')}</div>
+              <div class="osint-value"${sourceSelectorAttr('location', location)}><span class="osint-key">Location</span>${pivotableReturnedValueMarkup('location', location || 'Unknown')}</div>
+              <div class="osint-value"><span class="osint-key">Employment</span>${pivotableReturnedValueMarkup('employment', [title, company].filter(Boolean).join(' @ ') || 'Unknown')}</div>
+            </div>
           </div>
-          <div class="pdl-poi-field">
-            <span class="pdl-poi-label">Job Title</span>
-            <strong>${escapeHtml(title || 'Unknown')}</strong>
-            ${company ? `<span class="pdl-poi-meta">${escapeHtml(company)}</span>` : ''}
-          </div>
-        </div>
-        <div class="pdl-profiles-block">
-          <div class="recon-group-head">
-            <span class="pdl-contact-heading">Profiles</span>
-            ${pdlCollectionTargets.length ? `<button type="button" class="secondary-btn recon-group-collect-all" data-recon-collect-all="pdl" data-recon-collect-all-targets="${escapeAttr(JSON.stringify(pdlCollectionTargets))}">Collect All</button>` : ''}
-          </div>
-          <div class="recon-pills">
-            ${mergedProfileRows.length
+          <div class="pdl-profiles-block osint-profile-tags">
+            <div class="recon-group-head">
+              <span class="pdl-contact-heading">Profiles</span>
+              ${pdlCollectionTargets.length ? `<button type="button" class="secondary-btn recon-group-collect-all" data-recon-collect-all="pdl" data-recon-collect-all-targets="${escapeAttr(JSON.stringify(pdlCollectionTargets))}">Collect All</button>` : ''}
+            </div>
+            <div class="recon-pills">
+              ${mergedProfileRows.length
     ? mergedProfileRows.map((row) => {
       const rowWithSelector = { ...row, selector_type: queryType, selector: String(queryValue || '').trim() };
       if (!removable) return toReconBadge(rowWithSelector, 'success', { pivotable: false, collectable: true });
@@ -10732,17 +12527,18 @@ function personDataProfileMarkup(profile, totalProfiles = 0, pdlProfiles = [], o
       }).replace('data-recon-remove=', 'data-pdl-url-remove=');
     }).join('')
     : '<span class="recon-pill">No profile URLs returned by People Data Labs.</span>'}
+            </div>
           </div>
-        </div>
-        <div class="pdl-contact-sections">
-          ${contactGroupMarkup('Personal Emails', personalEmailValues)}
-          ${contactGroupMarkup('Professional Emails', professionalEmailValues)}
-          ${contactGroupMarkup('Personal Phones', personalPhoneValues)}
-          ${contactGroupMarkup('Professional Phones', professionalPhoneValues)}
-        </div>
-        <div class="recon-pills">
-          <span class="recon-pill">${escapeHtml(identificationText)}</span>
-        </div>
+          <div class="pdl-contact-sections">
+            ${contactGroupMarkup('Personal Emails', personalEmailValues)}
+            ${contactGroupMarkup('Professional Emails', professionalEmailValues)}
+            ${contactGroupMarkup('Personal Phones', personalPhoneValues)}
+            ${contactGroupMarkup('Professional Phones', professionalPhoneValues)}
+          </div>
+          ${employmentHistoryMarkup}
+          <div class="recon-pills pdl-identification"><span class="recon-pill">${escapeHtml(identificationText)}</span></div>
+          ${profileActions}
+        </article>
       </div>
     </div>
   `;
@@ -10790,7 +12586,7 @@ function osintProfilesMarkup(profiles, rows = [], options = {}) {
     if (!clean) return '';
     const wideClass = options?.wide ? ' osint-value-wide' : '';
     const selectorAttr = sourceSelectorAttr(selectorTypeForOsintField(label), clean);
-    return `<div class="osint-value${wideClass}"${selectorAttr}><span class="osint-key">${escapeHtml(label)}</span><strong>${escapeHtml(clean)}</strong></div>`;
+    return `<div class="osint-value${wideClass}"${selectorAttr}><span class="osint-key">${escapeHtml(label)}</span>${pivotableReturnedValueMarkup(label, clean)}</div>`;
   };
   const rowsByUrl = new Map();
   for (const row of resultRows) {
@@ -10847,9 +12643,11 @@ function osintProfilesMarkup(profiles, rows = [], options = {}) {
     const siteLabel = normalizedSiteLabel(profile?.module || rowsByUrl.get(profileUrl.toLowerCase())?.site || 'osint');
     const row = entry.fallbackRow || rowsByUrl.get(profileUrl.toLowerCase());
     const collectTarget = collectionTargetFromProfileUrl(row?.site || siteLabel, profileUrl);
+    const selectorType = String(profile?.query_type || row?.selector_type || (profile?.username ? 'username' : '')).trim().toLowerCase();
+    const selectorValue = String(profile?.query_value || row?.selector || profile?.username || '').trim();
     const selectorAttr = sourceSelectorAttr(
-      profile?.query_type || row?.selector_type,
-      profile?.query_value || row?.selector,
+      selectorType,
+      selectorValue,
     );
     const websiteLink = website && website !== profileUrl ? linkPill('Website', website, `${title} website`, 'osint-website-link') : '';
     const profileAction = profileUrl
@@ -10874,17 +12672,9 @@ function osintProfilesMarkup(profiles, rows = [], options = {}) {
       : '';
     const imageUrl = normalizeProfileImageUrl(profile?.picture_url || profile?.avatar_url || '') || normalizeProfileImageUrl(row?.picture_url || row?.avatar_url || '');
     const siteIcon = faviconMarkup(siteLabel, profileUrl || website);
-    const avatarMarkup = imageUrl
-      ? `<img class="osint-profile-avatar" src="${escapeHtml(imageUrl)}" alt="${escapeAttr(title)}" loading="lazy" referrerpolicy="no-referrer" />`
-      : `
-        <div class="osint-profile-avatar empty" aria-label="No profile image">
-          <svg class="osint-profile-avatar-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor">
-            <circle cx="12" cy="8" r="4" fill="none"></circle>
-            <path d="M4.5 20c0-3.9 3.3-7 7.5-7s7.5 3.1 7.5 7" fill="none"></path>
-          </svg>
-        </div>
-      `;
+    const avatarMarkup = profileAvatarMarkup('osint-profile-avatar', imageUrl, `${title} profile image`);
     const valueRows = [
+      ['username', username],
       ['location', profile?.location],
       ['biolocation', profile?.biolocation],
       ['gender', profile?.gender],
@@ -10911,9 +12701,11 @@ function osintProfilesMarkup(profiles, rows = [], options = {}) {
     const scannerIdentity = username
       ? `@${username.replace(/^@+/, '')}`
       : title;
+    const targetPill = selectorValue
+      ? `<span class="scanner-profile-target${selectorAttributionClass(selectorType)}" title="${escapeAttr(selectorMatchTooltip(selectorType, selectorValue))}" data-tooltip="${escapeAttr(selectorMatchTooltip(selectorType, selectorValue))}"${sourceSelectorAttr(selectorType, selectorValue)}><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="7"></circle><circle cx="12" cy="12" r="2"></circle><path d="M12 2v3M12 19v3M2 12h3M19 12h3"></path></svg><span class="scanner-profile-target-label">${escapeHtml(formatSelectorLabel(selectorType, selectorValue))}</span></span>`
+      : '';
     return `
-      <article class="osint-profile-card"${selectorAttr}>
-        ${topActions}
+      <article class="osint-profile-card${targetPill ? ' has-selector-target' : ''}"${selectorAttr}>
         <div class="osint-profile-head">
           ${avatarMarkup}
           <div>
@@ -10921,6 +12713,7 @@ function osintProfilesMarkup(profiles, rows = [], options = {}) {
             <h4${sourceSelectorAttr('username', username) || sourceSelectorAttr('name', displayName || title)}>${escapeHtml(primaryIdentity)}</h4>
             <p class="osint-profile-scanner"${sourceSelectorAttr('username', username)}>${escapeHtml(scannerIdentity)}</p>
           </div>
+          ${targetPill}
         </div>
         <div class="osint-profile-details${valuesMarkup ? '' : ' hidden'}">
           <div class="osint-profile-grid${stackValues ? ' osint-profile-grid-stacked' : ''}">
@@ -10930,6 +12723,7 @@ function osintProfilesMarkup(profiles, rows = [], options = {}) {
         <div class="osint-profile-links">
           ${websiteLink}
         </div>
+        ${topActions}
       </article>
     `;
   }).join('');
@@ -10963,11 +12757,18 @@ function userScannerProfilesMarkup(scannerResults, normalizedRows = [], options 
     const category = textValue(item?.category) || 'Uncategorized';
     const status = textValue(item?.status) || 'Unknown';
     const reason = textValue(item?.reason);
-    const profileName = textValue(item?.full_name || item?.display_name || item?.name || profileFields?.full_name || profileFields?.display_name || item?.title);
+    const scannerExtra = item?.extra && typeof item.extra === 'object' ? item.extra : {};
+    const scannerMedia = item?.media && typeof item.media === 'object' ? item.media : {};
+    const username = textValue(item?.username || scannerExtra?.username || profileFields?.username || (selectorType.toLowerCase() === 'username' ? selector : ''));
+    const profileName = textValue(item?.full_name || item?.display_name || item?.name || scannerExtra?.fullname || scannerExtra?.full_name || scannerExtra?.display_name || scannerExtra?.name || profileFields?.full_name || profileFields?.display_name || item?.title || username || selector);
     const bio = textValue(item?.bio || item?.description || item?.summary || item?.about || profileFields?.bio || profileFields?.description);
     const profileUrl = normalizeExternalUrl(item?.profile_url || item?.url);
     const siteUrl = profileUrl;
-    const imageUrl = normalizeProfileImageUrl(item?.picture_url || item?.avatar_url || item?.profile_image_url || '');
+    const imageUrl = normalizeProfileImageUrl(
+      item?.picture_url || item?.avatar_url || item?.profile_image_url
+      || scannerExtra?.image || scannerExtra?.avatar_url || scannerExtra?.avatar || scannerExtra?.picture
+      || scannerMedia?.image || scannerMedia?.avatar || scannerMedia?.profile_image || '',
+    );
     const normalizedRow = normalizedRows.find((row) => (
       String(row?.selector_type || '').trim().toLowerCase() === selectorType.toLowerCase()
       && String(row?.selector || '').trim().toLowerCase() === selector.toLowerCase()
@@ -10977,14 +12778,24 @@ function userScannerProfilesMarkup(scannerResults, normalizedRows = [], options 
     const rowKey = normalizedRow
       ? reconRowVisibilityKey(normalizedRow)
       : `${selectorType}|${selector.toLowerCase()}|${String(site).toLowerCase()}|||scanner`;
-    const knownKeys = new Set(['selector_type', 'selector', 'site_name', 'site', 'category', 'status', 'reason', 'url', 'profile_url', 'username', 'is_email', 'picture_url', 'avatar_url', 'profile_image_url', 'full_name', 'display_name', 'name', 'title', 'bio', 'description', 'summary', 'about', 'profile_record']);
-    const extraFields = Object.entries(item || {})
+    const knownKeys = new Set(['selector_type', 'selector', 'site_name', 'site', 'category', 'status', 'reason', 'url', 'profile_url', 'username', 'is_email', 'picture_url', 'avatar_url', 'profile_image_url', 'full_name', 'display_name', 'name', 'title', 'bio', 'description', 'summary', 'about', 'profile_record', 'extra', 'media']);
+    const returnedFields = Object.entries(item?.extra || {})
+      .concat(Object.entries(item?.media || {}).map(([key, fieldValue]) => [`media_${key}`, fieldValue]))
+      .filter(([, fieldValue]) => !imageUrl || normalizeProfileImageUrl(fieldValue) !== imageUrl)
+      .map(([key, fieldValue]) => [key.replace(/_/g, ' '), textValue(fieldValue)]);
+    const extraFields = returnedFields.concat(Object.entries(item || {})
       .filter(([key, value]) => !knownKeys.has(key) && textValue(value))
-      .map(([key, value]) => [key.replace(/_/g, ' '), textValue(value)]);
+      .map(([key, value]) => [key.replace(/_/g, ' '), textValue(value)]));
     const statusToken = /found|registered/i.test(status) ? 'found' : /not found|not registered/i.test(status) ? 'absent' : 'unknown';
-    const avatar = imageUrl
-      ? `<img class="osint-profile-avatar" src="${escapeAttr(imageUrl)}" alt="${escapeAttr(site)} profile image" loading="lazy" referrerpolicy="no-referrer" />`
-      : `<div class="osint-profile-avatar empty" aria-label="No profile image">${escapeHtml(site.slice(0, 2).toUpperCase())}</div>`;
+    const avatar = profileAvatarMarkup('osint-profile-avatar', imageUrl, `${site} profile image`);
+    const targetPill = selector
+      ? `<span class="scanner-profile-target${selectorAttributionClass(selectorType)}" title="${escapeAttr(selectorMatchTooltip(selectorType, selector))}" data-tooltip="${escapeAttr(selectorMatchTooltip(selectorType, selector))}"${sourceSelectorAttr(selectorType, selector)}><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="7"></circle><circle cx="12" cy="12" r="2"></circle><path d="M12 2v3M12 19v3M2 12h3M19 12h3"></path></svg><span class="scanner-profile-target-label">${escapeHtml(formatSelectorLabel(selectorType, selector))}</span></span>`
+      : '';
+    const normalizedIdentity = String(profileName || '').replace(/^@+/, '').trim().toLowerCase();
+    const normalizedUsername = String(username || '').replace(/^@+/, '').trim().toLowerCase();
+    const usernameSubheading = username && normalizedUsername !== normalizedIdentity
+      ? `<p class="osint-profile-scanner"${sourceSelectorAttr('username', username)}>${escapeHtml(`@${username.replace(/^@+/, '')}`)}</p>`
+      : '';
     const openAction = siteUrl
       ? `<a class="known-selector-action osint-profile-open" href="${escapeAttr(siteUrl)}" target="_blank" rel="noopener noreferrer" title="Open returned URL" aria-label="Open returned URL"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M14 4h6v6"></path><path d="M10 14L20 4"></path><path d="M20 13v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h6"></path></svg></a>`
       : '';
@@ -10993,30 +12804,30 @@ function userScannerProfilesMarkup(scannerResults, normalizedRows = [], options 
       : '';
     const value = (label, raw) => {
       const clean = textValue(raw);
-      return clean ? `<div class="osint-value"><span class="osint-key">${escapeHtml(label)}</span><strong>${escapeHtml(clean)}</strong></div>` : '';
+      const selectorType = selectorTypeForReturnedField(label);
+      return clean ? `<div class="osint-value"${sourceSelectorAttr(selectorType, clean)}><span class="osint-key">${escapeHtml(label)}</span>${pivotableReturnedValueMarkup(label, clean)}</div>` : '';
     };
     return `
       <article class="osint-profile-card scanner-profile-card scanner-status-${statusToken}"${sourceSelectorAttr(selectorType, selector)}>
-        <div class="osint-profile-actions">${openAction}${removeAction}</div>
         <div class="osint-profile-head">
           ${avatar}
           <div>
             <p class="osint-profile-site">${faviconMarkup(site, siteUrl)}<span>${escapeHtml(category)}</span></p>
             <h4${sourceSelectorAttr('name', profileName) || sourceSelectorAttr(selectorType, selector)}>${escapeHtml(profileName || site)}</h4>
-            <p class="osint-profile-scanner"${sourceSelectorAttr(selectorType, selector)}>${escapeHtml(selector ? formatSelectorLabel(selectorType, selector) : `Result ${index + 1}`)}</p>
+            ${usernameSubheading}
           </div>
+          ${targetPill}
         </div>
         <div class="osint-profile-details">
           <div class="osint-profile-grid">
-            ${value('status', status)}
-            ${value('confidence', profileRecord?.confidence ? `${Math.round(Number(profileRecord.confidence) * 100)}%` : '')}
-            ${value('enrichment', profileRecord?.enrichment_status)}
             ${value('reason', reason)}
             ${value('bio', bio)}
+            ${value('username', username)}
             ${extraFields.map(([key, fieldValue]) => value(key, fieldValue)).join('')}
           </div>
         </div>
         ${siteUrl ? `<a class="collection-profile-url" href="${escapeAttr(siteUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(siteUrl)}</a>` : ''}
+        <div class="osint-profile-actions">${openAction}${removeAction}</div>
       </article>
     `;
   }).join('');
@@ -11028,9 +12839,58 @@ function userScannerProfilesMarkup(scannerResults, normalizedRows = [], options 
   `;
 }
 
+function knownPresentWithoutUrlCardsMarkup(rows, options = {}) {
+  const items = Array.isArray(rows) ? rows : [];
+  const removable = options?.removable === true;
+  if (!items.length) return '';
+  const notice = 'selector present on site - but a direct URL could not be provided due to the site and discovery methods affordances.';
+  const cards = items.map((row) => {
+    const rowKey = reconRowVisibilityKey(row);
+    const siteLabel = normalizeReconSiteLabel(row?.site, row?.profile_url, row?.site_url);
+    const selectorType = String(row?.selector_type || '').trim().toLowerCase();
+    const selectorValue = String(row?.selector || '').trim();
+    const source = String(row?.source || '').trim().toLowerCase();
+    const sourceLabel = source === 'osint_industries' ? 'OSINT Industries' : source === 'scanner' ? 'Profile Scanner' : source || 'Recon';
+    const selectorAttr = sourceSelectorAttr(selectorType, selectorValue);
+    const selectorPill = selectorValue
+      ? `<span class="scanner-profile-target${selectorAttributionClass(selectorType)}" title="${escapeAttr(selectorMatchTooltip(selectorType, selectorValue))}" data-tooltip="${escapeAttr(selectorMatchTooltip(selectorType, selectorValue))}"${selectorAttr}><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="7"></circle><circle cx="12" cy="12" r="2"></circle><path d="M12 2v3M12 19v3M2 12h3M19 12h3"></path></svg><span class="scanner-profile-target-label">${escapeHtml(formatSelectorLabel(selectorType, selectorValue))}</span></span>`
+      : '';
+    const pivotMarkup = pivotSelectorActionMarkup(selectorType, selectorValue, 'Pivot from selector');
+    const removeMarkup = removable
+      ? `<button type="button" class="known-selector-action recon-tile-remove" data-recon-remove="${escapeAttr(rowKey)}" title="Remove profile" aria-label="Remove profile"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 7h16"></path><path d="M9 7V5h6v2"></path><path d="M7 7l1 13h8l1-13"></path><path d="M10 11v5"></path><path d="M14 11v5"></path></svg></button>`
+      : '';
+    return `
+      <article class="collection-profile-card known-present-profile-card"${selectorAttr}>
+        <div class="collection-profile-head">
+          ${profileAvatarMarkup('collection-profile-avatar', '', `${siteLabel} profile image`)}
+          <div class="collection-profile-title">
+            <p>${faviconMarkup(siteLabel, row?.site_url)}<span>${escapeHtml(siteLabel)}</span></p>
+            <h4>${escapeHtml(siteLabel)}</h4>
+            ${selectorValue ? `<span class="collection-profile-username">${escapeHtml(formatSelectorLabel(selectorType, selectorValue))}</span>` : ''}
+          </div>
+          ${selectorPill}
+        </div>
+        <div class="collection-profile-meta">
+          ${row?.reason ? `<div><span>Reason</span><strong>${escapeHtml(String(row.reason).trim())}</strong></div>` : ''}
+          <div><span>Source</span><strong>${escapeHtml(sourceLabel)}</strong></div>
+        </div>
+        <p class="collection-profile-notice" role="note">${escapeHtml(notice)}</p>
+        <div class="collection-profile-actions">${pivotMarkup}${removeMarkup}</div>
+      </article>
+    `;
+  }).join('');
+  return `
+    <div class="recon-group known-present-card-group">
+      <p>Known present without direct account URL (${items.length})</p>
+      <div class="collection-profile-grid">${cards}</div>
+    </div>
+  `;
+}
+
 function collectionReadyProfilesMarkup(rows, targets, options = {}) {
   const items = Array.isArray(rows) ? rows : [];
   const collectAllTargets = Array.isArray(targets) ? targets : [];
+  const profileSources = Array.isArray(options?.profileSources) ? options.profileSources : [];
   const removable = options?.removable === true;
   const cards = items.map((row) => {
     const rowKey = reconRowVisibilityKey(row);
@@ -11040,26 +12900,97 @@ function collectionReadyProfilesMarkup(rows, targets, options = {}) {
     const selectorValue = String(row?.selector || '').trim();
     const source = String(row?.source || '').trim().toLowerCase();
     const sourceLabel = source === 'osint_industries' ? 'OSINT Industries' : source === 'scanner' ? 'Profile Scanner' : source === 'pdl' ? 'People Data' : source || 'Recon';
+    const normalizedProfileUrl = String(profileUrl || '').toLowerCase();
+    const matchedProfile = profileSources.find((profile) => {
+      const candidateUrl = String(normalizeExternalUrl(profile?.profile_url || profile?.url) || '').toLowerCase();
+      if (normalizedProfileUrl && candidateUrl) return candidateUrl === normalizedProfileUrl;
+      return String(profile?.selector_type || profile?.query_type || '').trim().toLowerCase() === selectorType
+        && String(profile?.selector || profile?.query_value || profile?.username || '').trim().toLowerCase() === selectorValue.toLowerCase()
+        && normalizePlatformName(profile?.site_name || profile?.site || profile?.module) === normalizePlatformName(row?.site || row?.site_key);
+    }) || {};
     const collectTarget = collectionTargetFromProfileUrl(row?.site || siteLabel, profileUrl);
-    const username = collectTarget?.username || selectorValue;
+    const profileFields = row?.profile_record?.fields && typeof row.profile_record.fields === 'object'
+      ? row.profile_record.fields
+      : {};
+    const profileExtra = row?.extra && typeof row.extra === 'object' ? row.extra : {};
+    const matchedFields = matchedProfile?.profile_record?.fields && typeof matchedProfile.profile_record.fields === 'object'
+      ? matchedProfile.profile_record.fields
+      : {};
+    const matchedExtra = matchedProfile?.extra && typeof matchedProfile.extra === 'object' ? matchedProfile.extra : {};
+    const username = String(collectTarget?.username || row?.username || matchedProfile?.username || row?.osint_profile?.username || matchedProfile?.osint_profile?.username || profileFields?.username || matchedFields?.username || profileExtra?.username || matchedExtra?.username || selectorValue || '').trim();
     const profileName = String(
       row?.profile_name
+      || row?.full_name
       || row?.display_name
       || row?.name
+      || matchedProfile?.profile_name
+      || matchedProfile?.full_name
+      || matchedProfile?.display_name
+      || matchedProfile?.name
       || row?.osint_profile?.name
       || row?.osint_profile?.display_name
+      || row?.osint_profile?.title
+      || profileFields?.full_name
+      || profileFields?.display_name
+      || profileFields?.name
+      || matchedFields?.full_name
+      || matchedFields?.display_name
+      || matchedFields?.name
+      || profileExtra?.full_name
+      || profileExtra?.fullname
+      || profileExtra?.display_name
+      || profileExtra?.name
+      || matchedExtra?.full_name
+      || matchedExtra?.fullname
+      || matchedExtra?.display_name
+      || matchedExtra?.name
       || '',
     ).trim();
     const collectionStatus = String(row?.collection_status || '').trim() || (normalizePlatformName(siteLabel) === 'facebook' ? 'Private/Locked' : 'Collection ready');
     const collectionNote = String(row?.collection_note || '').trim();
-    const avatarUrl = normalizeProfileImageUrl(row?.picture_url || row?.avatar_url || row?.osint_profile?.picture_url || row?.osint_profile?.avatar_url || '');
     const screenshotUrl = String(row?.screenshot_url || '').trim();
+    const avatarUrl = normalizeProfileImageUrl(
+      row?.image_url || row?.image || row?.picture_url || row?.avatar_url || row?.avatar || row?.profile_image_url || row?.profile_image
+      || matchedProfile?.image_url || matchedProfile?.image || matchedProfile?.picture_url || matchedProfile?.avatar_url || matchedProfile?.avatar || matchedProfile?.profile_image_url || matchedProfile?.profile_image
+      || row?.osint_profile?.image_url || row?.osint_profile?.image || row?.osint_profile?.picture_url || row?.osint_profile?.avatar_url || row?.osint_profile?.avatar || row?.osint_profile?.profile_image_url || row?.osint_profile?.profile_image
+      || profileFields?.image_url || profileFields?.image || profileFields?.picture_url || profileFields?.avatar_url || profileFields?.avatar || profileFields?.profile_image_url || profileFields?.profile_image
+      || profileExtra?.image_url || profileExtra?.image || profileExtra?.picture_url || profileExtra?.avatar_url || profileExtra?.avatar || profileExtra?.profile_image_url || profileExtra?.profile_image
+      || matchedFields?.image_url || matchedFields?.image || matchedFields?.picture_url || matchedFields?.avatar_url || matchedFields?.avatar || matchedFields?.profile_image_url || matchedFields?.profile_image
+      || matchedExtra?.image_url || matchedExtra?.image || matchedExtra?.picture_url || matchedExtra?.avatar_url || matchedExtra?.avatar || matchedExtra?.profile_image_url || matchedExtra?.profile_image
+      || screenshotUrl || '',
+    );
     const previewAttr = screenshotUrl ? ` data-preview-image="${escapeAttr(screenshotUrl)}"` : '';
     const previewLabelAttr = screenshotUrl ? ` data-preview-label="${escapeAttr(siteLabel)}"` : '';
     const selectorAttr = sourceSelectorAttr(selectorType, selectorValue);
-    const avatarMarkup = avatarUrl
-      ? `<img class="collection-profile-avatar" src="${escapeAttr(avatarUrl)}" alt="${escapeAttr(siteLabel)} profile image" loading="lazy" referrerpolicy="no-referrer" />`
-      : `<div class="collection-profile-avatar empty">${escapeHtml(siteLabel.slice(0, 2).toUpperCase() || 'ID')}</div>`;
+    const selectorPill = selectorValue
+      ? `<span class="scanner-profile-target${selectorAttributionClass(selectorType)}" title="${escapeAttr(selectorMatchTooltip(selectorType, selectorValue))}" data-tooltip="${escapeAttr(selectorMatchTooltip(selectorType, selectorValue))}"${selectorAttr}><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="7"></circle><circle cx="12" cy="12" r="2"></circle><path d="M12 2v3M12 19v3M2 12h3M19 12h3"></path></svg><span class="scanner-profile-target-label">${escapeHtml(formatSelectorLabel(selectorType, selectorValue))}</span></span>`
+      : '';
+    const avatarMarkup = profileAvatarMarkup('collection-profile-avatar', avatarUrl, `${siteLabel} profile image`);
+    const detailValue = (label, value) => {
+      const clean = value && typeof value === 'object'
+        ? JSON.stringify(value)
+        : String(value || '').trim();
+      return clean ? `<div><span>${escapeHtml(label)}</span>${pivotableReturnedValueMarkup(label, clean)}</div>` : '';
+    };
+    const excludedReturnedFields = new Set(['selector_type', 'query_type', 'selector', 'query_value', 'site', 'site_name', 'module', 'category', 'status', 'reason', 'url', 'profile_url', 'username', 'image_url', 'image', 'image_urls', 'picture_url', 'avatar_url', 'avatar', 'profile_image_url', 'profile_image', 'screenshot_url', 'screenshot', 'banner_url', 'header_url', 'full_name', 'display_name', 'name', 'title', 'bio', 'description', 'summary', 'about', 'profile_record', 'extra', 'media', 'osint_profile', 'scanner_result']);
+    const returnedDetails = Object.entries(matchedProfile)
+      .concat(Object.entries(matchedFields), Object.entries(matchedExtra), Object.entries(matchedProfile?.media || {}).map(([key, value]) => [`media ${key}`, value]))
+      .filter(([key, value]) => {
+        const normalizedKey = String(key || '').trim().toLowerCase();
+        return !excludedReturnedFields.has(normalizedKey)
+          && !normalizedKey.startsWith('extra')
+          && String(value || '').trim();
+      })
+      .map(([key, value]) => detailValue(key.replace(/_/g, ' '), value));
+    const profileDetails = [
+      detailValue('Username', username ? (username.startsWith('@') ? username : `@${username}`) : ''),
+      detailValue('Reason', row?.reason || matchedProfile?.reason),
+      detailValue('Location', row?.location || matchedProfile?.location || row?.osint_profile?.location || matchedProfile?.osint_profile?.location || profileFields?.location || matchedFields?.location || profileExtra?.location || matchedExtra?.location),
+      detailValue('Bio', row?.bio || row?.description || row?.summary || matchedProfile?.bio || matchedProfile?.description || matchedProfile?.summary || row?.osint_profile?.bio || row?.osint_profile?.description || row?.osint_profile?.summary || profileFields?.bio || profileFields?.description || matchedFields?.bio || matchedFields?.description || profileExtra?.bio || profileExtra?.description || matchedExtra?.bio || matchedExtra?.description),
+      ...returnedDetails,
+      detailValue('Status', collectionStatus),
+      detailValue('Source', sourceLabel),
+    ].filter(Boolean).join('');
     const collectMarkup = collectTarget
       ? `<button type="button" class="known-selector-action osint-profile-collect collection-profile-collect" data-recon-collect-platform="${escapeAttr(collectTarget.platform)}" data-recon-collect-username="${escapeAttr(collectTarget.username)}" title="Add to collection">Collect</button>`
       : '';
@@ -11077,22 +13008,21 @@ function collectionReadyProfilesMarkup(rows, targets, options = {}) {
       : '';
     return `
       <article class="collection-profile-card"${selectorAttr}>
-        <div class="collection-profile-actions">${openMarkup}${collectMarkup}${removeMarkup}</div>
         <div class="collection-profile-head">
           ${avatarMarkup}
           <div class="collection-profile-title">
             <p>${faviconMarkup(siteLabel, profileUrl)}<span>${escapeHtml(siteLabel)}</span></p>
             <h4>${escapeHtml(profileName || (username ? (username.startsWith('@') ? username : `@${username}`) : siteLabel))}</h4>
-            <span class="collection-profile-username">${escapeHtml(username ? (username.startsWith('@') ? username : `@${username}`) : 'No username returned')}</span>
+            ${username ? `<span class="collection-profile-username">${escapeHtml(username.startsWith('@') ? username : `@${username}`)}</span>` : ''}
           </div>
+          ${selectorPill}
         </div>
         <div class="collection-profile-meta">
-          <div><span>Selector</span><strong>${escapeHtml(formatSelectorLabel(selectorType, selectorValue))}</strong></div>
-          <div><span>Status</span><strong>${escapeHtml(collectionStatus)}</strong></div>
-          <div><span>Source</span><strong>${escapeHtml(sourceLabel)}</strong></div>
+          ${profileDetails || detailValue('Selector', formatSelectorLabel(selectorType, selectorValue))}
         </div>
         ${collectionNote ? `<p class="collection-profile-note">${escapeHtml(collectionNote)}</p>` : ''}
         ${profileUrl ? `<a class="collection-profile-url" href="${escapeHtml(profileUrl)}" target="_blank" rel="noopener noreferrer"${previewAttr}${previewLabelAttr}>${escapeHtml(profileUrl)}</a>` : ''}
+        <div class="collection-profile-actions">${openMarkup}${collectMarkup}${removeMarkup}</div>
       </article>
     `;
   }).join('');
@@ -11255,7 +13185,7 @@ function hibpAggregateMarkup(profiles, specRows = []) {
     const breaches = Array.from(row.breaches.values()).sort((a, b) => a.name.localeCompare(b.name));
     return `
       <article class="hibp-selector-result"${selectorAttr}>
-        <p>${escapeHtml(selectorLabel)}</p>
+        <p>${pivotableReturnedValueMarkup(row.selectorType, selectorLabel, row.selectorType)}</p>
         <div class="recon-pills">
           ${breaches.length
     ? breaches.map((breach) => {
@@ -11290,7 +13220,8 @@ function numverifyProfilesMarkup(profiles) {
   const valueItem = (label, value) => {
     const clean = String(value || '').trim();
     if (!clean) return '';
-    return `<div class="osint-value"${sourceSelectorAttr(selectorTypeForNumverifyField(label), clean)}><span class="osint-key">${escapeHtml(label)}</span><strong>${escapeHtml(clean)}</strong></div>`;
+    const selectorType = selectorTypeForNumverifyField(label);
+    return `<div class="osint-value"${sourceSelectorAttr(selectorType, clean)}><span class="osint-key">${escapeHtml(label)}</span>${pivotableReturnedValueMarkup(label, clean, selectorType)}</div>`;
   };
   const cards = items.map((profile, index) => {
     const title = String(profile?.title || profile?.number || `Phone Result ${index + 1}`).trim();
@@ -11767,6 +13698,34 @@ function collectSelectorCorroborationRows(results, osintProfiles, personDataProf
     });
 }
 
+function mergeCorroboratedSelectorsIntoReport(payload) {
+  if (!activeCaseId || !(payload && typeof payload === 'object')) return;
+  const selectorRows = collectSelectorCorroborationRows(
+    payload.results,
+    payload.osint_profiles,
+    payload.person_data_profiles,
+    payload.numverify_profiles,
+    payload.breach_records,
+    payload.selectors,
+  );
+  const inputsByType = {
+    email: caseNotesSelectorEmailsInput,
+    phone: caseNotesSelectorPhonesInput,
+    username: caseNotesSelectorUsernamesInput,
+  };
+  for (const [type, input] of Object.entries(inputsByType)) {
+    if (!(input instanceof HTMLInputElement)) continue;
+    const corroborated = selectorRows
+      .filter((row) => row.selectorType === type && row.sourceCount >= 3)
+      .map((row) => row.selectorValue);
+    if (!corroborated.length) continue;
+    input.value = joinCommaSeparatedValues([
+      ...splitCommaSeparatedValues(input.value),
+      ...corroborated,
+    ]);
+  }
+}
+
 function collectFootprintEvidenceRows(results, osintProfiles, personDataProfiles, numverifyProfiles, breachRecords) {
   const rows = [];
   const seen = new Set();
@@ -11970,12 +13929,42 @@ function footprintRawDetailsMarkup(sections) {
   `;
 }
 
-function knownSelectorPillMarkup(type, value) {
+function knownSelectorPillMarkup(type, value, queriedSelectorKeys = new Set(), corroboration = new Map()) {
   const key = `${type}|${String(value || '').toLowerCase()}`;
   if (hiddenKnownSelectorKeys.has(key)) return '';
+  const queried = queriedSelectorKeys.has(sourceSelectorKey(type, value));
+  const stats = corroboration.get(key) || {};
+  const sourceCount = Math.max(0, Number(stats?.sourceCount) || 0);
+  const searchedSelectorCount = Math.max(0, Number(stats?.searchedSelectorCount) || 0);
+  const tooltip = `${searchedSelectorCount} searched selector${searchedSelectorCount === 1 ? '' : 's'} • ${sourceCount} corroborating source${sourceCount === 1 ? '' : 's'}`;
+  const searchedSelectors = Array.isArray(stats?.searchedSelectors) ? stats.searchedSelectors : [];
+  const selectorPills = searchedSelectors
+    .map((selectorKey) => {
+      const selector = sourceSelectorParts(selectorKey);
+      return selector.type && selector.value
+        ? `<span class="known-selector-tooltip-pill" title="${escapeAttr(selectorTypeDisplayLabel(selector.type))} search"><span class="known-selector-tooltip-pill-type">${escapeHtml(selectorTypeDisplayLabel(selector.type))}</span>${escapeHtml(formatSelectorLabel(selector.type, selector.value))}</span>`
+        : '';
+    })
+    .filter(Boolean)
+    .join('');
+  const tooltipDetails = selectorPills
+    ? `<span class="known-selector-tooltip-details"><span class="known-selector-tooltip-section-label">Search inputs returning this selector</span><span class="known-selector-tooltip-pill-list">${selectorPills}</span></span>`
+    : '';
+  const tooltipSummary = `
+    <span class="known-selector-tooltip-heading">Corroboration</span>
+    <span class="known-selector-tooltip-metrics">
+      <span><strong>${searchedSelectorCount}</strong> searched selector${searchedSelectorCount === 1 ? '' : 's'}</span>
+      <span><strong>${sourceCount}</strong> source${sourceCount === 1 ? '' : 's'}</span>
+    </span>
+  `;
+  const queriedIndicator = queried
+    ? '<span class="known-selector-queried" title="Already queried" aria-label="Already queried"></span>'
+    : '';
   return `
-    <span class="known-selector-pill known-selector-pill-${escapeAttr(type)}" data-known-focus-key="${escapeAttr(key)}">
+    <span class="known-selector-pill known-selector-pill-${escapeAttr(type)}${queried ? ' is-queried' : ''}" data-known-focus-key="${escapeAttr(key)}" title="${escapeAttr(tooltip)}" data-tooltip="${escapeAttr(tooltip)}">
       <span class="known-selector-value">${escapeHtml(value)}</span>
+      ${queriedIndicator}
+      <span class="known-selector-tooltip" role="tooltip">${tooltipSummary}${tooltipDetails}</span>
       <button type="button" class="known-selector-action pivot" data-known-pivot-type="${escapeAttr(type)}" data-known-pivot-value="${escapeAttr(value)}" title="Pivot Search" aria-label="Pivot Search">
         <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="11" cy="11" r="6.5"></circle><path d="M16.5 16.5L21 21"></path></svg>
       </button>
@@ -11984,22 +13973,77 @@ function knownSelectorPillMarkup(type, value) {
   `;
 }
 
+function profileMatchesKnownSelector(profile, selectorKey) {
+  const { type, value } = sourceSelectorParts(selectorKey);
+  if (!type || !value || !profile || typeof profile !== 'object') return false;
+  if (sourceSelectorKey(profile?.selector_type || profile?.query_type, profile?.selector || profile?.query_value) === selectorKey) return true;
+  const fields = profile?.profile_record?.fields && typeof profile.profile_record.fields === 'object'
+    ? profile.profile_record.fields
+    : {};
+  const extra = profile?.extra && typeof profile.extra === 'object' ? profile.extra : {};
+  const nestedProfiles = [profile?.scanner_result, profile?.osint_profile].filter((item) => item && typeof item === 'object');
+  const candidates = {
+    email: [profile?.email, profile?.email_hint, fields?.email, fields?.email_hint, extra?.email, extra?.email_hint],
+    phone: [profile?.phone, profile?.phone_hint, fields?.phone, fields?.phone_hint, extra?.phone, extra?.phone_hint],
+    username: [profile?.username, profile?.handle, fields?.username, fields?.handle, extra?.username, extra?.handle],
+    name: [profile?.full_name, profile?.display_name, profile?.profile_name, profile?.name, profile?.title, fields?.full_name, fields?.display_name, fields?.name, extra?.full_name, extra?.fullname, extra?.display_name, extra?.name],
+    location: [profile?.location, profile?.location_name, profile?.biolocation, profile?.city, profile?.region, profile?.country, fields?.location, fields?.location_name, fields?.biolocation, fields?.city, fields?.region, fields?.country, extra?.location, extra?.location_name, extra?.biolocation, extra?.city, extra?.region, extra?.country],
+  };
+  const parsedValues = profile?.parsed_values && typeof profile.parsed_values === 'object' ? profile.parsed_values : {};
+  const parsedFieldTypes = [
+    ['email', /(?:^|[\s_-])(e[\s_-]?mail|mail)(?:$|[\s_-])/i],
+    ['phone', /(?:^|[\s_-])(phone|mobile|telephone|tel)(?:$|[\s_-])/i],
+    ['username', /(?:^|[\s_-])(username|user[\s_-]?name|handle|screen[\s_-]?name|nick(?:name)?|alias)(?:$|[\s_-])/i],
+    ['name', /(?:^|[\s_-])(full[\s_-]?name|display[\s_-]?name|name)(?:$|[\s_-])/i],
+    ['location', /(?:^|[\s_-])(location|bio[\s_-]?location|city|region|state|province|country)(?:$|[\s_-])/i],
+  ];
+  for (const [field, rawValue] of Object.entries(parsedValues)) {
+    const parsedType = parsedFieldTypes.find(([, pattern]) => pattern.test(String(field || '').trim()))?.[0];
+    if (parsedType !== type) continue;
+    const values = Array.isArray(rawValue) ? rawValue : [rawValue];
+    candidates[type].push(...values.filter((value) => typeof value === 'string' || typeof value === 'number'));
+  }
+  if ((candidates[type] || []).some((candidate) => sourceSelectorKey(type, candidate) === selectorKey)) return true;
+  return nestedProfiles.some((nested) => profileMatchesKnownSelector(nested, selectorKey));
+}
+
+function associatedQueryKeysForKnownSelector(selectorKey) {
+  const payload = latestReconPayload && typeof latestReconPayload === 'object' ? latestReconPayload : emptyReconPayload();
+  const keys = new Set();
+  const add = (item) => {
+    if (!profileMatchesKnownSelector(item, selectorKey)) return;
+    const key = sourceSelectorKey(item?.selector_type || item?.query_type, item?.selector || item?.query_value);
+    if (key) keys.add(key);
+  };
+  for (const item of Array.isArray(payload?.results) ? payload.results : []) add(item);
+  for (const item of Array.isArray(payload?.scanner_results) ? payload.scanner_results : []) add(item);
+  for (const item of Array.isArray(payload?.osint_profiles) ? payload.osint_profiles : []) add(item);
+  for (const item of Array.isArray(payload?.person_data_profiles) ? payload.person_data_profiles : []) add(item);
+  for (const item of Array.isArray(payload?.numverify_profiles) ? payload.numverify_profiles : []) add(item);
+  return Array.from(keys);
+}
+
+function linkedTileCountForSelector(selectorKey) {
+  const cleanKey = String(selectorKey || '').trim().toLowerCase();
+  if (!cleanKey || cleanKey === 'all') return 0;
+  const payload = latestReconPayload && typeof latestReconPayload === 'object' ? latestReconPayload : emptyReconPayload();
+  const groups = [payload?.results, payload?.scanner_results, payload?.osint_profiles, payload?.person_data_profiles];
+  return groups.reduce((count, group) => count + (Array.isArray(group) ? group.filter((item) => profileMatchesKnownSelector(item, cleanKey)).length : 0), 0);
+}
+
 function hideResultsForSelector(selectorKey) {
   const cleanKey = String(selectorKey || '').trim().toLowerCase();
-  if (!cleanKey || cleanKey === 'all') return false;
+  if (!cleanKey || cleanKey === 'all') return 0;
   const payload = latestReconPayload && typeof latestReconPayload === 'object' ? latestReconPayload : emptyReconPayload();
   const rows = Array.isArray(payload?.results) ? payload.results : [];
   const osintProfiles = Array.isArray(payload?.osint_profiles) ? payload.osint_profiles : [];
   const pdlProfiles = Array.isArray(payload?.person_data_profiles) ? payload.person_data_profiles : [];
-  let hiddenCount = 0;
+  const linkedTileCount = linkedTileCountForSelector(cleanKey);
 
   for (const row of rows) {
-    if (sourceSelectorKey(row?.selector_type, row?.selector) !== cleanKey) continue;
+    if (!profileMatchesKnownSelector(row, cleanKey)) continue;
     const rowKey = reconRowVisibilityKey(row);
-    if (!hiddenReconRowKeys.has(rowKey)) {
-      hiddenReconRowKeys.add(rowKey);
-      hiddenCount += 1;
-    }
+    hiddenReconRowKeys.add(rowKey);
     const source = String(row?.source || '').trim().toLowerCase();
     if (source === 'osint_industries' && row?.osint_profile) {
       hiddenOsintTileKeys.add(osintTileVisibilityKey(row.osint_profile));
@@ -12011,22 +14055,27 @@ function hideResultsForSelector(selectorKey) {
   }
 
   for (const profile of osintProfiles) {
-    if (sourceSelectorKey(profile?.query_type, profile?.query_value) === cleanKey) {
+    if (profileMatchesKnownSelector(profile, cleanKey)) {
       hiddenOsintTileKeys.add(osintTileVisibilityKey(profile));
     }
   }
 
   for (const profile of pdlProfiles) {
-    if (sourceSelectorKey(profile?.query_type, profile?.query_value) === cleanKey) {
+    if (profileMatchesKnownSelector(profile, cleanKey)) {
       hiddenPdlProfileKeys.add(pdlProfileVisibilityKey(profile));
     }
   }
-  return hiddenCount > 0;
+  return linkedTileCount;
 }
 
 function renderKnownSelectorsPanel(payload) {
   if (!(footprintKnownSelectorsGroups instanceof HTMLElement) || !(footprintKnownSelectorsTotal instanceof HTMLElement)) return;
   const known = collectKnownSelectors(payload || {});
+  const queriedSelectorKeys = new Set(
+    (Array.isArray(payload?.selectors) ? payload.selectors : [])
+      .map((selector) => sourceSelectorKey(selector?.type, selector?.value))
+      .filter(Boolean),
+  );
   const labels = {
     email: 'Email/s',
     phone: 'Phone/s',
@@ -12038,7 +14087,7 @@ function renderKnownSelectorsPanel(payload) {
   const sections = KNOWN_SELECTOR_GROUPS
     .map((type) => {
       const values = Array.isArray(known?.[type]) ? known[type] : [];
-      const pills = values.map((value) => knownSelectorPillMarkup(type, value)).filter(Boolean).join('');
+      const pills = values.map((value) => knownSelectorPillMarkup(type, value, queriedSelectorKeys, known.corroboration)).filter(Boolean).join('');
       const count = pills ? values.filter((value) => !hiddenKnownSelectorKeys.has(`${type}|${String(value || '').toLowerCase()}`)).length : 0;
       total += Math.max(0, count);
       return `
@@ -12062,6 +14111,22 @@ function setFootprintSelectorsCollapsed(collapsed) {
   footprintKnownSelectorsToggle.setAttribute('aria-expanded', String(!footprintSelectorsCollapsed));
   const label = footprintKnownSelectorsToggle.querySelector('.known-selectors-toggle-label');
   if (label) label.textContent = footprintSelectorsCollapsed ? 'Expand' : 'Collapse';
+}
+
+function positionKnownSelectorTooltip(pill) {
+  if (!(pill instanceof HTMLElement)) return;
+  const tooltip = pill.querySelector('.known-selector-tooltip');
+  if (!(tooltip instanceof HTMLElement)) return;
+  const margin = 12;
+  const pillRect = pill.getBoundingClientRect();
+  const tooltipRect = tooltip.getBoundingClientRect();
+  const width = tooltipRect.width;
+  const height = tooltipRect.height;
+  const left = Math.max(margin, Math.min(window.innerWidth - width - margin, pillRect.right - width));
+  const topAbove = pillRect.top - height - 8;
+  const top = topAbove >= margin ? topAbove : Math.min(window.innerHeight - height - margin, pillRect.bottom + 8);
+  tooltip.style.setProperty('--known-selector-tooltip-left', `${Math.round(left)}px`);
+  tooltip.style.setProperty('--known-selector-tooltip-top', `${Math.round(Math.max(margin, top))}px`);
 }
 
 function emptyReconPayload() {
@@ -12105,7 +14170,7 @@ function mergeReconPayloads(basePayload, incomingPayload) {
   const dedupeByLatest = (rows, keyFn) => dedupeBy([...rows].reverse(), keyFn).reverse();
   const merged = {
     selectors: dedupeBy([...(base.selectors || []), ...(incoming.selectors || [])], (row) => `${String(row?.type || '').toLowerCase()}|${String(row?.value || '').toLowerCase()}`),
-    results: dedupeBy([...(base.results || []), ...(incoming.results || [])], (row) => [
+    results: dedupeByLatest([...(base.results || []), ...(incoming.results || [])], (row) => [
       String(row?.selector_type || '').toLowerCase(),
       String(row?.selector || '').toLowerCase(),
       String(row?.site_key || row?.site || '').toLowerCase(),
@@ -12190,8 +14255,9 @@ function collectionTargetsFromReconResults(results) {
 }
 
 function applyReconPayload(payload, options = {}) {
-  const { statusPrefix = 'Recon complete', footprintOnly = false, notifyModules = false } = options;
+  const { statusPrefix = 'Recon complete', footprintOnly = false, notifyModules = false, autofill = false } = options;
   const rawPayload = payload && typeof payload === 'object' ? payload : emptyReconPayload();
+  const previousProfileKeys = new Set((Array.isArray(reconProfiles) ? reconProfiles : []).map(profileResultKey));
   latestReconPayload = rawPayload;
   const normalized = filteredReconPayload(rawPayload);
   const derivedTargets = collectionTargetsFromReconResults(normalized.results);
@@ -12208,6 +14274,11 @@ function applyReconPayload(payload, options = {}) {
   }
   reconLeads = Array.isArray(normalized.leads) ? normalized.leads : [];
   reconProfiles = (Array.isArray(normalized.results) ? normalized.results : []).filter((row) => String(row?.status || '').trim() === 'present');
+  const newProfileCount = reconProfiles.filter((profile) => {
+    const key = profileResultKey(profile);
+    return key && !previousProfileKeys.has(key);
+  }).length;
+  noteResultsViewAttention('footprint', newProfileCount);
   reconPersonDataProfile = normalized?.person_data_profile && typeof normalized.person_data_profile === 'object'
     ? normalized.person_data_profile
     : {};
@@ -12230,10 +14301,18 @@ function applyReconPayload(payload, options = {}) {
   const statusText = `${statusPrefix}: ${normalized.present_count || 0} account match(es) found across ${normalized.checked || 0} checks.`;
   if (footprintReconStatus) footprintReconStatus.textContent = statusText;
   if (!footprintOnly) reconStatus.textContent = statusText;
-  maybeAutofillActiveCaseTitleFromLikelyName();
-  maybeAutofillCaseNotesLikelyName();
-  maybeAutofillCaseNotesLikelyLocation();
+  // Partial stream results are not case-ready evidence.
+  if (autofill) {
+    maybeAutofillActiveCaseTitleFromLikelyName();
+    maybeAutofillCaseNotesLikelyName();
+    maybeAutofillCaseNotesLikelyLocation();
+  }
+  if (caseNotesModal instanceof HTMLElement && !caseNotesModal.classList.contains('hidden')) {
+    mergeCorroboratedSelectorsIntoReport(normalized);
+  }
   syncOpenCaseNotesKnownProfilesFromRecon();
+  maybeAutofillCaseNotesSubjectImage();
+  syncAutofilledSubjectImageToCaseTile();
 }
 
 function renderReconResults(payload, targetEl = reconResults) {
@@ -12301,31 +14380,48 @@ function renderReconResults(payload, targetEl = reconResults) {
       && String(row.source || '').trim().toLowerCase() === 'pdl'
       && String(row.profile_url || '').trim(),
   );
-  const supportedPresent = Array.isArray(payload?.collection_ready_profiles)
-    ? payload.collection_ready_profiles
-    : dedupeRowsByProfileUrl(results.filter((row) => row.status === 'present' && row.supported_for_collection && String(row.profile_url || '').trim()));
-  const leadPresent = Array.isArray(payload?.unsupported_profiles_with_url)
-    ? payload.unsupported_profiles_with_url
-    : dedupeRowsByProfileUrl(results.filter((row) => row.status === 'present' && !row.supported_for_collection && String(row.profile_url || '').trim()));
+  const supportedPresent = dedupeRowsByProfileUrl(
+    results.filter((row) => row.status === 'present' && row.supported_for_collection && String(row.profile_url || '').trim()),
+  );
   const nonPdlSupportedPresent = supportedPresent.filter((row) => String(row.source || '').trim().toLowerCase() !== 'pdl');
-  const nonPdlLeadPresent = leadPresent.filter((row) => {
-    const source = String(row.source || '').trim().toLowerCase();
-    if (source === 'pdl') return false;
-    if (row?.has_direct_profile_url === false) return false;
-    if (!isLikelyAccountProfileUrl(row?.profile_url)) return false;
-    return true;
+  const collectionReadyUrls = new Set(nonPdlSupportedPresent.map((row) => String(normalizeExternalUrl(row?.profile_url) || '').toLowerCase()).filter(Boolean));
+  const isCollectionReadyScannerResult = (item) => nonPdlSupportedPresent.some((row) => {
+    const sameUrl = String(normalizeExternalUrl(item?.profile_url || item?.url) || '').toLowerCase() === String(normalizeExternalUrl(row?.profile_url) || '').toLowerCase();
+    if (sameUrl && normalizeExternalUrl(row?.profile_url)) return true;
+    return sourceSelectorKey(item?.selector_type, item?.selector) === sourceSelectorKey(row?.selector_type, row?.selector)
+      && normalizePlatformName(item?.site_name || item?.site) === normalizePlatformName(row?.site || row?.site_key);
   });
-  const supportedPresentTargets = collectionTargetsFromProfileRows(nonPdlSupportedPresent);
   const knownPresentNoUrl = Array.isArray(payload?.known_present_without_url)
     ? payload.known_present_without_url
     : results.filter((row) => row.status === 'present' && !String(row.profile_url || '').trim());
+  const knownScannerResultKeys = new Set(knownPresentNoUrl
+    .filter((row) => String(row?.source || '').trim().toLowerCase() === 'scanner')
+    .map((row) => [
+      String(row?.selector_type || '').trim().toLowerCase(),
+      String(row?.selector || '').trim().toLowerCase(),
+      String(row?.site || '').trim().toLowerCase(),
+    ].join('|')));
+  const otherScannerResults = scannerResults.filter((item) => {
+    if (isCollectionReadyScannerResult(item)) return false;
+    const key = [
+      String(item?.selector_type || '').trim().toLowerCase(),
+      String(item?.selector || item?.username || '').trim().toLowerCase(),
+      String(item?.site_name || item?.site || '').trim().toLowerCase(),
+    ].join('|');
+    return !knownScannerResultKeys.has(key);
+  });
+  const otherOsintProfiles = osintProfiles.filter((profile) => {
+    const profileUrl = String(normalizeExternalUrl(profile?.profile_url) || '').toLowerCase();
+    return Boolean(profileUrl) && !collectionReadyUrls.has(profileUrl);
+  });
+  const supportedPresentTargets = collectionTargetsFromProfileRows(nonPdlSupportedPresent);
   const unknown = results.filter((row) => row.status === 'unknown');
   const showHibpAggregate = targetEl === footprintReconResults;
   const breachRecords = showHibpAggregate
     ? collectBreachExposureRecords(allOsintProfiles, osintSpecRows, payload, results)
     : [];
   const collectableProfileCount = nonPdlSupportedPresent.length;
-  const profilesToReviewCount = osintProfiles.length + scannerResults.length + nonPdlLeadPresent.length + knownPresentNoUrl.length;
+  const profilesToReviewCount = otherOsintProfiles.length + otherScannerResults.length + knownPresentNoUrl.length;
   const identitySignalCount = scopedPersonDataProfiles.length + scopedNumverifyProfiles.length;
   const exposureRecordCount = breachRecords.length;
   const hasProfileSignals = collectableProfileCount + profilesToReviewCount + identitySignalCount + exposureRecordCount > 0;
@@ -12378,10 +14474,6 @@ function renderReconResults(payload, targetEl = reconResults) {
         <span>Profiles to review</span>
         <strong>${profilesToReviewCount}</strong>
       </div>
-      <div class="footprint-overview-item">
-        <span>Identity signals</span>
-        <strong>${identitySignalCount}</strong>
-      </div>
       ${showHibpAggregate ? `<div class="footprint-overview-item footprint-overview-item-exposure">
         <span>Exposure records</span>
         <strong>${exposureRecordCount}</strong>
@@ -12394,30 +14486,20 @@ function renderReconResults(payload, targetEl = reconResults) {
           <strong>${nonPdlSupportedPresent.length}</strong>
         </header>
         <p class="footprint-profile-tier-copy">High-value accounts that can be added directly to collection.</p>
-        ${collectionReadyProfilesMarkup(nonPdlSupportedPresent, supportedPresentTargets, { removable: targetEl === footprintReconResults })}
+        ${collectionReadyProfilesMarkup(nonPdlSupportedPresent, supportedPresentTargets, {
+          removable: targetEl === footprintReconResults,
+          profileSources: [...scannerResults, ...osintProfiles, ...caseNotesKnownProfiles],
+        })}
       </section>
       <section class="footprint-profile-tier footprint-profile-tier-discovered">
         <header class="footprint-profile-tier-head">
           <div><span>Account discovery</span><h4>Other Profiles</h4></div>
-          <strong>${osintProfiles.length + scannerResults.length + nonPdlLeadPresent.length + knownPresentNoUrl.length}</strong>
+          <strong>${otherOsintProfiles.length + otherScannerResults.length + knownPresentNoUrl.length}</strong>
         </header>
         <p class="footprint-profile-tier-copy">Related accounts and service matches that need review before collection.</p>
-        ${osintProfilesMarkup(osintProfiles, results, { removable: targetEl === footprintReconResults })}
-        ${userScannerProfilesMarkup(scannerResults, results, { removable: targetEl === footprintReconResults })}
-        <div class="recon-status-stack footprint-profile-supporting-results">
-          <div class="recon-group">
-            <p>Unsupported with account URL</p>
-            <div class="recon-pills">
-              ${nonPdlLeadPresent.length ? nonPdlLeadPresent.map((row) => toReconBadge(row, 'neutral', { removable: targetEl === footprintReconResults, pivotable: false })).join('') : '<span class="recon-pill">No unsupported account URLs detected</span>'}
-            </div>
-          </div>
-          <div class="recon-group">
-            <p>Known present without direct account URL</p>
-            <div class="recon-pills">
-              ${knownPresentNoUrl.length ? knownPresentNoUrl.map((row) => toReconBadge(row, 'neutral', { removable: targetEl === footprintReconResults, pivotable: false })).join('') : '<span class="recon-pill">No known-present no-URL results</span>'}
-            </div>
-          </div>
-        </div>
+        ${osintProfilesMarkup(otherOsintProfiles, results, { removable: targetEl === footprintReconResults })}
+        ${userScannerProfilesMarkup(otherScannerResults, results, { removable: targetEl === footprintReconResults })}
+        ${knownPresentWithoutUrlCardsMarkup(knownPresentNoUrl, { removable: targetEl === footprintReconResults })}
       </section>
       <section class="footprint-profile-tier footprint-profile-tier-enrichment">
         <header class="footprint-profile-tier-head">
@@ -12442,9 +14524,9 @@ function renderReconResults(payload, targetEl = reconResults) {
         <h4>No profile signals yet</h4>
         <p>Run reconnaissance with a username, email, phone, or name to build a profile review queue.</p>
         <div class="footprint-empty-steps" aria-label="Reconnaissance workflow">
-          <span><b>1</b> Add selectors</span>
-          <span><b>2</b> Run recon</span>
-          <span><b>3</b> Review profiles</span>
+          <button type="button" class="footprint-empty-step footprint-empty-step-action" data-footprint-empty-add-search><b>1</b> Add search</button>
+          <span class="footprint-empty-step"><b>2</b> Run recon</span>
+          <span class="footprint-empty-step"><b>3</b> Review profiles</span>
         </div>
       </section>`}
   `;
@@ -12793,6 +14875,8 @@ function updateStatusLine() {
 
 function renderCollectionContext() {
   if (!collectionContext || !contextTargets || !contextRange) return;
+  collectionContext.classList.add('hidden');
+  return;
   const targetCount = Array.isArray(activeTargets) ? activeTargets.length : 0;
   if (!targetCount || !activeStartDate || !activeEndDate) {
     collectionContext.classList.add('hidden');
@@ -13121,8 +15205,25 @@ function clearCollectionPolling() {
 
 function applyCollectionPayload(data) {
   const incomingPosts = Array.isArray(data?.posts) ? data.posts : [];
+  const previousPosts = Array.isArray(latestFetchedPosts) ? latestFetchedPosts : [];
+  const previousPostKeys = new Set(previousPosts.map(postResultKey));
+  const previousProfileKeys = new Set(previousPosts.map((post) => [
+    String(post?.platform || '').trim().toLowerCase(),
+    String(post?.username || '').trim().toLowerCase(),
+  ].join('|')).filter((key) => key !== '|'));
   const allPosts = collectionAppendMode ? mergePostsForAppend(latestFetchedPosts, incomingPosts) : incomingPosts;
   latestFetchedPosts = Array.isArray(allPosts) ? allPosts : [];
+  const newPosts = latestFetchedPosts.filter((post) => {
+    const key = postResultKey(post);
+    return key && !previousPostKeys.has(key);
+  });
+  const newProfiles = new Set(newPosts.map((post) => [
+    String(post?.platform || '').trim().toLowerCase(),
+    String(post?.username || '').trim().toLowerCase(),
+  ].join('|')).filter((key) => key !== '|' && !previousProfileKeys.has(key)));
+  noteResultsViewAttention('posts', newPosts.length);
+  noteResultsViewAttention('footprint', newProfiles.size);
+  noteResultsViewAttention('pattern', newPosts.length);
   _dashboardFilterCache = { rows: null, key: '', output: [] };
   latestFaceClusters = [];
   activeFaceFilters.clear();
@@ -13589,16 +15690,19 @@ async function runRecon(event) {
   useReconTargetsBtn.disabled = true;
   goReconAssessmentBtn?.classList.add('hidden');
   if (goReconAssessmentBtn instanceof HTMLButtonElement) goReconAssessmentBtn.disabled = true;
-  clearHiddenReconEntities();
   activeReconStreamController?.abort();
   const runId = ++activeReconRunId;
   const streamController = new AbortController();
   activeReconStreamController = streamController;
-  latestReconPayload = emptyReconPayload();
-  setReconSnapshotFromPayload(latestReconPayload);
+  // A new search inside an open case is an additional selector pivot. Keep the
+  // case's current recon payload as the merge base so prior results remain in
+  // the snapshot, selector panel, and digital-footprint views.
+  const existingPayload = latestReconPayload && typeof latestReconPayload === 'object'
+    ? latestReconPayload
+    : emptyReconPayload();
 
   try {
-    let aggregate = emptyReconPayload();
+    let aggregate = existingPayload;
     let receivedFinalPayload = false;
     await consumeReconStream(selectors, {
       onStart: (streamEvent) => {
@@ -13625,6 +15729,7 @@ async function runRecon(event) {
       },
     }, { signal: streamController.signal });
     if (!receivedFinalPayload) throw new Error('recon stream ended before a final result was received');
+    applyReconPayload(aggregate, { statusPrefix: 'Recon complete', notifyModules: true, autofill: true });
     finishProgressNotification('recon-main', {
       title: 'Recon Complete',
       message: `Processed ${selectors.length} selector${selectors.length === 1 ? '' : 's'}.`,
@@ -13655,8 +15760,9 @@ async function runRecon(event) {
     if (goReconAssessmentBtn instanceof HTMLButtonElement) goReconAssessmentBtn.disabled = true;
     footprintUseTargetsBtn?.classList.add('hidden');
     if (footprintUseTargetsBtn instanceof HTMLButtonElement) footprintUseTargetsBtn.disabled = true;
-    latestReconPayload = emptyReconPayload();
-    applyReconPayload(latestReconPayload, { statusPrefix: 'Recon failed' });
+    latestReconPayload = existingPayload;
+    setReconSnapshotFromPayload(existingPayload);
+    applyReconPayload(existingPayload, { statusPrefix: 'New recon failed; existing results retained' });
     reconStatus.textContent = `Recon failed: ${error.message || 'unknown error'}`;
     if (footprintReconStatus) footprintReconStatus.textContent = `Recon failed: ${error.message || 'unknown error'}`;
     finishProgressNotification('recon-main', {
@@ -13744,7 +15850,7 @@ async function runFootprintRecon(event) {
     });
     latestReconPayload = aggregate;
     setReconSnapshotFromPayload(aggregate);
-    applyReconPayload(aggregate, { statusPrefix: 'Recon complete', footprintOnly: true, notifyModules: true });
+    applyReconPayload(aggregate, { statusPrefix: 'Recon complete', footprintOnly: true, notifyModules: true, autofill: true });
     finishProgressNotification('recon-footprint', {
       title: 'Recon Complete',
       message: `Processed ${selectors.length} selector${selectors.length === 1 ? '' : 's'}.`,
@@ -13940,7 +16046,7 @@ async function startBackgroundCollection(targets, startDate, endDate, options = 
     activeEndDate = endDate;
     renderCollectionContext();
     if (activeCase) {
-      dashboardBaseStatus = `Active case: ${activeCase.case_name}`;
+      dashboardBaseStatus = '';
     }
     searchInput.value = '';
     clearCollectionPolling();
@@ -14007,8 +16113,8 @@ async function collectAndOpen(event) {
   setSetupFormBusy(true);
   setupStatus.textContent = 'Starting background collection...';
   await startBackgroundCollection(targets, startDate, endDate, {
-    lockModal: true,
-    setupMessage: 'Collection started. Waiting for first results before opening dashboard.',
+    lockModal: false,
+    setupMessage: 'Collection started. You can continue browsing while it runs.',
     statusPrefix: 'Collection',
     showStartNotification: true,
     appendResults: false,
@@ -14020,7 +16126,18 @@ async function collectAndOpen(event) {
 searchInput.addEventListener('input', queueRefresh);
 resultsEl?.addEventListener('click', async (event) => {
   const target = event.target;
-  if (!(target instanceof HTMLElement)) return;
+  if (!(target instanceof Element)) return;
+
+  const evidenceCaptureButton = target.closest('[data-evidence-capture-post-index]');
+  if (evidenceCaptureButton instanceof HTMLElement) {
+    event.preventDefault();
+    event.stopPropagation();
+    openEvidenceCaptureModal(
+      evidenceCaptureButton.getAttribute('data-evidence-capture-post-index'),
+      evidenceCaptureButton.getAttribute('data-evidence-capture-media-index'),
+    );
+    return;
+  }
 
   const assessmentNode = target.closest('.llm-assessment[data-post-index]');
   const assessmentPostIndex = assessmentNode instanceof HTMLElement
@@ -14178,6 +16295,15 @@ caseTiles?.addEventListener('click', (event) => {
     openCase(tileNode.getAttribute('data-case-id'));
   }
 });
+caseTiles?.addEventListener('keydown', (event) => {
+  if (event.key !== 'Enter' && event.key !== ' ') return;
+  const target = event.target;
+  if (!(target instanceof HTMLElement) || target.closest('button')) return;
+  const tile = target.closest('[data-case-id]');
+  if (!(tile instanceof HTMLElement)) return;
+  event.preventDefault();
+  openCase(tile.getAttribute('data-case-id'));
+});
 caseEditForm?.addEventListener('submit', submitCaseEdit);
 caseEditCancelBtn?.addEventListener('click', closeCaseEditModal);
 caseEditCloseBtn?.addEventListener('click', closeCaseEditModal);
@@ -14202,6 +16328,7 @@ viewFootprintBtn?.addEventListener('click', () => setResultsView('footprint'));
 viewPatternLifeBtn?.addEventListener('click', () => setResultsView('pattern'));
 viewTimelineBtn?.addEventListener('click', () => setResultsView('timeline'));
 viewEntityGraphBtn?.addEventListener('click', () => setResultsView('entitygraph'));
+viewGuideBtn?.addEventListener('click', () => setResultsView('guide'));
 [viewFootprintBtn, viewPatternLifeBtn, viewTimelineBtn, viewEntityGraphBtn].forEach((tab, index, tabs) => {
   tab?.addEventListener('keydown', (event) => {
     const key = event.key;
@@ -14217,13 +16344,53 @@ viewEntityGraphBtn?.addEventListener('click', () => setResultsView('entitygraph'
     nextTab?.click();
   });
 });
-[viewWorkflowBtn].forEach((tab, index, tabs) => {
+[viewWorkflowBtn, viewGuideBtn].forEach((tab, index, tabs) => {
   tab?.addEventListener('keydown', (event) => {
     if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
     event.preventDefault();
     tabs[index]?.focus();
     tabs[index]?.click();
   });
+});
+guideSteps?.addEventListener('click', async (event) => {
+  const target = event.target instanceof Element ? event.target.closest('[data-guide-action], [data-guide-complete], [data-guide-collect-index]') : null;
+  if (!(target instanceof HTMLElement)) return;
+  const state = guideState();
+  const complete = String(target.getAttribute('data-guide-complete') || '').trim();
+  if (complete) {
+    const canComplete = complete !== 'assessment' || state.bta_required === false || (state.bta_required === true && state.primary_notes.trim() && state.secondary_notes.trim());
+    if (!canComplete) { showNotification('Record the assessment decision and both warning-behaviour narratives first.', 'warn'); return; }
+    const next = { ...state, completed: { ...state.completed, [complete]: !state.completed[complete] } };
+    await saveGuideState(next, next.completed[complete] ? `Guide step completed: ${complete}` : `Guide step reopened: ${complete}`);
+    return;
+  }
+  const collectIndex = target.getAttribute('data-guide-collect-index');
+  if (collectIndex !== null) {
+    const profile = buildWorkflowModel().collectionCandidates[Number(collectIndex)];
+    if (profile) openCollectionSetupWithTargets([profile], { message: 'Loaded high-value profile for collection.' });
+    return;
+  }
+  const action = String(target.getAttribute('data-guide-action') || '').trim();
+  if (action === 'query') openReconSetupWithSelectors([], { message: 'Enter initial selectors to begin the investigation.' });
+  else if (action === 'validate' || action === 'pivot') setResultsView('footprint');
+  else if (action === 'collect') openCollectionSetupWithTargets(buildWorkflowModel().collectionCandidates, { message: 'Review and collect high-value profiles.' });
+  else if (action === 'collect-all') openCollectionSetupWithTargets(buildWorkflowModel().collectionCandidates, { message: 'Loaded all previewed high-value profiles.' });
+  else if (action === 'posts') setResultsView('posts');
+  else if (action === 'primary-warning') openGuideWarningReview('primary');
+  else if (action === 'secondary-warning') openGuideWarningReview('secondary');
+  else if (action === 'save-assessment') {
+    if (await saveGuideAssessmentFromFields()) showNotification('Assessment narrative saved to Case Notes.', 'success');
+  }
+});
+guideSteps?.addEventListener('change', async (event) => {
+  const input = event.target instanceof HTMLInputElement ? event.target : null;
+  if (!input || input.name !== 'guide-bta') return;
+  const required = input.value === 'yes';
+  await saveGuideState({ ...guideState(), bta_required: required }, `Behavioural Threat Assessment ${required ? 'required' : 'not required'}`, 'Assessment decision');
+});
+guideSteps?.addEventListener('focusout', (event) => {
+  const field = event.target instanceof HTMLTextAreaElement ? event.target.closest('[data-guide-notes]') : null;
+  if (field instanceof HTMLTextAreaElement) void saveGuideAssessmentFromFields();
 });
 [viewPostsBtn, viewMediaBtn].forEach((tab, index, tabs) => {
   tab?.addEventListener('keydown', (event) => {
@@ -14262,6 +16429,7 @@ llmSandboxTextInput?.addEventListener('keydown', (event) => {
 attachReconPreviewHandlers(reconResults);
 attachReconPreviewHandlers(footprintReconResults);
 attachReconPreviewHandlers(leadsList);
+document.addEventListener('error', useProfileAvatarFallback, true);
 function handleWorkflowAction(action) {
   const model = buildWorkflowModel();
   if (action === 'recon_suggested') {
@@ -14497,6 +16665,22 @@ footprintReconResults?.addEventListener('click', (event) => {
   handleReconCollectionAction(event);
   const target = event.target;
   if (!(target instanceof Element)) return;
+  const returnedFieldToggle = target.closest('[data-returned-field-toggle]');
+  if (returnedFieldToggle instanceof HTMLButtonElement) {
+    const field = returnedFieldToggle.closest('[data-returned-field-value]');
+    const value = field?.querySelector('strong');
+    if (!(field instanceof HTMLElement) || !(value instanceof HTMLElement)) return;
+    const expanded = returnedFieldToggle.getAttribute('aria-expanded') === 'true';
+    value.textContent = String(field.getAttribute(expanded ? 'data-returned-field-preview' : 'data-returned-field-full') || '');
+    returnedFieldToggle.textContent = expanded ? 'See more' : 'See less';
+    returnedFieldToggle.setAttribute('aria-expanded', expanded ? 'false' : 'true');
+    return;
+  }
+  const addSearchBtn = target.closest('[data-footprint-empty-add-search]');
+  if (addSearchBtn instanceof Element) {
+    openReconSetupWithSelectors([], { message: 'Add a selector to begin profile reconnaissance.' });
+    return;
+  }
   const reconRemoveBtn = target.closest('[data-recon-remove]');
   if (reconRemoveBtn instanceof Element) {
     const key = String(reconRemoveBtn.getAttribute('data-recon-remove') || '').trim().toLowerCase();
@@ -14504,7 +16688,9 @@ footprintReconResults?.addEventListener('click', (event) => {
     hiddenReconRowKeys.add(key);
     const rows = Array.isArray(latestReconPayload?.results) ? latestReconPayload.results : [];
     const row = rows.find((item) => reconRowVisibilityKey(item) === key);
+    const removedSelectorKeys = new Set();
     if (row) {
+      removedSelectorKeys.add(sourceSelectorKey(row?.selector_type, row?.selector));
       const source = String(row?.source || '').trim().toLowerCase();
       if (source === 'osint_industries' && row?.osint_profile) {
         hiddenOsintTileKeys.add(osintTileVisibilityKey(row.osint_profile));
@@ -14522,6 +16708,7 @@ footprintReconResults?.addEventListener('click', (event) => {
         }
       }
     }
+    removeCaseNotesSelectorsForRemovedTiles(removedSelectorKeys);
     applyReconPayload(latestReconPayload || emptyReconPayload(), { statusPrefix: 'Result removed', footprintOnly: true });
     return;
   }
@@ -14530,6 +16717,9 @@ footprintReconResults?.addEventListener('click', (event) => {
     const key = String(osintRemoveBtn.getAttribute('data-osint-remove') || '').trim().toLowerCase();
     if (!key) return;
     hiddenOsintTileKeys.add(key);
+    const profile = (Array.isArray(latestReconPayload?.osint_profiles) ? latestReconPayload.osint_profiles : [])
+      .find((item) => osintTileVisibilityKey(item) === key);
+    removeCaseNotesSelectorsForRemovedTiles(new Set([sourceSelectorKey(profile?.query_type, profile?.query_value)]));
     applyReconPayload(latestReconPayload || emptyReconPayload(), { statusPrefix: 'OSINT tile removed', footprintOnly: true });
     return;
   }
@@ -14538,6 +16728,9 @@ footprintReconResults?.addEventListener('click', (event) => {
     const key = String(pdlProfileRemoveBtn.getAttribute('data-pdl-profile-remove') || '').trim().toLowerCase();
     if (!key) return;
     hiddenPdlProfileKeys.add(key);
+    const profile = (Array.isArray(latestReconPayload?.person_data_profiles) ? latestReconPayload.person_data_profiles : [])
+      .find((item) => pdlProfileVisibilityKey(item) === key);
+    removeCaseNotesSelectorsForRemovedTiles(new Set([sourceSelectorKey(profile?.query_type, profile?.query_value)]));
     applyReconPayload(latestReconPayload || emptyReconPayload(), { statusPrefix: 'Person Data Profile removed', footprintOnly: true });
     return;
   }
@@ -14951,6 +17144,10 @@ document.addEventListener('keydown', (event) => {
     closeCaseSaveModal();
     return;
   }
+  if (evidenceCaptureModal && !evidenceCaptureModal.classList.contains('hidden')) {
+    closeEvidenceCaptureModal();
+    return;
+  }
   if (caseNotesModal && !caseNotesModal.classList.contains('hidden')) {
     closeCaseNotesModal();
     return;
@@ -15001,6 +17198,10 @@ postModal?.addEventListener('click', (event) => {
   if (!(event.target instanceof HTMLElement)) return;
   if (event.target !== postModal) return;
   closePostModal();
+});
+evidenceCaptureModal?.addEventListener('click', (event) => {
+  if (event.target !== evidenceCaptureModal) return;
+  closeEvidenceCaptureModal();
 });
 window.addEventListener('resize', () => {
   if (activeInsightsTab === 'geo') refreshMapLayout();
@@ -15056,6 +17257,17 @@ manualInsertCloseBtn?.addEventListener('click', closeManualInsertModal);
 manualInsertCancelBtn?.addEventListener('click', closeManualInsertModal);
 manualInsertForm?.addEventListener('submit', submitManualInsert);
 postModalCloseBtn?.addEventListener('click', closePostModal);
+evidenceCaptureCancelBtn?.addEventListener('click', closeEvidenceCaptureModal);
+evidenceCaptureCancelBtnBottom?.addEventListener('click', closeEvidenceCaptureModal);
+evidenceCaptureSaveBtn?.addEventListener('click', async () => {
+  if (!pendingEvidenceCapture) return;
+  const saved = await captureEvidenceFromPost(
+    pendingEvidenceCapture.postIndex,
+    pendingEvidenceCapture.mediaIndex,
+    String(evidenceCaptureCommentInput?.value || ''),
+  );
+  if (saved) closeEvidenceCaptureModal();
+});
 caseSaveStatusSelect?.addEventListener('change', () => {
   setWatchlistCadenceVisibility(
     caseSaveStatusSelect,
@@ -15068,6 +17280,9 @@ caseNotesForm?.addEventListener('submit', submitCaseNotes);
 caseNotesCloseBtn?.addEventListener('click', closeCaseNotesModal);
 caseNotesCancelBtn?.addEventListener('click', closeCaseNotesModal);
 caseNotesExportPdfBtn?.addEventListener('click', exportCaseNotesPdf);
+caseNotesEvidencePopoutBtn?.addEventListener('click', () => {
+  setCaseNotesEvidencePopout(!caseNotesEvidencePopoutOpen);
+});
 caseNotesNameInput?.addEventListener('input', () => {
   const current = String(caseNotesNameInput.value || '').trim();
   const previousAuto = String(lastAutofilledCaseNotesName || '').trim();
@@ -15080,8 +17295,13 @@ caseNotesNameInput?.addEventListener('input', () => {
     return;
   }
   lastAutofilledCaseNotesName = '';
-  caseNotesNameInput.classList.remove('case-notes-name-autofill');
+  caseNotesNameInput.classList.remove('case-notes-name-autofill', 'case-notes-autofill');
 });
+[
+  caseNotesNameInput, caseNotesLocationInput, caseNotesAgeInput, caseNotesAkasInput,
+  caseNotesSelectorEmailsInput, caseNotesSelectorPhonesInput, caseNotesSelectorUsernamesInput,
+  caseNotesContextInput, caseNotesThreatInput, caseNotesPersonalInput,
+].forEach((input) => input?.addEventListener('focus', () => input.classList.remove('case-notes-autofill')));
 caseNotesLocationInput?.addEventListener('input', () => {
   const current = String(caseNotesLocationInput.value || '').trim();
   const previousAuto = String(lastAutofilledCaseNotesLocation || '').trim();
@@ -15089,8 +17309,16 @@ caseNotesLocationInput?.addEventListener('input', () => {
   if (!current) return;
   lastAutofilledCaseNotesLocation = '';
 });
+[caseNotesSelectorEmailsInput, caseNotesSelectorPhonesInput, caseNotesSelectorUsernamesInput].forEach((input) => {
+  input?.addEventListener('input', () => {
+    renderCaseNotesSelectorLists();
+    renderCaseNotesSelectorCorroboration();
+  });
+  input?.closest('.case-notes-selector-group')?.addEventListener('pointerenter', renderCaseNotesSelectorLists);
+});
 caseNotesSubjectImageSelect?.addEventListener('change', () => {
   const selected = String(caseNotesSubjectImageSelect.value || '').trim();
+  if (selected !== lastAutofilledCaseNotesSubjectImage) lastAutofilledCaseNotesSubjectImage = '';
   renderCaseNotesSubjectImagePreview(selected);
 });
 caseNotesSubjectUploadBtn?.addEventListener('click', () => {
@@ -15099,8 +17327,10 @@ caseNotesSubjectUploadBtn?.addEventListener('click', () => {
 caseNotesSubjectUploadInput?.addEventListener('change', async () => {
   const file = caseNotesSubjectUploadInput?.files?.[0];
   if (!file) return;
+  const uploadSession = activeCaseSession;
   try {
     const imageDataUrl = String(await readImageAsDataUrl(file));
+    if (uploadSession !== activeCaseSession) return;
     if (!imageDataUrl) return;
     if (!caseNotesImageChoices.includes(imageDataUrl)) caseNotesImageChoices.unshift(imageDataUrl);
     renderCaseNotesSubjectImageOptions(imageDataUrl);
@@ -15119,8 +17349,10 @@ caseNotesAddProfileBtn?.addEventListener('click', () => {
     url: '',
     image_url: '',
     screenshot_url: '',
+    captured_at: new Date().toISOString(),
     collection_ready: false,
   });
+  caseNotesEditingProfileIndexes.add(caseNotesKnownProfiles.length - 1);
   renderCaseNotesProfiles();
 });
 caseNotesProfilesList?.addEventListener('change', (event) => {
@@ -15130,11 +17362,13 @@ caseNotesProfilesList?.addEventListener('change', (event) => {
   if (!(card instanceof HTMLElement)) return;
   const index = Number(card.getAttribute('data-profile-index'));
   if (Number.isNaN(index)) return;
+  const profileEditSession = activeCaseSession;
   if (target.classList.contains('case-notes-profile-upload-image-input') && target instanceof HTMLInputElement) {
     const file = target.files?.[0];
     if (!file) return;
     readImageAsDataUrl(file)
       .then((imageDataUrl) => {
+        if (profileEditSession !== activeCaseSession) return;
         syncKnownProfilesFromForm();
         const value = String(imageDataUrl || '').trim();
         if (!value) return;
@@ -15154,6 +17388,7 @@ caseNotesProfilesList?.addEventListener('change', (event) => {
     if (!file) return;
     readImageAsDataUrl(file)
       .then((imageDataUrl) => {
+        if (profileEditSession !== activeCaseSession) return;
         syncKnownProfilesFromForm();
         const value = String(imageDataUrl || '').trim();
         if (!value) return;
@@ -15176,6 +17411,23 @@ caseNotesProfilesList?.addEventListener('click', (event) => {
   if (!(target instanceof HTMLElement)) return;
   const card = target.closest('.case-notes-profile-card');
   if (card instanceof HTMLElement) {
+    const editButton = target.closest('[data-case-notes-profile-edit]');
+    if (editButton instanceof HTMLElement) {
+      const index = Number(editButton.getAttribute('data-case-notes-profile-edit'));
+      if (Number.isNaN(index)) return;
+      caseNotesEditingProfileIndexes.add(index);
+      renderCaseNotesProfiles();
+      return;
+    }
+    const doneButton = target.closest('[data-case-notes-profile-done]');
+    if (doneButton instanceof HTMLElement) {
+      const index = Number(doneButton.getAttribute('data-case-notes-profile-done'));
+      if (Number.isNaN(index)) return;
+      syncKnownProfilesFromForm();
+      caseNotesEditingProfileIndexes.delete(index);
+      renderCaseNotesProfiles();
+      return;
+    }
     if (target.classList.contains('case-notes-profile-upload-image-btn')) {
       const input = card.querySelector('.case-notes-profile-upload-image-input');
       if (input instanceof HTMLInputElement) input.click();
@@ -15193,11 +17445,23 @@ caseNotesProfilesList?.addEventListener('click', (event) => {
   const index = Number(card.getAttribute('data-profile-index'));
   if (Number.isNaN(index)) return;
   caseNotesKnownProfiles = caseNotesKnownProfiles.filter((_, itemIndex) => itemIndex !== index);
+  caseNotesEditingProfileIndexes.clear();
   renderCaseNotesProfiles();
 });
 caseNotesForm?.addEventListener('click', (event) => {
   const target = event.target;
   if (!(target instanceof HTMLElement)) return;
+  const selectorRemove = target.closest('[data-case-notes-selector-remove-type][data-case-notes-selector-remove-value]');
+  if (selectorRemove instanceof HTMLElement) {
+    const type = String(selectorRemove.getAttribute('data-case-notes-selector-remove-type') || '').trim().toLowerCase();
+    const value = String(selectorRemove.getAttribute('data-case-notes-selector-remove-value') || '').trim();
+    if (type && value) removeCaseNotesSelector(type, value);
+    return;
+  }
+  if (target.closest('.case-notes-evidence-popout-toggle')) {
+    setCaseNotesEvidencePopout(!caseNotesEvidencePopoutOpen);
+    return;
+  }
   const toggle = target.closest('[data-case-notes-section-toggle]');
   if (!(toggle instanceof HTMLElement)) return;
   const key = String(toggle.getAttribute('data-case-notes-section-toggle') || '').trim().toLowerCase();
@@ -15205,6 +17469,13 @@ caseNotesForm?.addEventListener('click', (event) => {
   const excluded = caseNotesExcludedSections.has(key);
   setCaseNotesSectionExcluded(key, !excluded);
   renderCaseNotesSectionVisibility();
+});
+caseNotesEvidenceSection?.addEventListener('click', (event) => {
+  const target = event.target;
+  if (!(target instanceof Element)) return;
+  if (!target.closest('.case-notes-evidence-popout-toggle')) return;
+  event.stopPropagation();
+  setCaseNotesEvidencePopout(!caseNotesEvidencePopoutOpen);
 });
 caseNotesFootprintResults?.addEventListener('click', (event) => {
   const target = event.target;
@@ -15215,6 +17486,56 @@ caseNotesFootprintResults?.addEventListener('click', (event) => {
   if (!key) return;
   caseNotesExcludedFootprintResultKeys.add(key);
   renderCaseNotesFootprintResults();
+});
+caseNotesEvidenceCapture?.addEventListener('click', async (event) => {
+  const target = event.target;
+  if (!(target instanceof Element)) return;
+  const removeMapButton = target.closest('[data-case-notes-pattern-evidence-remove]');
+  if (removeMapButton instanceof HTMLElement) {
+    const key = String(removeMapButton.getAttribute('data-case-notes-pattern-evidence-remove') || '').trim().toLowerCase();
+    if (!key) return;
+    caseNotesExcludedPatternLifeEvidenceKeys.add(key);
+    caseNotesPatternLifeEvidence = caseNotesPatternLifeEvidence
+      .filter((entry) => String(entry?.key || '').trim().toLowerCase() !== key);
+    renderCaseNotesEvidenceCapture();
+    renderCaseNotesProfiles();
+    setCaseNotesEvidencePopout(caseNotesCitedEvidenceCount() > 0);
+    showNotification('Map figure removed from the report.', 'success');
+    return;
+  }
+  const citeButton = target.closest('[data-case-notes-evidence-cite]');
+  if (citeButton instanceof HTMLElement) {
+    const figure = String(citeButton.getAttribute('data-case-notes-evidence-cite') || '').trim();
+    if (!figure || !(caseNotesThreatInput instanceof HTMLTextAreaElement)) return;
+    const sourceUrl = String(citeButton.getAttribute('data-case-notes-evidence-url') || '').trim();
+    const citation = /^https?:\/\//i.test(sourceUrl) ? `[Figure ${figure}](${sourceUrl})` : `(Figure ${figure})`;
+    const existing = String(caseNotesThreatInput.value || '').trim();
+    if (!existing.includes(`Figure ${figure}`)) {
+      caseNotesThreatInput.value = existing ? `${existing} ${citation}` : citation;
+    }
+    focusWithoutScroll(caseNotesThreatInput);
+    showNotification(`Figure ${figure} cited in Threat / Risk Assessment.`, 'success');
+    return;
+  }
+  const removeButton = target.closest('[data-case-notes-evidence-remove]');
+  if (!(removeButton instanceof HTMLElement) || !activeCaseId || !activeCase) return;
+  const index = Number(removeButton.getAttribute('data-case-notes-evidence-remove'));
+  const entries = Array.isArray(activeCase.case_notes?.evidence_capture) ? activeCase.case_notes.evidence_capture : [];
+  if (!Number.isInteger(index) || index < 0 || index >= entries.length) return;
+  const nextNotes = { ...normalizeCaseNotesObject(activeCase.case_notes), evidence_capture: entries.filter((_, entryIndex) => entryIndex !== index) };
+  try {
+    const response = await fetch(`/api/cases/${encodeURIComponent(activeCaseId)}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ case_notes: nextNotes }),
+    });
+    if (!response.ok) throw new Error(await parseErrorResponse(response));
+    activeCase = { ...activeCase, case_notes: nextNotes };
+    renderCaseNotesEvidenceCapture();
+    renderCaseNotesProfiles();
+    setCaseNotesEvidencePopout(caseNotesCitedEvidenceCount() > 0);
+    showNotification('Evidence capture removed from the report.', 'success');
+  } catch (error) {
+    showNotification(`Could not remove evidence capture: ${error.message || 'unknown error'}`, 'error');
+  }
 });
 caseSaveImageOptions?.addEventListener('change', (event) => {
   const target = event.target;
@@ -15319,13 +17640,14 @@ footprintKnownSelectorsGroups?.addEventListener('click', async (event) => {
   if (removeBtn instanceof Element) {
     const key = String(removeBtn.getAttribute('data-known-remove') || '').trim().toLowerCase();
     if (!key) return;
-    const cleared = hideResultsForSelector(key);
-    if (cleared) {
-      applyReconPayload(latestReconPayload || emptyReconPayload(), { statusPrefix: 'Selector records cleared', footprintOnly: true });
-    } else {
-      hiddenKnownSelectorKeys.add(key);
-      renderKnownSelectorsPanel(latestReconPayload || emptyReconPayload());
-    }
+    const linkedTileCount = linkedTileCountForSelector(key);
+    const { type, value } = sourceSelectorParts(key);
+    const tileLabel = `${linkedTileCount} linked tile${linkedTileCount === 1 ? '' : 's'}`;
+    if (!window.confirm(`Remove ${formatSelectorLabel(type, value)}? This will delete ${tileLabel}.`)) return;
+    hideResultsForSelector(key);
+    hiddenKnownSelectorKeys.add(key);
+    removeCaseNotesSelectorsForRemovedTiles(new Set([key]));
+    applyReconPayload(latestReconPayload || emptyReconPayload(), { statusPrefix: `Selector and ${tileLabel} removed`, footprintOnly: true });
     return;
   }
   const pivotBtn = target.closest('[data-known-pivot-type][data-known-pivot-value]');
@@ -15344,9 +17666,20 @@ footprintKnownSelectorsGroups?.addEventListener('click', async (event) => {
   setResultsView('footprint');
   const advance = activeKnownSelectorFocusKey === key && activeFootprintSelectorMatchKey === key;
   activeKnownSelectorFocusKey = key;
-  activeFootprintSourceSelectorKey = key;
+  const associatedQueryKeys = associatedQueryKeysForKnownSelector(key);
+  activeFootprintSourceSelectorKey = 'all';
   renderReconResults(latestReconPayload || emptyReconPayload(), footprintReconResults);
-  focusFootprintSelectorMatch(key, { advance });
+  focusFootprintSelectorMatch(key, { advance, associatedQueryKeys });
+});
+footprintKnownSelectorsGroups?.addEventListener('pointerover', (event) => {
+  const target = event.target;
+  const pill = target instanceof Element ? target.closest('.known-selector-pill') : null;
+  if (pill instanceof HTMLElement) positionKnownSelectorTooltip(pill);
+});
+footprintKnownSelectorsGroups?.addEventListener('focusin', (event) => {
+  const target = event.target;
+  const pill = target instanceof Element ? target.closest('.known-selector-pill') : null;
+  if (pill instanceof HTMLElement) positionKnownSelectorTooltip(pill);
 });
 targetsList.addEventListener('click', (event) => {
   const target = event.target;

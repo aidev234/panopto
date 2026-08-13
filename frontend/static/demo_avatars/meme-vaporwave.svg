@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="Vaporwave meme icon">
+  <defs>
+    <linearGradient id="sky" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#ff4fd8"/>
+      <stop offset="0.52" stop-color="#7c3aed"/>
+      <stop offset="1" stop-color="#22d3ee"/>
+    </linearGradient>
+  </defs>
+  <rect width="256" height="256" rx="44" fill="url(#sky)"/>
+  <circle cx="128" cy="94" r="48" fill="#facc15"/>
+  <path d="M80 94h96M86 74h84M96 114h64" stroke="#7c2d12" stroke-width="8" stroke-linecap="round"/>
+  <path d="M0 174h256M24 198h208M52 222h152" stroke="#111827" stroke-width="5" opacity=".72"/>
+  <path d="M30 256l98-90 98 90M88 256l40-90 40 90" stroke="#111827" stroke-width="5" opacity=".72"/>
+  <text x="128" y="159" text-anchor="middle" font-size="30" font-family="monospace" font-weight="700" fill="#fff">404</text>
+</svg>

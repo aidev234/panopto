@@ -1,25 +1,34 @@
 import asyncio
 import inspect
+import concurrent.futures
+
 from typing import List
 from types import ModuleType
-
 from user_scanner.core.result import Result
-from user_scanner.core.helpers import find_category, get_site_name, load_modules, load_categories
+from user_scanner.core.helpers import find_category, get_scan_func, get_site_name, is_loud, load_modules, load_categories
 
+_shared_executor = concurrent.futures.ThreadPoolExecutor(max_workers=60)
 
 async def check(module: ModuleType, target: str) -> Result:
-    module_name = module.__name__.split(".")[-1]
-    func_name = f"validate_{module_name}"
-
     module_path = getattr(module, "__file__", "")
     is_email = "email_scan" in module_path
 
     site_label = get_site_name(module)
     category = find_category(module) or ("Email" if is_email else "Username")
 
-    func = getattr(module, func_name, None)
+    # Recon requests must remain passive by default. Upstream marks checks
+    # that can trigger password-reset or similar notifications as "loud".
+    if is_loud(site_label, is_email=is_email):
+        return Result.skipped().update(
+            site_name=site_label, username=target, category=category, is_email=is_email
+        )
+
+    # Some current upstream modules use a shortened validator name (for
+    # example ``validate_boot`` in ``boot_dev.py``). Resolve the exported
+    # validator instead of assuming it exactly mirrors the filename.
+    func = get_scan_func(module)
     if not func:
-        return Result.error(f"Function {func_name} not found").update(
+        return Result.error("Validation function not found").update(
             site_name=site_label, username=target, category=category, is_email=is_email
         )
 
@@ -27,7 +36,8 @@ async def check(module: ModuleType, target: str) -> Result:
         if inspect.iscoroutinefunction(func):
             result = await func(target)
         else:
-            result = func(target)
+            loop = asyncio.get_running_loop()
+            result = await loop.run_in_executor(_shared_executor, func, target)
     except Exception as e:
         result = Result.error(e)
 
@@ -68,9 +78,14 @@ async def check_all(target: str, is_email: bool = True) -> List[Result]:
 
 
 async def check_all_stream(target: str, is_email: bool = True):
-    """Yield each site result as soon as its concurrent validation completes."""
+    """Yield each completed module result as soon as it settles.
+
+    The framework's streaming endpoint consumes this adapter while retaining
+    User Scanner's native ``Result`` object, including its extra and media
+    dictionaries.
+    """
     categories = load_categories(is_email=is_email)
-    modules = [module for category_path in categories.values() for module in load_modules(category_path)]
+    modules = [module for path in categories.values() for module in load_modules(path)]
     tasks = [asyncio.create_task(check(module, target)) for module in modules]
     for task in asyncio.as_completed(tasks):
         yield await task

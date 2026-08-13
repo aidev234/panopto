@@ -11,6 +11,7 @@ from pathlib import Path
 import re
 import sys
 import time
+from threading import Lock
 from typing import Any
 from urllib.parse import quote, unquote, urlparse
 
@@ -27,10 +28,14 @@ _RECON_SHOTS_DIR = Path(__file__).resolve().parent.parent / "frontend" / "static
 _PDL_ENRICH_URL = "https://api.peopledatalabs.com/v5/person/enrich"
 _OSINT_INDUSTRIES_BASE_URL = "https://api.osint.industries"
 _BREACHVIP_SEARCH_URLS = (
+    "https://breach.vip/api/search",
     "https://breach.vip/search",
     "https://api.breach.vip/search",
-    "https://breach.vip/api/search",
 )
+_BREACHVIP_REQUEST_INTERVAL_SECONDS = 60 / 15
+_BREACHVIP_MAX_RECORDS_PER_SELECTOR = 100
+_BREACHVIP_REQUEST_LOCK = Lock()
+_breachvip_last_request_at = 0.0
 _NUMVERIFY_BASE_URL = "http://apilayer.net/api/validate"
 _NUMVERIFY_HTTPS_BASE_URL = "https://apilayer.net/api/validate"
 _NUMVERIFY_APILAYER_URL = "https://api.apilayer.com/number_verification/validate"
@@ -55,6 +60,119 @@ def _osint_industries_api_key() -> str:
 def _numverify_api_key() -> str:
     config = load_config()
     return str(config.get("numverify_api_key") or "").strip()
+
+
+def _breachvip_field_for_selector(selector_type: str) -> str:
+    """Return the BreachVIP search field matching a normalized recon selector."""
+    selector = str(selector_type or "").strip().lower()
+    return selector if selector in {"username", "email", "phone", "name"} else ""
+
+
+def _breachvip_value(value: Any) -> str:
+    """Produce a bounded display value without allowing nested API data to explode cards."""
+    if value is None:
+        return ""
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, list) and all(not isinstance(item, (dict, list)) for item in value):
+        return ", ".join(str(item).strip() for item in value if str(item).strip())[:500]
+    if isinstance(value, (dict, list)):
+        try:
+            value = json.dumps(value, ensure_ascii=False, separators=(",", ":"))
+        except (TypeError, ValueError):
+            value = str(value)
+    return re.sub(r"\s+", " ", str(value)).strip()[:500]
+
+
+def _breachvip_field_label(key: Any) -> str:
+    clean = re.sub(r"[_-]+", " ", str(key or "")).strip()
+    return clean.title()[:80] or "Value"
+
+
+def _shape_breachvip_record(
+    item: dict[str, Any], *, selector_type: str, selector_value: str, ordinal: int
+) -> dict[str, Any]:
+    """Normalize an undocumented BreachVIP result into the existing breach card contract."""
+    # ``source`` is required by BreachVIP and is its documented breach name.
+    aliases = ("source", "breach", "breach_name", "breachname", "database", "dataset", "data_source", "leak", "category")
+    lookup = {str(key or "").strip().lower(): value for key, value in item.items()}
+    breach_name = next((_breachvip_value(lookup.get(alias)) for alias in aliases if _breachvip_value(lookup.get(alias))), "")
+    breach_name = breach_name[:120] or "BreachVIP record"
+    breach_date = next(
+        (_breachvip_value(lookup.get(alias)) for alias in ("breach_date", "date", "added_date", "modified_date", "created_at") if _breachvip_value(lookup.get(alias))),
+        "",
+    )
+    fields = [
+        [_breachvip_field_label(key), value]
+        for key, raw_value in item.items()
+        if (value := _breachvip_value(raw_value))
+    ][:24]
+    field_names = " ".join(str(key).lower() for key in item)
+    severity = "High" if any(token in field_names for token in ("password", "hash", "credential")) else "Medium"
+    fingerprint = sha1(json.dumps(item, sort_keys=True, default=str).encode("utf-8")).hexdigest()[:16]
+    return {
+        "key": f"breachvip|{selector_type}|{selector_value.lower()}|{fingerprint}",
+        "source": "BreachVIP",
+        "selectorType": selector_type,
+        "selectorValue": selector_value,
+        "breachName": breach_name,
+        "breachDate": breach_date,
+        "observedAt": "",
+        "severity": severity,
+        "fields": fields,
+        "note": "",
+        "provider": "breachvip",
+        "recordIndex": ordinal,
+    }
+
+
+def _fetch_breachvip_records(*, selector_type: str, selector_value: str, timeout: int = 20) -> tuple[list[dict[str, Any]], bool]:
+    """Search BreachVIP once, respecting its account-wide 15 request/minute limit.
+
+    The provider does not require a credential. A failed endpoint is not retried against
+    alternate host aliases because each attempt counts toward the same rate limit.
+    """
+    field = _breachvip_field_for_selector(selector_type)
+    term = str(selector_value or "").strip()
+    if not field or not term:
+        return ([], False)
+
+    global _breachvip_last_request_at
+    with _BREACHVIP_REQUEST_LOCK:
+        delay = _BREACHVIP_REQUEST_INTERVAL_SECONDS - (time.monotonic() - _breachvip_last_request_at)
+        if delay > 0:
+            time.sleep(delay)
+        # Reserve the request slot before the network call so concurrent recon jobs
+        # cannot burst through the provider limit when a request stalls or fails.
+        _breachvip_last_request_at = time.monotonic()
+        try:
+            response = requests.post(
+                _BREACHVIP_SEARCH_URLS[0],
+                json={"term": term, "fields": [field], "wildcard": False, "case_sensitive": False},
+                headers={**_HEADERS, "Accept": "application/json", "Content-Type": "application/json"},
+                timeout=timeout,
+            )
+        except requests.RequestException:
+            # A transport failure never reached BreachVIP, so it must not make
+            # unrelated recon jobs wait for a quota slot.
+            _breachvip_last_request_at = 0.0
+            return ([], False)
+
+    if response.status_code != 200:
+        return ([], False)
+    try:
+        payload = response.json()
+    except ValueError:
+        return ([], False)
+    raw_results = payload.get("results") if isinstance(payload, dict) else None
+    if not isinstance(raw_results, list):
+        return ([], True)
+    records = [
+        _shape_breachvip_record(item, selector_type=selector_type, selector_value=term, ordinal=index)
+        for index, item in enumerate(raw_results[:_BREACHVIP_MAX_RECORDS_PER_SELECTOR], start=1)
+        if isinstance(item, dict)
+    ]
+    return (records, True)
 
 
 def _fetch_pdl_profile(*, api_key: str, email: str = "", profile_url: str = "", timeout: int = 16) -> dict[str, Any] | None:
@@ -951,9 +1069,52 @@ def _shape_person_data_profile(data: dict[str, Any], *, query_type: str, query_v
             return ""
         return str(raw or "").strip()
 
+    def _extract_location() -> str:
+        raw_location = data.get("location")
+        direct = str(data.get("location_name") or (raw_location if not isinstance(raw_location, dict) else "") or "").strip()
+        if direct:
+            return direct
+        location_data = raw_location
+        if isinstance(location_data, dict):
+            direct = str(location_data.get("name") or location_data.get("formatted") or "").strip()
+            if direct:
+                return direct
+        parts = [
+            str(data.get(key) or (location_data.get(key) if isinstance(location_data, dict) else "") or "").strip()
+            for key in ("locality", "city", "region", "metro", "country")
+        ]
+        return ", ".join(dict.fromkeys(part for part in parts if part))
+
+    def _shape_job_history(raw_history: Any) -> list[dict[str, str]]:
+        if not isinstance(raw_history, list):
+            return []
+        history: list[dict[str, str]] = []
+        seen: set[tuple[str, str, str, str, str]] = set()
+        for raw_job in raw_history:
+            if not isinstance(raw_job, dict):
+                continue
+            title = str(raw_job.get("title") or raw_job.get("job_title") or raw_job.get("role") or "").strip()
+            company = str(raw_job.get("company_name") or raw_job.get("company") or raw_job.get("employer") or "").strip()
+            location = str(raw_job.get("location_name") or raw_job.get("location") or "").strip()
+            start_date = str(raw_job.get("start_date") or raw_job.get("start") or "").strip()
+            end_date = str(raw_job.get("end_date") or raw_job.get("end") or "").strip()
+            key = (title.lower(), company.lower(), location.lower(), start_date, end_date)
+            if not (title or company) or key in seen:
+                continue
+            seen.add(key)
+            history.append({
+                "title": title,
+                "company": company,
+                "location": location,
+                "start_date": start_date,
+                "end_date": end_date,
+            })
+        return history
+
     full_name = str(data.get("full_name") or data.get("name") or "").strip()
-    location = str(data.get("location_name") or "").strip()
+    location = _extract_location()
     linkedin_url = str(data.get("linkedin_url") or "").strip()
+    profile_urls = _extract_pdl_social_profile_urls(data)
     personal_emails = data.get("personal_emails")
     if not isinstance(personal_emails, list):
         personal_emails = []
@@ -962,10 +1123,13 @@ def _shape_person_data_profile(data: dict[str, Any], *, query_type: str, query_v
         personal_emails.extend(_extract_email_value(item) for item in extra_emails_raw)
     if isinstance(data.get("personal_email"), str):
         personal_emails.append(str(data.get("personal_email") or "").strip())
+    if isinstance(data.get("recommended_personal_email"), str):
+        personal_emails.append(str(data.get("recommended_personal_email") or "").strip())
     fallback_email = ""
     if isinstance(personal_emails, list) and personal_emails:
         fallback_email = str(personal_emails[0] or "").strip()
-    primary_email = str(data.get("work_email") or fallback_email).strip()
+    professional_email = str(data.get("professional_email") or data.get("work_email") or "").strip()
+    primary_email = professional_email or fallback_email
     dedup_personal_emails: list[str] = []
     seen_emails: set[str] = set()
     for item in personal_emails:
@@ -976,7 +1140,7 @@ def _shape_person_data_profile(data: dict[str, Any], *, query_type: str, query_v
         dedup_personal_emails.append(clean)
     personal_emails = dedup_personal_emails
     personal_phones_raw = data.get("personal_phones")
-    work_phones_raw = data.get("work_phones")
+    work_phones_raw = data.get("professional_phones") or data.get("work_phones")
     personal_phones = [_extract_phone_value(item) for item in personal_phones_raw] if isinstance(personal_phones_raw, list) else []
     work_phones = [_extract_phone_value(item) for item in work_phones_raw] if isinstance(work_phones_raw, list) else []
     mobile_phone = str(data.get("mobile_phone") or "").strip()
@@ -1010,6 +1174,12 @@ def _shape_person_data_profile(data: dict[str, Any], *, query_type: str, query_v
         value = str(data.get(key) or "").strip()
         if value:
             work_phones.append(value)
+    job_history = _shape_job_history(data.get("job_history") or data.get("employment_history"))
+    job_title = str(data.get("job_title") or "").strip()
+    job_company_name = str(data.get("job_company_name") or "").strip()
+    if not (job_title or job_company_name) and job_history:
+        job_title = job_history[0]["title"]
+        job_company_name = job_history[0]["company"]
     dedup_personal_phones: list[str] = []
     seen_personal_phones: set[str] = set()
     for item in personal_phones:
@@ -1044,15 +1214,18 @@ def _shape_person_data_profile(data: dict[str, Any], *, query_type: str, query_v
         "query_type": query_type,
         "query_value": query_value,
         "full_name": full_name,
-        "job_title": str(data.get("job_title") or "").strip(),
-        "job_company_name": str(data.get("job_company_name") or "").strip(),
+        "job_title": job_title,
+        "job_company_name": job_company_name,
+        "employment_history": job_history,
         "location_name": location,
         "linkedin_url": linkedin_url,
         "facebook_url": str(data.get("facebook_url") or "").strip(),
         "twitter_url": str(data.get("twitter_url") or "").strip(),
+        "instagram_url": str(data.get("instagram_url") or "").strip(),
         "github_url": str(data.get("github_url") or "").strip(),
-        "professional_email": str(data.get("work_email") or "").strip(),
-        "work_email": str(data.get("work_email") or "").strip(),
+        "profile_urls": profile_urls,
+        "professional_email": professional_email,
+        "work_email": professional_email,
         "personal_emails": [item for item in personal_emails if item],
         "email": primary_email,
         "mobile_phone": mobile_phone,
@@ -1131,6 +1304,15 @@ def _profile_record_from_scanner_row(row: dict[str, Any], *, enrichment_status: 
         }
         and value not in (None, "", [], {})
     }
+    # Upstream modules place service-specific profile values in ``extra`` and
+    # returned assets in ``media``. Preserve every populated value in the
+    # framework profile record as well as the original scanner payload.
+    for group_name in ("extra", "media"):
+        group = row.get(group_name)
+        if isinstance(group, dict):
+            for key, value in group.items():
+                if value not in (None, "", [], {}):
+                    fields[f"{group_name}.{key}"] = value
     status = str(row.get("status") or "").strip().lower()
     return {
         **row,
@@ -2255,6 +2437,63 @@ def _shape_numverify_profile(payload: dict[str, Any], *, query_value: str) -> di
     }
 
 
+def _recon_row_from_scanner_item(
+    *,
+    selector_type: str,
+    selector_value: str,
+    item: dict[str, Any],
+    source: str = "scanner",
+) -> dict[str, Any]:
+    """Normalize one scanner response for both streaming and final recon output."""
+    status = _selector_presence_from_status(str(item.get("status") or ""))
+    raw_site_name = str(item.get("site_name") or item.get("site") or "").strip()
+    site_key = _site_key(raw_site_name)
+    if not site_key:
+        site_key = _site_key_from_profile_url(str(item.get("url") or item.get("profile_url") or ""))
+    site_label = re.sub(r"\s+", " ", raw_site_name).strip() or site_key or "unknown"
+    if not site_key:
+        site_key = "unknown"
+    platform = _site_to_collection_platform(site_key)
+    supported_for_collection = bool(platform and selector_type == "username")
+    source_url = str(item.get("profile_url") or item.get("url") or "").strip()
+    profile_url = ""
+    if selector_type == "username":
+        guessed = _build_profile_url_for_username(site_key, selector_value)
+        if guessed:
+            profile_url = guessed
+        elif _looks_like_direct_profile_url(source_url, selector_value):
+            profile_url = source_url
+
+    has_direct_profile_url = bool(profile_url)
+    category = ""
+    if status == "present":
+        if has_direct_profile_url and supported_for_collection:
+            category = "supported_with_url"
+        elif has_direct_profile_url:
+            category = "unsupported_with_url"
+        else:
+            category = "known_without_url"
+    return {
+        "selector_type": selector_type,
+        "selector": selector_value,
+        "site": site_label,
+        "site_key": site_key,
+        "platform": platform,
+        "supported_for_collection": supported_for_collection,
+        "status": status,
+        "reason": str(item.get("reason") or "").strip(),
+        "scanner_category": str(item.get("category") or "").strip(),
+        "scanner_username": str(item.get("username") or "").strip(),
+        "scanner_is_email": bool(item.get("is_email")),
+        "profile_url": profile_url,
+        "site_url": source_url,
+        "has_direct_profile_url": has_direct_profile_url,
+        "category": category,
+        "source": source,
+        "scanner_result": dict(item) if source == "scanner" else None,
+    }
+
+
 def run_recon(
     selectors: list[dict[str, str]],
     *,
@@ -2277,54 +2516,13 @@ def run_recon(
         item: dict[str, Any],
         source: str = "scanner",
     ) -> None:
-        status = _selector_presence_from_status(str(item.get("status") or ""))
-        raw_site_name = str(item.get("site_name") or item.get("site") or "").strip()
-        site_key = _site_key(raw_site_name)
-        if not site_key:
-            site_key = _site_key_from_profile_url(str(item.get("url") or item.get("profile_url") or ""))
-        site_label = re.sub(r"\s+", " ", raw_site_name).strip() or site_key or "unknown"
-        if not site_key:
-            site_key = "unknown"
-        platform = _site_to_collection_platform(site_key)
-        supported_for_collection = bool(platform and selector_type == "username")
-        source_url = str(item.get("profile_url") or item.get("url") or "").strip()
-        profile_url = ""
-        if selector_type == "username":
-            guessed = _build_profile_url_for_username(site_key, selector_value)
-            if guessed:
-                profile_url = guessed
-            elif _looks_like_direct_profile_url(source_url, selector_value):
-                profile_url = source_url
-
-        has_direct_profile_url = bool(profile_url)
-        category = ""
-        if status == "present":
-            if has_direct_profile_url and supported_for_collection:
-                category = "supported_with_url"
-            elif has_direct_profile_url:
-                category = "unsupported_with_url"
-            else:
-                category = "known_without_url"
-
-        row = {
-            "selector_type": selector_type,
-            "selector": selector_value,
-            "site": site_label,
-            "site_key": site_key,
-            "platform": platform,
-            "supported_for_collection": supported_for_collection,
-            "status": status,
-            "reason": str(item.get("reason") or "").strip(),
-            "scanner_category": str(item.get("category") or "").strip(),
-            "scanner_username": str(item.get("username") or "").strip(),
-            "scanner_is_email": bool(item.get("is_email")),
-            "profile_url": profile_url,
-            "site_url": source_url,
-            "has_direct_profile_url": has_direct_profile_url,
-            "category": category,
-            "source": source,
-            "scanner_result": dict(item) if source == "scanner" else None,
-        }
+        row = _recon_row_from_scanner_item(
+            selector_type=selector_type,
+            selector_value=selector_value,
+            item=item,
+            source=source,
+        )
+        site_key = str(row["site_key"])
 
         dedupe_key = (selector_type, selector_value.strip().lower(), site_key)
         existing_index = row_presence_index.get(dedupe_key)
@@ -2349,6 +2547,7 @@ def run_recon(
     osint_profiles: list[dict[str, Any]] = []
     osint_spec_results: list[dict[str, Any]] = []
     numverify_profiles: list[dict[str, Any]] = []
+    breach_records: list[dict[str, Any]] = []
 
     osint_api_key = _osint_industries_api_key()
     numverify_key = _numverify_api_key()
@@ -2408,21 +2607,42 @@ def run_recon(
             output.append((selector_value, _shape_numverify_profile(payload, query_value=selector_value)))
         return (output, query_success_count)
 
+    def _task_breachvip() -> tuple[list[dict[str, Any]], int]:
+        """Run independently of UserScanner/other enrichers, with provider-side pacing."""
+        output: list[dict[str, Any]] = []
+        query_success_count = 0
+        for selector in normalized_selectors:
+            selector_type = str(selector.get("type") or "").strip().lower()
+            selector_value = str(selector.get("value") or "").strip()
+            records, query_succeeded = _fetch_breachvip_records(
+                selector_type=selector_type,
+                selector_value=selector_value,
+            )
+            if query_succeeded:
+                query_success_count += 1
+            output.extend(records)
+        return (output, query_success_count)
+
     scan_batches: list[tuple[str, str, list[dict[str, Any]]]] = []
     osint_batches: list[tuple[str, str, list[dict[str, Any]], list[dict[str, Any]]]] = []
     numverify_batches: list[tuple[str, dict[str, Any]]] = []
+    breachvip_batches: list[dict[str, Any]] = []
     osint_query_success_count = 0
     numverify_query_success_count = 0
+    breachvip_query_success_count = 0
 
-    with ThreadPoolExecutor(max_workers=3) as executor:
-        # Start OSINT stream fetch first so streaming begins immediately.
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        # These remote providers run independently; BreachVIP maintains its own
+        # global pacing so parallel recon requests stay below 15 requests/minute.
         future_osint = executor.submit(_task_osint)
         future_scanner = executor.submit(_task_scanner)
         future_numverify = executor.submit(_task_numverify)
+        future_breachvip = executor.submit(_task_breachvip)
 
         scan_batches = future_scanner.result()
         osint_batches, osint_query_success_count = future_osint.result()
         numverify_batches, numverify_query_success_count = future_numverify.result()
+        breachvip_batches, breachvip_query_success_count = future_breachvip.result()
 
     for selector_type, selector_value, scan_rows in scan_batches:
         for item in scan_rows:
@@ -2538,6 +2758,22 @@ def run_recon(
                 "query_success_count": numverify_query_success_count,
             }
         )
+    if breachvip_query_success_count > 0:
+        api_modules_queried.append(
+            {
+                "module": "breachvip",
+                "label": "BreachVIP",
+                "query_success_count": breachvip_query_success_count,
+            }
+        )
+
+    seen_breach_records: set[str] = set()
+    for record in breachvip_batches:
+        key = str(record.get("key") or "").strip().lower()
+        if not key or key in seen_breach_records:
+            continue
+        seen_breach_records.add(key)
+        breach_records.append(record)
 
     # Second-stage pivot after scanner + OSINT + numverify rows are known.
     pdl_payload = _run_pdl_enrichment(selectors=normalized_selectors, rows=rows)
@@ -2729,6 +2965,7 @@ def run_recon(
         "osint_profiles": osint_profiles,
         "osint_spec_results": osint_spec_results,
         "numverify_profiles": numverify_profiles,
+        "breach_records": breach_records,
         "person_data_profile": person_data_profiles[0] if person_data_profiles else {},
         "person_data_profiles": person_data_profiles,
         "api_modules_queried": api_modules_queried,

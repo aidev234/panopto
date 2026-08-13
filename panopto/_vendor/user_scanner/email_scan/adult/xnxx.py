@@ -21,7 +21,7 @@ async def _check(email: str) -> Result:
         'Accept-Language': "en-US,en;q=0.9"
     }
 
-    async with httpx.AsyncClient(http2=True, timeout=5.0) as client:
+    async with httpx.AsyncClient(http2=True, timeout=15.0) as client:
         try:
             response = await client.get(url, params=params, headers=headers)
 
@@ -33,11 +33,14 @@ async def _check(email: str) -> Result:
 
             data = response.json()
             exists_bool = data.get("result")
+            message = data.get("message", "")
 
             if exists_bool is True:
                 return Result.available(url=show_url)
             elif exists_bool is False:
-                return Result.taken(url=show_url)
+                if message == "This email is already in use or its owner has excluded it from our website.":
+                    return Result.taken(url=show_url)
+                return Result.available(url=show_url, reason=message)
             else:
                 return Result.error("Unexpected error, report it via GitHub issues")
 

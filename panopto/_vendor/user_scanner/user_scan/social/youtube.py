@@ -1,39 +1,58 @@
-from user_scanner.core.helpers import get_random_user_agent
-from user_scanner.core.orchestrator import Result, status_validate
+import json
+import re
+
+import httpx
+
+from user_scanner.core.orchestrator import Result, make_request
 
 
 def validate_youtube(user) -> Result:
-    url = f"https://m.youtube.com/@{user}"
-    show_url = "https://m.youtube.com"
+    url = f"https://www.youtube.com/@{user}?cbrd=1&ucbcb=1"
+    show_url = f"https://youtube.com/@{user}"
     headers = {
-        "User-Agent": get_random_user_agent(),
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
-        "Accept-Encoding": "identity",
-        "sec-ch-dpr": "2.75",
-        "sec-ch-viewport-width": "980",
-        "sec-ch-ua": '"Google Chrome";v="143", "Chromium";v="143", "Not A(Brand";v="24"',
-        "sec-ch-ua-mobile": "?1",
-        "sec-ch-ua-full-version": '"143.0.7499.52"',
-        "sec-ch-ua-arch": '""',
-        "sec-ch-ua-platform": '"Android"',
-        "sec-ch-ua-platform-version": '"15.0.0"',
-        "sec-ch-ua-model": '"I2404"',
-        "sec-ch-ua-bitness": '""',
-        "sec-ch-ua-wow64": "?0",
-        "sec-ch-ua-full-version-list": '"Google Chrome";v="143.0.7499.52", "Chromium";v="143.0.7499.52", "Not A(Brand";v="24.0.0.0"',
-        "sec-ch-ua-form-factors": '"Mobile"',
-        "upgrade-insecure-requests": "1",
-        "x-browser-channel": "stable",
-        "x-browser-year": "2025",
-        "x-browser-copyright": "Copyright 2025 Google LLC. All Rights reserved.",
-        "sec-fetch-site": "none",
-        "sec-fetch-mode": "navigate",
-        "sec-fetch-user": "?1",
-        "sec-fetch-dest": "document",
-        "accept-language": "en-US,en;q=0.9",
-        "priority": "u=0, i",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "Accept-Language": "en-US,en;q=0.9",
     }
 
-    return status_validate(
-        url, 404, 200, show_url=show_url, headers=headers, follow_redirects=True
-    )
+    try:
+        response = make_request(url, headers=headers, follow_redirects=True)
+        if response.status_code == 200:
+            if "This channel does not exist" in response.text or "404 Not Found" in response.text:
+                return Result.available(url=show_url)
+
+            extra = {}
+            marker = "var ytInitialData = "
+            start = response.text.find(marker)
+            if start == -1:
+                return Result.error("Could not confirm YouTube channel", url=show_url)
+
+            try:
+                data = json.JSONDecoder().raw_decode(response.text[start + len(marker) :])[0]
+                meta = data.get("metadata", {}).get("channelMetadataRenderer", {})
+                channel_id = meta.get("externalId")
+                if not re.fullmatch(r"UC[\w-]+", channel_id or ""):
+                    return Result.error("Could not confirm YouTube channel", url=show_url)
+                extra["youtube_channel_id"] = channel_id
+                extra["channel_url"] = f"https://www.youtube.com/channel/{channel_id}"
+                if title := meta.get("title"):
+                    extra["fullname"] = title
+                if desc := meta.get("description"):
+                    extra["bio"] = desc
+                if keywords := meta.get("keywords"):
+                    extra["keywords"] = keywords
+                if thumbs := meta.get("avatar", {}).get("thumbnails"):
+                    extra["image"] = thumbs[0].get("url")
+            except json.JSONDecodeError:
+                return Result.error("Could not confirm YouTube channel", url=show_url)
+
+            subs = re.search(r'\"content\":\"([0-9.]+[A-Z]? subscribers)\"', response.text)
+            if subs:
+                extra["subscribers"] = subs.group(1)
+
+            return Result.taken(extra=extra, url=show_url)
+        elif response.status_code == 404:
+            return Result.available(url=show_url)
+        else:
+            return Result.error(f"Unexpected status: {response.status_code}", url=show_url)
+    except httpx.HTTPError as e:
+        return Result.error(e, url=show_url)

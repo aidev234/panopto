@@ -28,6 +28,7 @@ def init_db(db_path: str = "osint_data.db") -> None:
                 data_retention_period TEXT NOT NULL DEFAULT '3 months',
                 known_location TEXT,
                 poi_image_url TEXT,
+                case_file_number TEXT,
                 case_notes TEXT NOT NULL DEFAULT '{}',
                 metadata_tags TEXT NOT NULL DEFAULT '[]',
                 opened_at TEXT NOT NULL,
@@ -79,11 +80,42 @@ def init_db(db_path: str = "osint_data.db") -> None:
             conn.execute("ALTER TABLE cases ADD COLUMN case_notes TEXT NOT NULL DEFAULT '{}'")
         if "data_retention_period" not in case_columns:
             conn.execute("ALTER TABLE cases ADD COLUMN data_retention_period TEXT NOT NULL DEFAULT '3 months'")
+        if "case_file_number" not in case_columns:
+            conn.execute("ALTER TABLE cases ADD COLUMN case_file_number TEXT")
+        # CASE // is presentation text, not part of the stored case number.
+        # Normalize the short-lived prefixed format back to the canonical SIG id.
+        conn.execute(
+            "UPDATE cases SET case_file_number = SUBSTR(case_file_number, 9) "
+            "WHERE case_file_number GLOB 'CASE // SIG-[0-9][0-9][0-9][0-9][0-9][0-9]-[0-9][0-9][0-9][0-9]'"
+        )
+        # Backfill legacy cases once, preserving any previously issued reference.
+        # A reference is human-facing, so avoid a same-day collision even though
+        # the underlying UUID case_id remains the canonical database key.
+        issued_references = {
+            str(row[0]).strip()
+            for row in conn.execute(
+                "SELECT case_file_number FROM cases WHERE case_file_number IS NOT NULL AND TRIM(case_file_number) != ''"
+            ).fetchall()
+        }
+        missing_case_rows = conn.execute(
+            "SELECT case_id FROM cases WHERE case_file_number IS NULL OR TRIM(case_file_number) = ''"
+        ).fetchall()
+        for (case_id,) in missing_case_rows:
+            reference = _new_case_file_number()
+            while reference in issued_references:
+                reference = _new_case_file_number()
+            issued_references.add(reference)
+            conn.execute("UPDATE cases SET case_file_number = ? WHERE case_id = ?", (reference, case_id))
         conn.commit()
 
 
 def _utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _new_case_file_number(now: datetime | None = None) -> str:
+    issued_at = now or datetime.now(timezone.utc)
+    return f"SIG-{issued_at.strftime('%y%m%d')}-{uuid4().int % 10000 + 1:04d}"
 
 
 def _valid_status(value: str) -> str:
@@ -102,11 +134,13 @@ def _valid_status(value: str) -> str:
 
 def _valid_threat_level(value: str) -> str:
     allowed = {
+        "Unassessed": "Unassessed",
         "Low Threat": "Low Threat",
         "Moderate Threat": "Moderate Threat",
         "Substantial Threat": "Substantial Threat",
         "High Threat": "High Threat",
         "Very High Threat": "Very High Threat",
+        "unassessed": "Unassessed",
         "low threat": "Low Threat",
         "moderate threat": "Moderate Threat",
         "substantial threat": "Substantial Threat",
@@ -114,7 +148,7 @@ def _valid_threat_level(value: str) -> str:
         "very high threat": "Very High Threat",
     }
     raw = str(value or "").strip()
-    return allowed.get(raw, allowed.get(raw.lower(), "Low Threat"))
+    return allowed.get(raw, allowed.get(raw.lower(), "Unassessed"))
 
 
 def _valid_data_retention_period(value: str) -> str:
@@ -171,7 +205,7 @@ def create_case(
     *,
     case_name: str,
     status: str = "Open",
-    threat_level: str = "Low Threat",
+    threat_level: str = "Unassessed",
     data_retention_period: str = "3 months",
     known_location: str = "",
     poi_image_url: str = "",
@@ -181,15 +215,20 @@ def create_case(
 ) -> dict[str, Any]:
     init_db(db_path)
     now = _utc_now_iso()
+    normalized_status = _valid_status(status)
+    normalized_notes = _normalize_case_notes(case_notes or {})
+    if normalized_status == "Watchlist" and not str(normalized_notes.get("watchlist_last_reviewed_at") or "").strip():
+        normalized_notes["watchlist_last_reviewed_at"] = now
     row = {
         "case_id": uuid4().hex,
         "case_name": str(case_name or "").strip() or "Untitled Case",
-        "status": _valid_status(status),
+        "status": normalized_status,
         "threat_level": _valid_threat_level(threat_level),
         "data_retention_period": _valid_data_retention_period(data_retention_period),
         "known_location": str(known_location or "").strip(),
         "poi_image_url": _normalize_poi_image_url(poi_image_url),
-        "case_notes": _normalize_case_notes(case_notes or {}),
+        "case_file_number": _new_case_file_number(),
+        "case_notes": normalized_notes,
         "metadata_tags": _normalize_metadata_tags(metadata_tags or []),
         "opened_at": now,
         "last_edited_at": now,
@@ -197,8 +236,8 @@ def create_case(
     with sqlite3.connect(db_path) as conn:
         conn.execute(
             """
-            INSERT INTO cases (case_id, case_name, status, threat_level, data_retention_period, known_location, poi_image_url, case_notes, metadata_tags, opened_at, last_edited_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO cases (case_id, case_name, status, threat_level, data_retention_period, known_location, poi_image_url, case_file_number, case_notes, metadata_tags, opened_at, last_edited_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 row["case_id"],
@@ -208,6 +247,7 @@ def create_case(
                 row["data_retention_period"],
                 row["known_location"],
                 row["poi_image_url"],
+                row["case_file_number"],
                 json.dumps(row["case_notes"], ensure_ascii=True),
                 json.dumps(row["metadata_tags"], ensure_ascii=True),
                 row["opened_at"],
@@ -232,6 +272,7 @@ def list_cases(db_path: str = "osint_data.db") -> list[dict[str, Any]]:
                 c.data_retention_period,
                 c.known_location,
                 c.poi_image_url,
+                c.case_file_number,
                 c.case_notes,
                 c.metadata_tags,
                 c.opened_at,
@@ -239,7 +280,7 @@ def list_cases(db_path: str = "osint_data.db") -> list[dict[str, Any]]:
                 COUNT(p.id) AS post_count
             FROM cases c
             LEFT JOIN twitter_posts p ON p.case_id = c.case_id
-            GROUP BY c.case_id, c.case_name, c.status, c.threat_level, c.data_retention_period, c.known_location, c.poi_image_url, c.case_notes, c.metadata_tags, c.opened_at, c.last_edited_at
+            GROUP BY c.case_id, c.case_name, c.status, c.threat_level, c.data_retention_period, c.known_location, c.poi_image_url, c.case_file_number, c.case_notes, c.metadata_tags, c.opened_at, c.last_edited_at
             ORDER BY c.last_edited_at DESC
             """
         ).fetchall()
@@ -257,8 +298,39 @@ def list_cases(db_path: str = "osint_data.db") -> list[dict[str, Any]]:
             item["case_notes"] = _normalize_case_notes(parsed_notes)
         except json.JSONDecodeError:
             item["case_notes"] = {}
+        item["new_post_count"] = 0
+        # Older watchlists predate the acknowledgement marker; use their opening
+        # time once so activity remains visible rather than being silently missed.
+        reviewed_at = str(item["case_notes"].get("watchlist_last_reviewed_at") or item.get("opened_at") or "").strip()
+        if item.get("status") == "Watchlist" and reviewed_at:
+            with sqlite3.connect(db_path) as count_conn:
+                count_row = count_conn.execute(
+                    "SELECT COUNT(*) FROM twitter_posts WHERE case_id = ? AND collected_at > ?",
+                    (item["case_id"], reviewed_at),
+                ).fetchone()
+            item["new_post_count"] = int(count_row[0] or 0) if count_row else 0
         output.append(item)
     return output
+
+
+def acknowledge_watchlist_activity(case_id: str, *, db_path: str = "osint_data.db") -> dict[str, Any] | None:
+    """Mark all currently collected watchlist activity as reviewed without editing the case."""
+
+    init_db(db_path)
+    with sqlite3.connect(db_path) as conn:
+        row = conn.execute("SELECT status, case_notes FROM cases WHERE case_id = ?", (case_id,)).fetchone()
+        if not row:
+            return None
+        if str(row[0] or "") != "Watchlist":
+            return {"case_id": case_id, "new_post_count": 0}
+        try:
+            notes = _normalize_case_notes(json.loads(str(row[1] or "{}")))
+        except json.JSONDecodeError:
+            notes = {}
+        notes["watchlist_last_reviewed_at"] = _utc_now_iso()
+        conn.execute("UPDATE cases SET case_notes = ? WHERE case_id = ?", (json.dumps(notes, ensure_ascii=True), case_id))
+        conn.commit()
+    return {"case_id": case_id, "new_post_count": 0}
 
 
 def update_case(
@@ -277,12 +349,31 @@ def update_case(
     init_db(db_path)
     updates: list[str] = []
     params: list[Any] = []
+    normalized_status = _valid_status(status) if status is not None else None
+    normalized_notes = _normalize_case_notes(case_notes) if case_notes is not None else None
+
+    # A case may become a watchlist long after its initial collection.  Start
+    # its acknowledgement window at that transition so older posts are not
+    # incorrectly presented as newly observed activity.
+    if normalized_status == "Watchlist":
+        with sqlite3.connect(db_path) as conn:
+            existing = conn.execute(
+                "SELECT case_notes FROM cases WHERE case_id = ?", (case_id,)
+            ).fetchone()
+        if existing and normalized_notes is None:
+            try:
+                normalized_notes = _normalize_case_notes(json.loads(str(existing[0] or "{}")))
+            except json.JSONDecodeError:
+                normalized_notes = {}
+        if normalized_notes is not None and not str(normalized_notes.get("watchlist_last_reviewed_at") or "").strip():
+            normalized_notes["watchlist_last_reviewed_at"] = _utc_now_iso()
+
     if case_name is not None:
         updates.append("case_name = ?")
         params.append(str(case_name).strip() or "Untitled Case")
     if status is not None:
         updates.append("status = ?")
-        params.append(_valid_status(status))
+        params.append(normalized_status)
     if threat_level is not None:
         updates.append("threat_level = ?")
         params.append(_valid_threat_level(threat_level))
@@ -295,9 +386,9 @@ def update_case(
     if poi_image_url is not None:
         updates.append("poi_image_url = ?")
         params.append(_normalize_poi_image_url(poi_image_url))
-    if case_notes is not None:
+    if normalized_notes is not None:
         updates.append("case_notes = ?")
-        params.append(json.dumps(_normalize_case_notes(case_notes), ensure_ascii=True))
+        params.append(json.dumps(normalized_notes, ensure_ascii=True))
     if metadata_tags is not None:
         updates.append("metadata_tags = ?")
         params.append(json.dumps(_normalize_metadata_tags(metadata_tags), ensure_ascii=True))
@@ -315,7 +406,7 @@ def update_case(
             return None
         row = conn.execute(
             """
-            SELECT case_id, case_name, status, threat_level, data_retention_period, known_location, poi_image_url, case_notes, metadata_tags, opened_at, last_edited_at
+            SELECT case_id, case_name, status, threat_level, data_retention_period, known_location, poi_image_url, case_file_number, case_notes, metadata_tags, opened_at, last_edited_at
             FROM cases
             WHERE case_id = ?
             """,
@@ -325,14 +416,14 @@ def update_case(
             return None
     parsed_tags: list[str] = []
     try:
-        decoded = json.loads(str(row[8] or "[]"))
+        decoded = json.loads(str(row[9] or "[]"))
         if isinstance(decoded, list):
             parsed_tags = [str(tag) for tag in decoded if str(tag).strip()]
     except json.JSONDecodeError:
         parsed_tags = []
     parsed_notes: dict[str, Any] = {}
     try:
-        decoded_notes = json.loads(str(row[7] or "{}"))
+        decoded_notes = json.loads(str(row[8] or "{}"))
         parsed_notes = _normalize_case_notes(decoded_notes)
     except json.JSONDecodeError:
         parsed_notes = {}
@@ -344,10 +435,11 @@ def update_case(
         "data_retention_period": _valid_data_retention_period(row[4]),
         "known_location": row[5],
         "poi_image_url": str(row[6] or "").strip(),
+        "case_file_number": str(row[7] or "").strip(),
         "case_notes": parsed_notes,
         "metadata_tags": parsed_tags,
-        "opened_at": row[9],
-        "last_edited_at": row[10],
+        "opened_at": row[10],
+        "last_edited_at": row[11],
     }
 
 

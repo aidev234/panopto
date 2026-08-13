@@ -1,6 +1,5 @@
 from user_scanner.core.orchestrator import generic_validate, Result
 
-
 def validate_hashnode(user):
     url = f"https://hashnode.com/@{user}"
     show_url = url
@@ -16,7 +15,8 @@ def validate_hashnode(user):
         if response.status_code == 200:
             if "Available for</h2>" in response.text:
                 return Result.taken()
-            return Result.available()
+            else:
+                return Result.available()
 
         return Result.error(f"Unexpected status code {response.status_code}, report it via GitHub issues.")
 

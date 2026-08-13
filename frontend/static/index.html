@@ -82,7 +82,7 @@
           <div class="case-management-grid">
             <section class="case-list-panel" aria-label="Investigation cases">
               <div class="case-controls">
-                <input id="caseSearchInput" type="text" placeholder="Search case name or location..." autocomplete="off" />
+                <input id="caseSearchInput" type="text" placeholder="Search name, case number, or location..." autocomplete="off" />
                 <select id="caseStatusFilter">
                   <option value="">All status</option>
                   <option value="Open">Open</option>
@@ -92,6 +92,7 @@
                 </select>
                 <select id="caseThreatFilter">
                   <option value="">All threat levels</option>
+                  <option value="Unassessed">Unassessed</option>
                   <option value="Low Threat">Low Threat</option>
                   <option value="Moderate Threat">Moderate Threat</option>
                   <option value="Substantial Threat">Substantial Threat</option>
@@ -131,6 +132,11 @@
                 <span>Known Location</span>
                 <input id="caseEditLocationSelect" type="text" placeholder="Enter known location" required />
               </label>
+              <label class="field">
+                <span>Case Image URL</span>
+                <input id="caseEditImageUrlInput" type="url" placeholder="Paste an image URL or data image" />
+                <small class="status">Optional. Used on the case tile and in the report.</small>
+              </label>
             </section>
             <section class="case-edit-section">
               <span class="case-edit-section-label">Status &amp; Risk</span>
@@ -147,6 +153,7 @@
                 <label class="field">
                   <span>Threat Level</span>
                   <select id="caseEditThreatSelect" required>
+                    <option value="Unassessed">Unassessed</option>
                     <option value="Low Threat">Low Threat</option>
                     <option value="Moderate Threat">Moderate Threat</option>
                     <option value="Substantial Threat">Substantial Threat</option>
@@ -198,7 +205,7 @@
             <section class="case-edit-section case-audit-section">
               <div class="case-audit-head">
                 <span class="case-edit-section-label">Investigation Audit Log</span>
-                <span class="case-audit-count">Example Activity</span>
+                <span id="caseAuditCount" class="case-audit-count">No activity recorded</span>
               </div>
               <div class="case-audit-table" role="table" aria-label="Investigation audit log">
                 <div class="case-audit-row case-audit-header" role="row">
@@ -207,24 +214,7 @@
                   <span role="columnheader">User</span>
                   <span role="columnheader">Date / Time</span>
                 </div>
-                <div class="case-audit-row" role="row">
-                  <span role="cell">Username Recon</span>
-                  <span role="cell">@mason_hale</span>
-                  <span role="cell">john@isb.com</span>
-                  <span role="cell">29 May 2026, 01:42 UTC</span>
-                </div>
-                <div class="case-audit-row" role="row">
-                  <span role="cell">Email Enrichment</span>
-                  <span role="cell">m.hale@example.com</span>
-                  <span role="cell">john@isb.com</span>
-                  <span role="cell">29 May 2026, 01:37 UTC</span>
-                </div>
-                <div class="case-audit-row" role="row">
-                  <span role="cell">Phone Lookup</span>
-                  <span role="cell">+1 202 555 0147</span>
-                  <span role="cell">john@isb.com</span>
-                  <span role="cell">29 May 2026, 01:31 UTC</span>
-                </div>
+                <div id="caseAuditRows"></div>
               </div>
             </section>
             <div class="setup-actions-row">
@@ -274,6 +264,7 @@
             <label class="field">
               <span>Threat Level</span>
               <select id="caseSaveThreatSelect" required>
+                <option value="Unassessed">Unassessed</option>
                 <option value="Low Threat">Low Threat</option>
                 <option value="Moderate Threat">Moderate Threat</option>
                 <option value="Substantial Threat">Substantial Threat</option>
@@ -368,10 +359,13 @@
       <section id="caseNotesModal" class="setup-modal hidden" aria-live="polite">
         <div class="setup-card case-notes-card">
           <div class="setup-head">
-            <h2>Case File</h2>
+            <div>
+              <p id="caseNotesCaseFileNumber" class="case-file-number hidden" aria-label="Case file number"></p>
+              <h2>Case File</h2>
+            </div>
             <div class="case-notes-top-actions">
-              <button id="caseNotesOperationsBtn" class="secondary-btn" type="button">New Search / Collection</button>
-              <button id="caseNotesCloseBtn" class="secondary-btn" type="button">Close</button>
+              <button id="caseNotesEvidencePopoutBtn" class="secondary-btn case-notes-evidence-toggle-icon" type="button" aria-expanded="false" aria-label="Show cited posts" title="Show cited posts"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 4h14v16H5zM9 4v16M12 9h4M12 13h4"/></svg></button>
+              <button id="caseNotesCloseBtn" class="secondary-btn case-notes-close-icon" type="button" aria-label="Close case file" title="Close case file">×</button>
             </div>
           </div>
           <form id="caseNotesForm" class="setup-form case-notes-form">
@@ -396,7 +390,7 @@
                   <input id="caseNotesAkasInput" type="text" placeholder="Comma-separated aliases" />
                 </label>
               </div>
-              <aside class="case-notes-image-side">
+              <aside class="case-notes-image-side" tabindex="0" aria-label="Subject image controls">
                 <img id="caseNotesSubjectImage" class="case-notes-subject-image" alt="Subject image" loading="lazy" />
                 <label class="field">
                   <span>Subject Image</span>
@@ -444,35 +438,42 @@
                 <button class="case-notes-section-close" type="button" data-case-notes-section-toggle="selectors" aria-label="Remove Selectors section from report">x</button>
               </div>
               <div class="case-notes-selectors">
-                <label class="field">
-                  <span>Emails</span>
-                  <input id="caseNotesSelectorEmailsInput" type="text" placeholder="auto-filled, comma separated" />
+                <label class="field case-notes-selector-group">
+                  <span>Email/s</span>
+                  <input id="caseNotesSelectorEmailsInput" class="case-notes-selector-source" type="text" placeholder="Add email selectors, comma separated" />
+                  <div id="caseNotesSelectorEmailsList" class="case-notes-selector-list" aria-live="polite"></div>
+                  <small id="caseNotesSelectorEmailsCorroboration" class="case-notes-selector-corroboration"></small>
                 </label>
-                <label class="field">
-                  <span>Phone Numbers</span>
-                  <input id="caseNotesSelectorPhonesInput" type="text" placeholder="auto-filled, comma separated" />
+                <label class="field case-notes-selector-group">
+                  <span>Phone/s</span>
+                  <input id="caseNotesSelectorPhonesInput" class="case-notes-selector-source" type="text" placeholder="Add phone selectors, comma separated" />
+                  <div id="caseNotesSelectorPhonesList" class="case-notes-selector-list" aria-live="polite"></div>
+                  <small id="caseNotesSelectorPhonesCorroboration" class="case-notes-selector-corroboration"></small>
                 </label>
-                <label class="field">
-                  <span>User Names</span>
-                  <input id="caseNotesSelectorUsernamesInput" type="text" placeholder="auto-filled, comma separated" />
+                <label class="field case-notes-selector-group">
+                  <span>Username/s</span>
+                  <input id="caseNotesSelectorUsernamesInput" class="case-notes-selector-source" type="text" placeholder="Add username selectors, comma separated" />
+                  <div id="caseNotesSelectorUsernamesList" class="case-notes-selector-list" aria-live="polite"></div>
+                  <small id="caseNotesSelectorUsernamesCorroboration" class="case-notes-selector-corroboration"></small>
                 </label>
               </div>
             </section>
-            <section class="case-notes-section" data-case-notes-section-panel="known_profiles">
+            <section id="caseNotesEvidenceSection" class="case-notes-section" data-case-notes-section-panel="evidence_capture">
               <div class="case-notes-section-head">
-                <h3>Major Profiles</h3>
-                <div class="case-notes-section-head-actions">
-                  <button id="caseNotesAddProfileBtn" class="secondary-btn" type="button">Add Profile</button>
-                  <button class="case-notes-section-close" type="button" data-case-notes-section-toggle="known_profiles" aria-label="Remove Major Profiles section from report">x</button>
-                </div>
+                <div class="case-notes-evidence-heading"><span>Evidence Capture</span><h3>Cited Posts</h3></div>
+                <div id="caseNotesEvidenceRailActions" class="case-notes-evidence-rail-actions"></div>
               </div>
-              <div id="caseNotesProfilesList" class="case-notes-profiles-list"></div>
+              <div id="caseNotesEvidenceCapture" class="case-notes-evidence-capture"></div>
             </section>
             <section class="case-notes-section" data-case-notes-section-panel="digital_footprint">
               <div class="case-notes-section-head">
-                <h3>Digital Footprint</h3>
-                <button class="case-notes-section-close" type="button" data-case-notes-section-toggle="digital_footprint" aria-label="Remove Digital Footprint section from report">x</button>
+                <h3>Profiles</h3>
+                <div class="case-notes-section-head-actions">
+                  <button id="caseNotesAddProfileBtn" class="secondary-btn" type="button">Add Profile</button>
+                  <button class="case-notes-section-close" type="button" data-case-notes-section-toggle="digital_footprint" aria-label="Remove Profiles section from report">x</button>
+                </div>
               </div>
+              <div id="caseNotesProfilesList" class="case-notes-profiles-list"></div>
               <div id="caseNotesFootprintResults" class="case-notes-footprint-results"></div>
             </section>
             <div class="setup-actions-row case-notes-actions">
@@ -577,7 +578,7 @@
         <div class="app-header">
           <div class="header-top">
             <div>
-              <p class="eyebrow">Intelligence Workspace</p>
+              <p id="dashboardCaseFileNumber" class="eyebrow case-file-number hidden"></p>
               <h1 id="dashboardCaseTitle">Orion</h1>
             </div>
             <div class="header-actions">
@@ -608,6 +609,12 @@
                       <svg viewBox="0 0 24 24" role="img" focusable="false"><path d="M4 7h8"></path><path d="M4 12h16"></path><path d="M4 17h10"></path><circle cx="15.5" cy="7" r="2"></circle><circle cx="18.5" cy="17" r="2"></circle></svg>
                     </span>
                     <span>Overview</span>
+                  </button>
+                  <button id="viewGuideBtn" class="secondary-btn view-toggle-btn" type="button" role="tab" aria-selected="false" aria-controls="guideView" tabindex="-1">
+                    <span class="view-toggle-icon" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" role="img" focusable="false"><path d="M8 4h8"></path><path d="M7 6H5v14h14V6h-2"></path><path d="M8 12l2.2 2.2L16 8.5"></path></svg>
+                    </span>
+                    <span>Guide</span>
                   </button>
                 </div>
               </div>
@@ -901,7 +908,7 @@
               <div class="footprint-page-title">
                 <span>Digital footprint</span>
                 <h3>Profiles</h3>
-                <p>Review accounts, identity signals, and exposure in priority order.</p>
+                <p>Review accounts and exposure in priority order.</p>
               </div>
               <div class="footprint-card-head-actions">
                 <div id="footprintFilterMenu" class="filter-menu hidden">
@@ -923,10 +930,11 @@
                     <h4><span class="known-selectors-title-full">Discovered Selectors</span><span class="known-selectors-title-compact" aria-hidden="true">Selectors</span></h4>
                   </div>
                   <div class="known-selectors-head-meta">
+                    <button type="button" class="known-selectors-info" aria-label="How discovered selectors are ranked" data-tooltip="Ranking favors selectors returned by results from more distinct searched selectors, then independent sources and total matching results.">i</button>
                     <span id="footprintKnownSelectorsTotal" class="viz-total">0</span>
                     <button id="footprintKnownSelectorsToggle" class="known-selectors-toggle" type="button" aria-expanded="true" aria-controls="footprintKnownSelectorsGroups">
                       <span class="known-selectors-toggle-label">Collapse</span>
-                      <span aria-hidden="true">‹</span>
+                      <span aria-hidden="true">›</span>
                     </button>
                     <div id="footprintPivotProgress" class="recon-progress recon-progress-inline hidden" role="status" aria-live="polite" aria-atomic="true">
                       <div class="recon-progress-track"><div id="footprintPivotProgressBar" class="recon-progress-bar"></div></div>
@@ -1063,6 +1071,18 @@
             </div>
           </article>
         </section>
+        <section id="guideView" class="footprint-view hidden" role="tabpanel" aria-labelledby="viewGuideBtn">
+          <article class="viz-card footprint-card guide-card">
+            <div class="viz-head">
+              <div>
+                <h3>Investigation Guide</h3>
+                <p class="guide-intro">Work through each stage, use the linked workspace actions, and record the decisions that matter.</p>
+              </div>
+              <span id="guideProgress" class="viz-total">0 of 6 complete</span>
+            </div>
+            <div id="guideSteps" class="guide-steps" aria-live="polite"></div>
+          </article>
+        </section>
         <section id="timelineView" class="footprint-view hidden" role="tabpanel" aria-labelledby="viewTimelineBtn">
           <article class="viz-card footprint-card">
             <div class="viz-head">
@@ -1144,6 +1164,25 @@
           <button id="postModalCloseBtn" class="secondary-btn" type="button">Close</button>
         </div>
         <div id="postModalBody" class="post-modal-body"></div>
+      </div>
+    </section>
+
+    <section id="evidenceCaptureModal" class="setup-modal hidden" aria-live="polite">
+      <div class="setup-card evidence-capture-modal-card">
+        <div class="setup-head">
+          <h2>Capture Evidence</h2>
+          <button id="evidenceCaptureCancelBtn" class="secondary-btn" type="button">Cancel</button>
+        </div>
+        <div id="evidenceCapturePreview" class="evidence-capture-preview" aria-label="Post being captured"></div>
+        <p class="subtle">Add an optional analyst comment. It will be recorded as a cited bullet in the Threat / Risk Assessment.</p>
+        <label class="field">
+          <span>Comment</span>
+          <textarea id="evidenceCaptureCommentInput" rows="4" placeholder="Why is this post relevant?"></textarea>
+        </label>
+        <div class="setup-actions-row">
+          <button id="evidenceCaptureSaveBtn" type="button">Capture Evidence</button>
+          <button id="evidenceCaptureCancelBtnBottom" class="secondary-btn" type="button">Cancel</button>
+        </div>
       </div>
     </section>
 

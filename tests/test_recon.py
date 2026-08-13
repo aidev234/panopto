@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
+import panopto.recon as recon
+
 from panopto.recon import (
     _check_linkedin,
     _check_twitter,
@@ -13,6 +15,65 @@ from panopto.recon import (
     run_recon,
     run_username_recon,
 )
+
+
+def test_breachvip_search_posts_selector_field_and_shapes_exposure_card():
+    class _FakeResponse:
+        status_code = 200
+
+        @staticmethod
+        def json():
+            return {
+                "results": [
+                    {
+                        "source": "Example Forum Leak",
+                        "categories": ["minecraft"],
+                        "email": "person@example.com",
+                        "password_hash": "sha256:abc123",
+                        "breach_date": "2024-01-02",
+                    }
+                ]
+            }
+
+    recon._breachvip_last_request_at = 0.0
+    with patch("panopto.recon.requests.post", return_value=_FakeResponse()) as post:
+        records, succeeded = recon._fetch_breachvip_records(
+            selector_type="email",
+            selector_value="person@example.com",
+        )
+
+    assert succeeded is True
+    assert post.call_args.args[0] == "https://breach.vip/api/search"
+    assert post.call_args.kwargs["json"] == {
+        "term": "person@example.com",
+        "fields": ["email"],
+        "wildcard": False,
+        "case_sensitive": False,
+    }
+    assert records[0]["source"] == "BreachVIP"
+    assert records[0]["breachName"] == "Example Forum Leak"
+    assert records[0]["severity"] == "High"
+    assert ["Categories", "minecraft"] in records[0]["fields"]
+    assert ["Password Hash", "sha256:abc123"] in records[0]["fields"]
+
+
+def test_run_recon_includes_breachvip_records_in_existing_exposure_contract():
+    breach_record = {
+        "key": "breachvip|email|person@example.com|one",
+        "source": "BreachVIP",
+        "selectorType": "email",
+        "selectorValue": "person@example.com",
+        "breachName": "Example Forum Leak",
+        "breachDate": "2024-01-02",
+        "severity": "Medium",
+        "fields": [["Email", "person@example.com"]],
+    }
+    with patch("panopto.recon._run_user_scanner_selector", return_value=[]):
+        with patch("panopto.recon._fetch_breachvip_records", return_value=([breach_record], True)):
+            payload = run_recon([{"type": "email", "value": "person@example.com"}])
+
+    assert payload["breach_records"] == [breach_record]
+    assert any(item.get("module") == "breachvip" for item in payload["api_modules_queried"])
 
 
 def test_check_twitter_uses_x_fallback_when_primary_unknown():
@@ -399,6 +460,56 @@ def test_shape_person_data_profile_extracts_email_address_from_dict_values():
     )
 
     assert shaped["personal_emails"] == ["person@example.com"]
+
+
+def test_shape_person_data_profile_normalizes_location_and_employment_history():
+    shaped = _shape_person_data_profile(
+        {
+            "full_name": "Person Example",
+            "city": "Boston",
+            "region": "Massachusetts",
+            "country": "United States",
+            "professional_email": "work@example.com",
+            "professional_phones": ["+1 555 1000"],
+            "employment_history": [
+                {"title": "Director", "company_name": "Acme", "location_name": "Boston", "start_date": "2021-01", "end_date": ""},
+                {"job_title": "Analyst", "company": "Example Co", "start": "2019-01", "end": "2020-12"},
+            ],
+        },
+        query_type="email",
+        query_value="person@example.com",
+    )
+
+    assert shaped["location_name"] == "Boston, Massachusetts, United States"
+    assert shaped["professional_email"] == "work@example.com"
+    assert shaped["professional_phones"] == ["+1 555 1000"]
+    assert shaped["job_title"] == "Director"
+    assert shaped["job_company_name"] == "Acme"
+    assert shaped["employment_history"][1]["company"] == "Example Co"
+
+
+def test_shape_person_data_profile_preserves_all_returned_social_profiles():
+    shaped = _shape_person_data_profile(
+        {
+            "full_name": "Person Example",
+            "linkedin_url": "https://www.linkedin.com/in/person-example",
+            "facebook_url": "https://www.facebook.com/person.example",
+            "instagram_url": "https://www.instagram.com/person.example/",
+            "profiles": ["https://x.com/personexample"],
+            "social_profiles": [{"url": "https://github.com/personexample"}],
+        },
+        query_type="email",
+        query_value="person@example.com",
+    )
+
+    assert shaped["instagram_url"] == "https://www.instagram.com/person.example/"
+    assert shaped["profile_urls"] == [
+        "https://x.com/personexample",
+        "https://github.com/personexample",
+        "https://www.linkedin.com/in/person-example",
+        "https://www.facebook.com/person.example",
+        "https://www.instagram.com/person.example/",
+    ]
 
 
 def test_run_recon_builds_facebook_profile_url_for_username_scan():

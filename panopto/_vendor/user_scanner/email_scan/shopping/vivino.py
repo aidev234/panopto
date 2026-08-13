@@ -14,7 +14,7 @@ async def _check(email: str) -> Result:
     }
 
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
+        async with httpx.AsyncClient(timeout=15.0) as client:
             await client.get("https://www.vivino.com/", headers=headers)
 
             payload = {
@@ -39,6 +39,9 @@ async def _check(email: str) -> Result:
 
             if not error_msg or "password" in error_msg.lower():
                 return Result.taken(url=show_url)
+
+            if "account has been locked" in error_msg:
+                return Result.taken(url=show_url, extra={"Account status": "locked"})
 
             return Result.error(f"Vivino Error: {error_msg}", url=show_url)
 

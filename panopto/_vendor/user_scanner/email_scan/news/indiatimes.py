@@ -23,7 +23,7 @@ async def _check(email: str) -> Result:
 
     try:
 
-        async with httpx.AsyncClient(timeout=5.0) as client:
+        async with httpx.AsyncClient(timeout=15.0) as client:
             response = await client.post(url, content=json.dumps(payload), headers=headers)
 
             response.raise_for_status()
@@ -37,7 +37,7 @@ async def _check(email: str) -> Result:
             elif user_status == "UNREGISTERED_EMAIL":
                 return Result.available(url=show_url)
             elif user_status == "UNVERIFIED_EMAIL":
-                return Result.taken("However email is not verified on the site", url=show_url)
+                return Result.taken(url=show_url, extra={"email": "unverified"})
 
             return Result.error("Unexpected response body, report it on github")
 
